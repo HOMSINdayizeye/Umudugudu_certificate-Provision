@@ -1,0 +1,9 @@
+{% extends 'certificates/base.html' %}
+{% block content %}
+<h2>Register</h2>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-success" type="submit">Create account</button>
+</form>
+{% endblock %}

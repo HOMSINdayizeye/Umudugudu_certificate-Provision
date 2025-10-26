@@ -1,0 +1,11 @@
+{% extends 'certificates/base.html' %}
+{% block content %}
+<h2>Request Detail</h2>
+<ul class="list-group">
+  <li class="list-group-item"><strong>Type:</strong> {{ req.get_cert_type_display }}</li>
+  <li class="list-group-item"><strong>Submitted:</strong> {{ req.created_at }}</li>
+  <li class="list-group-item"><strong>Eligible:</strong> {% if req.eligible %}Yes{% else %}No{% endif %}</li>
+  <li class="list-group-item"><strong>Status:</strong> {{ req.get_status_display }}</li>
+  <li class="list-group-item"><strong>Admin message:</strong> {{ req.admin_message }}</li>
+</ul>
+{% endblock %}

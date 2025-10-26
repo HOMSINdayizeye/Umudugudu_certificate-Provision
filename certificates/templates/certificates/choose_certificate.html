@@ -1,0 +1,17 @@
+{% extends 'certificates/base.html' %}
+{% block content %}
+<h2>Choose Certificate</h2>
+<p>Select the certificate you want:</p>
+<form method="post" action="/submit-request/">
+  {% csrf_token %}
+  <div class="mb-3">
+    <select name="cert_type" class="form-select">
+      <option value="conduct">Conduct</option>
+      <option value="residence">Residence Recognition</option>
+      <option value="community">Community Engagement</option>
+      <option value="other">Other</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" type="submit">Submit request</button>
+</form>
+{% endblock %}
