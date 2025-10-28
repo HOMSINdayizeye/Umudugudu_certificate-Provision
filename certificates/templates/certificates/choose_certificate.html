@@ -2,7 +2,7 @@
 {% block content %}
 <h2>Choose Certificate</h2>
 <p>Select the certificate you want:</p>
-<form method="post" action="/submit-request/">
+<form method="POST" action="{% url 'submit_request' %}">
   {% csrf_token %}
   <div class="mb-3">
     <select name="cert_type" class="form-select">

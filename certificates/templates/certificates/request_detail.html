@@ -7,5 +7,7 @@
   <li class="list-group-item"><strong>Eligible:</strong> {% if req.eligible %}Yes{% else %}No{% endif %}</li>
   <li class="list-group-item"><strong>Status:</strong> {{ req.get_status_display }}</li>
   <li class="list-group-item"><strong>Admin message:</strong> {{ req.admin_message }}</li>
+  <p><strong>Email:</strong> {{ req.user.email }}</p>
+
 </ul>
 {% endblock %}

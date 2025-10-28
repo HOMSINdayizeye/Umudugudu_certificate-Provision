@@ -15,7 +15,9 @@ class CertificateRequest(models.Model):
         ('conduct', 'Conduct'),
         ('residence', 'Residence Recognition'),
         ('community', 'Community Engagement'),
+        ('Storen Computer', 'Storen Computer'),
         ('other', 'Other'),
+       
     ]
 
     STATUS_CHOICES = [
@@ -30,6 +32,7 @@ class CertificateRequest(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     eligible = models.BooleanField(default=False)
     admin_message = models.TextField(blank=True)
+    email = models.EmailField(default= 'umudugudu@gmail.com')
 
     def __str__(self):
         return f"{self.user.email} - {self.cert_type} ({self.status})"

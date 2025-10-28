@@ -18,10 +18,16 @@
         <td>{{ r.created_at }}</td>
         <td>{% if r.eligible %}Yes{% else %}No{% endif %}</td>
         <td>{{ r.get_status_display }}</td>
-        <td><a href="/request/{{ r.pk }}/" class="btn btn-sm btn-outline-secondary">View</a></td>
+        <td>
+          <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+        </td>
       </tr>
     {% empty %}
-      <tr><td colspan="5">No requests yet. <a href="/choose/">Create one</a>.</td></tr>
+      <tr>
+        <td colspan="5">
+          No requests yet. <a href="{% url 'choose_certificate' %}">Create one</a>.
+        </td>
+      </tr>
     {% endfor %}
   </tbody>
 </table>
