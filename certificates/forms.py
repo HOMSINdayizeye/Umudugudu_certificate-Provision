@@ -19,10 +19,8 @@ class SignUpForm(UserCreationForm):
         fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
 
 
+
 class CertificateRequestForm(forms.ModelForm):
     class Meta:
         model = CertificateRequest
-        fields = ('cert_type',)
-        widgets = {
-            'cert_type': forms.Select(attrs={'class': 'form-select'})
-        }
+        fields = ['cert_type'] 

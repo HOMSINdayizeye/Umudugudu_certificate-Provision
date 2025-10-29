@@ -57,33 +57,34 @@ def submit_request(request):
     if request.method == 'POST':
         form = CertificateRequestForm(request.POST)
         if form.is_valid():
-            # Check eligibility before saving
             try:
                 EligiblePerson.objects.get(email__iexact=request.user.email)
                 cert_req = form.save(commit=False)
                 cert_req.user = request.user
                 cert_req.eligible = True
+                cert_req.email = request.user.email
                 cert_req.save()
-
                 messages.success(request, 'Your request is submitted and you are eligible. Waiting for approval.')
                 return redirect('dashboard')
-
             except EligiblePerson.DoesNotExist:
-                # Block submission entirely
-                messages.error(request, 'You are not eligible to submit a certificate request. Please contact an administrator.')
-                return redirect('dashboard')  # or redirect back to the form page if preferred
+                messages.error(request, 'You are not eligible to submit a certificate request.')
+                return redirect('dashboard')
     else:
         form = CertificateRequestForm()
-
     return render(request, 'certificates/submit_request.html', {'form': form})
 
 @login_required
+@login_required
 def dashboard(request):
     if request.user.is_superuser:
-        requests = CertificateRequest.objects.all().order_by('created_at')
+        requests = CertificateRequest.objects.all()
     else:
-        requests = request.user.requests.order_by('created_at')
-    return render(request, 'certificates/dashboard.html', {'requests': requests})
+        requests = CertificateRequest.objects.filter(user=request.user)
+
+    return render(request, 'certificates/dashboard.html', {
+        'requests': requests,
+        'is_admin': request.user.is_superuser
+    })
 
 @login_required
 def request_detail(request, pk):
