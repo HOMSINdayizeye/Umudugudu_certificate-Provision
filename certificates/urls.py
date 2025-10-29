@@ -13,6 +13,7 @@ urlpatterns = [
     path('submit-request/', views.submit_request, name='submit_request'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('request/<int:pk>/', views.request_detail, name='request_detail'),
+    path('request/<int:pk>/<str:action>/', views.update_request_status, name='update_request_status'),
     path('logout/', views.logout, name='logout'),
 
 

@@ -20,8 +20,20 @@
         <td>{{ r.get_status_display }}</td>
         <td>
           <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+          {% if user.is_superuser %}
+            <a href="{% url 'update_request_status' r.pk 'approve' %}" class="btn btn-sm btn-success ms-1">Approve</a>
+            <a href="{% url 'update_request_status' r.pk 'deny' %}" class="btn btn-sm btn-danger ms-1">Deny</a>
+          {% endif %}
         </td>
       </tr>
+      {% if r.admin_message %}
+        <tr>
+          <td colspan="5">
+            <label for="admin_message_{{ r.pk }}" class="form-label"><strong>Admin Message:</strong></label>
+            <textarea id="admin_message_{{ r.pk }}" class="form-control" rows="2" readonly>{{ r.admin_message }}</textarea>
+          </td>
+        </tr>
+      {% endif %}
     {% empty %}
       <tr>
         <td colspan="5">

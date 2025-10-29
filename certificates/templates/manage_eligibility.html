@@ -1,0 +1,21 @@
+<form method="post">
+  {% csrf_token %}
+  <table class="table">
+    <thead>
+      <tr><th>Username</th><th>Email</th><th>Eligible</th></tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+        <tr>
+          <td>{{ user.username }}</td>
+          <td>{{ user.email }}</td>
+          <td>
+            <input type="checkbox" name="eligible" value="{{ user.id }}"
+              {% if user.profile.is_eligible %}checked{% endif %}>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit" class="btn btn-success">Update Eligibility</button>
+</form>

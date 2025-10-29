@@ -6,26 +6,46 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .forms import SignUpForm, CertificateRequestForm
 from .models import EligiblePerson, CertificateRequest
 from django.contrib.auth import logout
+from django.conf import settings
+from .models import CustomUser
 
 
+from django.http import HttpResponseBadRequest
+from .forms import SignUpForm  # or wherever your custom form is defined
 
 
 def index(request):
     return render(request, 'certificates/index.html')
+
+# def register(request):
+#     if request.method == 'POST':
+#         form = SignUpForm(request.POST)
+#         if form.is_valid():
+#             user = form.save(commit=False)
+#             user.email = form.cleaned_data.get('email')
+#             user.save()
+#             login(request, user)
+#             messages.success(request, 'Account created. Now choose the certificate you want.')
+#             return redirect('choose_certificate')
+#     else:
+#         form = SignUpForm()
+#     return render(request, 'certificates/register.html', {'form': form})
 
 def register(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.email = form.cleaned_data.get('email')
+            user.email = form.cleaned_data['email']
+            user.first_name = form.cleaned_data['first_name']
+            user.last_name = form.cleaned_data['last_name']
             user.save()
-            login(request, user)
-            messages.success(request, 'Account created. Now choose the certificate you want.')
-            return redirect('choose_certificate')
+            return redirect('login')  # or wherever you want to redirect
     else:
         form = SignUpForm()
-    return render(request, 'certificates/register.html', {'form': form})
+    
+    return render(request, 'certificates/register.html', {'form': form})    
+
 
 @login_required
 def choose_certificate(request):
@@ -37,27 +57,24 @@ def submit_request(request):
     if request.method == 'POST':
         form = CertificateRequestForm(request.POST)
         if form.is_valid():
-            cert_req = form.save(commit=False)
-            cert_req.user = request.user
-            # check eligibility - by email match
+            # Check eligibility before saving
             try:
                 EligiblePerson.objects.get(email__iexact=request.user.email)
+                cert_req = form.save(commit=False)
+                cert_req.user = request.user
                 cert_req.eligible = True
-            except EligiblePerson.DoesNotExist:
-                cert_req.eligible = False
-                cert_req.admin_message = 'User not found in eligibility list.'
+                cert_req.save()
 
-            cert_req.save()
-
-            # notify admin: i will create a message in admin site view; also add django messages
-            if cert_req.eligible:
                 messages.success(request, 'Your request is submitted and you are eligible. Waiting for approval.')
-            else:
-                messages.warning(request, 'Your request is submitted but you are NOT on the eligibility list. Admins will review.')
+                return redirect('dashboard')
 
-            return redirect('dashboard')
+            except EligiblePerson.DoesNotExist:
+                # Block submission entirely
+                messages.error(request, 'You are not eligible to submit a certificate request. Please contact an administrator.')
+                return redirect('dashboard')  # or redirect back to the form page if preferred
     else:
         form = CertificateRequestForm()
+
     return render(request, 'certificates/submit_request.html', {'form': form})
 
 @login_required
@@ -75,6 +92,32 @@ def request_detail(request, pk):
     else:
         req = get_object_or_404(CertificateRequest, pk=pk, user=request.user)
     return render(request, 'certificates/request_detail.html', {'req': req})
+
+@user_passes_test(lambda u: u.is_superuser)
+def update_request_status(request, pk, action):
+    req = get_object_or_404(CertificateRequest, pk=pk)
+    if action == 'approve':
+        req.status = 'approved'
+        req.admin_message = 'Your request has been approved.'
+    elif action == 'deny':
+       req.action = 'denied'
+       req.admin_message = 'Your request has been denied.'
+    else:
+        return HttpResponseBadRequest('Invalid action.')
+    req.save()
+    return redirect('dashboard')
+ # managing Eligibility
+def manage_eligibility(request):
+    users = CustomUser.objects.all()
+    if request.method == 'POST':
+        eligible_ids = request.POST.getlist('eligible')
+        for user in users:
+            user.profile.is_eligible = str(user.id) in eligible_ids
+            user.profile.save()
+        return redirect('manage_eligibility')
+    return render(request, 'certificates/manage_eligibility.html', {'users': users})
+#tracking Eligibility person
+
 def login(request):
     if request.method == 'POST':
         username = request.POST['email']
@@ -85,7 +128,3 @@ def login(request):
             return redirect('dashboard')
         else:
             messages.error(request, 'Invalid username or password.')
-def logout(request):
-    logout(request)
-    return redirect('login')
-

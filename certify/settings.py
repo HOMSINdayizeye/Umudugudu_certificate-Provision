@@ -76,7 +76,7 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
+AUTH_USER_MODEL = 'certificates.CustomUser'
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Kigali'
 USE_I18N = True
@@ -92,3 +92,5 @@ LOGIN_URL = '/certificates/login/'
 LOGIN_REDIRECT_URL = '/certificates/dashboard/'
 
 LOGOUT_REDIRECT_URL = '/'
+
+

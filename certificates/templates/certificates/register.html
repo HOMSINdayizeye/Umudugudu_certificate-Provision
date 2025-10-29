@@ -3,7 +3,42 @@
 <h2>Register</h2>
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-success" type="submit">Create account</button>
+
+  <div class="mb-3">
+    {{ form.username.label_tag }}
+    {{ form.username }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.email.label_tag }}
+    {{ form.email }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.first_name.label_tag }}
+    {{ form.first_name }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.last_name.label_tag }}
+    {{ form.last_name }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.password1.label_tag }}
+    {{ form.password1 }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.password2.label_tag }}
+    {{ form.password2 }}
+  </div>
+
+  <div class="alert alert-info">
+    <strong>Password Instructions:</strong> Your password must be at least 8 characters long, not too common, and contain letters and numbers.
+  </div>
+
+  <button type="submit" class="btn btn-primary">Register</button>
 </form>
+
 {% endblock %}
