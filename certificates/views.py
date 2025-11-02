@@ -58,7 +58,7 @@ def submit_request(request):
         form = CertificateRequestForm(request.POST)
         if form.is_valid():
             try:
-                EligiblePerson.objects.get(email__iexact=request.user.email)
+                #EligiblePerson.objects.get(email__iexact=request.user.email)
                 cert_req = form.save(commit=False)
                 cert_req.user = request.user
                 cert_req.eligible = True
@@ -69,9 +69,6 @@ def submit_request(request):
             except EligiblePerson.DoesNotExist:
                 messages.error(request, 'You are not eligible to submit a certificate request.')
                 return redirect('dashboard')
-    else:
-        form = CertificateRequestForm()
-    return render(request, 'certificates/submit_request.html', {'form': form})
 
 @login_required
 @login_required
