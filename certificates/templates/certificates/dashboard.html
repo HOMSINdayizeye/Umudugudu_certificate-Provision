@@ -1,66 +1,65 @@
 {% extends 'certificates/base.html' %}
 {% block content %}
-<h2>Your Requests</h2>
+<div class="container mt-4">
+  <h2 class="mb-4 text-center">Your Requests</h2>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>Type</th>
-      <th>Created</th>
-      <th>Eligible</th>
-      <th>Status</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in requests %}
-      <tr>
-        <td>{{ r.get_cert_type_display }}</td>
-        <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
-        <td>{% if r.eligible %}Yes{% else %}No{% endif %}</td>
-        <td>{{ r.get_status_display }}</td>
-        <td>
-          <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
-          {% if is_admin %}
-            <a href="{% url 'update_request_status' r.pk 'approve' %}" class="btn btn-sm btn-success ms-1">Approve</a>
-            <a href="{% url 'update_request_status' r.pk 'deny' %}" class="btn btn-sm btn-danger ms-1">Deny</a>
-          {% endif %}
-        </td>
-      </tr>
-      {% if r.admin_message %}
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle">
+      <thead class="table-light">
         <tr>
-          <td colspan="5">
-            <label for="admin_message_{{ r.pk }}" class="form-label"><strong>Admin Message:</strong></label>
-            <textarea id="admin_message_{{ r.pk }}" class="form-control" rows="2" readonly>{{ r.admin_message }}</textarea>
-          </td>
+          <th>Type</th>
+          <th>Created</th>
+          <th>Eligible</th>
+          <th>Status</th>
+          <th>Action</th>
         </tr>
-      {% endif %}
-    {% empty %}
-      <tr>
-        <td colspan="5">
-          No requests yet. <a href="{% url 'choose_certificate' %}">Create one</a>.
-        </td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% if not request.user.is_superuser %}
-  <a href="{% url 'submit_request' %}">
-    <button class="btn btn-success">Send Other Request</button>
-  </a>
-{% endif %}
+      </thead>
+      <tbody>
+        {% for r in requests %}
+          <tr>
+            <td>{{ r.get_cert_type_display }}</td>
+            <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+            <td>{% if r.eligible %}Yes{% else %}No{% endif %}</td>
+            <td>{{ r.get_status_display }}</td>
+            <td class="d-flex flex-wrap gap-1">
+              <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+              {% if is_admin %}
+                <a href="{% url 'update_request_status' r.pk 'approve' %}" class="btn btn-sm btn-success">Approve</a>
+                <a href="{% url 'update_request_status' r.pk 'deny' %}" class="btn btn-sm btn-danger">Deny</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% if r.admin_message %}
+            <tr>
+              <td colspan="5">
+                <div class="mb-2">
+                  <label for="admin_message_{{ r.pk }}" class="form-label"><strong>Admin Message:</strong></label>
+                  <textarea id="admin_message_{{ r.pk }}" class="form-control" rows="2" readonly>{{ r.admin_message }}</textarea>
+                </div>
+              </td>
+            </tr>
+          {% endif %}
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center">
+              No requests yet. <a href="{% url 'choose_certificate' %}">Create one</a>.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-<button onclick="window.history.back()" style="
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-">
-  ← Back
-</button>
+  {% if not request.user.is_superuser %}
+    <div class="text-center mb-3">
+      <a href="{% url 'submit_request' %}" class="btn btn-success">Send Other Request</a>
+    </div>
+  {% endif %}
 
-
+  <div class="text-center">
+    <button onclick="window.history.back()" class="btn btn-outline-success">
+      ← Back
+    </button>
+  </div>
+</div>
 {% endblock %}

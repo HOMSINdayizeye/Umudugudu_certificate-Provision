@@ -1,15 +1,20 @@
 {% extends 'certificates/base.html' %}
+
 {% block content %}
 <h2>Request Detail</h2>
+
 <ul class="list-group">
   <li class="list-group-item"><strong>Type:</strong> {{ req.get_cert_type_display }}</li>
+  {% if req.cert_type == 'other' %}
+    <li class="list-group-item"><strong>Other Description:</strong> {{ req.other_description }}</li>
+  {% endif %}
   <li class="list-group-item"><strong>Submitted:</strong> {{ req.created_at }}</li>
   <li class="list-group-item"><strong>Eligible:</strong> {% if req.eligible %}Yes{% else %}No{% endif %}</li>
   <li class="list-group-item"><strong>Status:</strong> {{ req.get_status_display }}</li>
-  <li class="list-group-item"><strong>Admin message:</strong> {{ req.admin_message }}</li>
-  <p><strong>Email:</strong> {{ req.user.email }}</p>
-
+  <li class="list-group-item"><strong>Admin Message:</strong> {{ req.admin_message|default:"—" }}</li>
+  <li class="list-group-item"><strong>Email:</strong> {{ req.user.email }}</li>
 </ul>
+
 <button onclick="window.history.back()" style="
   background-color: #4CAF50;
   color: white;
@@ -18,9 +23,8 @@
   border-radius: 5px;
   font-size: 16px;
   cursor: pointer;
+  margin-top: 15px;
 ">
   ← Back
 </button>
-
-
 {% endblock %}

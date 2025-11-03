@@ -1,15 +1,17 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
-from django.contrib.auth.models import User
 
+# Custom user model
 class CustomUser(AbstractUser):
     is_eligible = models.BooleanField(default=False)
 
-#Separating profile models
+# Profile model linked to custom user
 class UserProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     is_eligible = models.BooleanField(default=False)
+
+# Eligible person registry
 class EligiblePerson(models.Model):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
@@ -19,14 +21,21 @@ class EligiblePerson(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name} <{self.email}>"
 
+# Certificate type model
+class CertificateType(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+# Certificate request model
 class CertificateRequest(models.Model):
     CERT_TYPES = [
         ('conduct', 'Conduct'),
         ('residence', 'Residence Recognition'),
         ('community', 'Community Engagement'),
-        ('Stolen Computer', 'Storen Computer'),
+        ('Stolen Computer', 'Stolen Computer'),
         ('other', 'Other'),
-       
     ]
 
     STATUS_CHOICES = [
@@ -37,11 +46,12 @@ class CertificateRequest(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='requests')
     cert_type = models.CharField(max_length=20, choices=CERT_TYPES)
+    other_description = models.TextField(blank=True, null=True)  # Only used when cert_type is 'other'
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     eligible = models.BooleanField(default=False)
-    email = models.EmailField(default= 'umudugudu@gmail.com')
-    admin_message = models.TextField(blank= True, null=True)
+    email = models.EmailField(default='umudugudu@gmail.com')
+    admin_message = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.email} - {self.cert_type} ({self.status})"

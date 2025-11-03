@@ -1,11 +1,25 @@
 {% extends 'certificates/base.html' %}
+{% load static %}
+
 {% block content %}
 <h2>Submit Request</h2>
+
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
+
+  <div class="form-group">
+    {{ form.cert_type.label_tag }}
+    {{ form.cert_type }}
+  </div>
+
+  <div class="form-group" id="other-description" style="display: none;">
+    {{ form.other_description.label_tag }}
+    {{ form.other_description }}
+  </div>
+
   <button class="btn btn-primary" type="submit">Submit</button>
 </form>
+
 <button onclick="window.history.back()" style="
   background-color: #4CAF50;
   color: white;
@@ -18,4 +32,6 @@
   ← Back
 </button>
 
+<!-- Load external JavaScript -->
+<script src="{% static 'certificates/toggle_other_field.js' %}"></script>
 {% endblock %}
