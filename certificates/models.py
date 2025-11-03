@@ -24,7 +24,7 @@ class CertificateRequest(models.Model):
         ('conduct', 'Conduct'),
         ('residence', 'Residence Recognition'),
         ('community', 'Community Engagement'),
-        ('Storen Computer', 'Storen Computer'),
+        ('Stolen Computer', 'Storen Computer'),
         ('other', 'Other'),
        
     ]

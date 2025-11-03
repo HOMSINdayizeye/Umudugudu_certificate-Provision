@@ -8,6 +8,7 @@ from .models import EligiblePerson, CertificateRequest
 from django.contrib.auth import logout
 from django.conf import settings
 from .models import CustomUser
+from django.http import HttpResponseForbidden
 
 
 from django.http import HttpResponseBadRequest
@@ -53,24 +54,39 @@ def choose_certificate(request):
     return render(request, 'certificates/choose_certificate.html')
 
 @login_required
+# def submit_request(request):
+#     if request.method == 'POST':
+#         form = CertificateRequestForm(request.POST)
+#         if form.is_valid():
+#             try:
+#                 #EligiblePerson.objects.get(email__iexact=request.user.email)
+#                 cert_req = form.save(commit=False)
+#                 cert_req.user = request.user
+#                 cert_req.eligible = True
+#                 cert_req.email = request.user.email
+#                 cert_req.save()
+#                 messages.success(request, 'Your request is submitted and you are eligible. Waiting for approval.')
+#                 return redirect('dashboard')
+#             except EligiblePerson.DoesNotExist:
+#                 messages.error(request, 'You are not eligible to submit a certificate request.')
+#                 return redirect('dashboard')
+#         return render(request, 'certificates/submit_request.html')
 def submit_request(request):
+    if request.user.is_superuser:
+        return HttpResponseForbidden("Superusers cannot submit certificate requests.")
+
     if request.method == 'POST':
         form = CertificateRequestForm(request.POST)
         if form.is_valid():
-            try:
-                #EligiblePerson.objects.get(email__iexact=request.user.email)
-                cert_req = form.save(commit=False)
-                cert_req.user = request.user
-                cert_req.eligible = True
-                cert_req.email = request.user.email
-                cert_req.save()
-                messages.success(request, 'Your request is submitted and you are eligible. Waiting for approval.')
-                return redirect('dashboard')
-            except EligiblePerson.DoesNotExist:
-                messages.error(request, 'You are not eligible to submit a certificate request.')
-                return redirect('dashboard')
+            certificate_request = form.save(commit=False)
+            certificate_request.user = request.user
+            certificate_request.save()
+            return redirect('dashboard')
+    else:
+        form = CertificateRequestForm()
 
-@login_required
+    return render(request, 'certificates/submit_request.html', {'form': form})
+
 @login_required
 def dashboard(request):
     if request.user.is_superuser:
