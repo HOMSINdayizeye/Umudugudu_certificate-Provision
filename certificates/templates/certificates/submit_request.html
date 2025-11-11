@@ -2,36 +2,251 @@
 {% load static %}
 
 {% block content %}
-<h2>Submit Request</h2>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4>Submit Certificate Request</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="certificateForm">
+                        {% csrf_token %}
+                        
+                        <!-- Certificate Type Selection -->
+                        <div class="form-group mb-3">
+                            <label for="id_cert_type">Certificate Type *</label>
+                            {{ form.cert_type }}
+                        </div>
 
-<form method="post">
-  {% csrf_token %}
+                        <!-- Other Description (shows when 'other' is selected) -->
+                        <div class="form-group mb-3" id="otherDescriptionDiv" style="display: none;">
+                            <label for="id_other_description">Description</label>
+                            {{ form.other_description }}
+                        </div>
 
-  <div class="form-group">
-    {{ form.cert_type.label_tag }}
-    {{ form.cert_type }}
-  </div>
+                        <!-- Location Selection (shows only for 'conduct') -->
+                        <div id="locationSection" style="display: none;">
+                            <hr>
+                            <h5 class="mb-3">Location Information</h5>
+                            
+                            <div class="form-group mb-3">
+                                <label for="province">Province *</label>
+                                <select id="province" name="province" class="form-control" required>
+                                    <option value="">Select Province</option>
+                                    {% for province in provinces %}
+                                    <option value="{{ province.location_id }}">{{ province.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
 
-  <div class="form-group" id="other-description" style="display: none;">
-    {{ form.other_description.label_tag }}
-    {{ form.other_description }}
-  </div>
+                            <div class="form-group mb-3">
+                                <label for="district">District *</label>
+                                <select id="district" name="district" class="form-control" required disabled>
+                                    <option value="">Select District</option>
+                                </select>
+                            </div>
 
-  <button class="btn btn-primary" type="submit">Submit</button>
-</form>
-<br>
-<button onclick="window.history.back()" style="
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-">
-  ← Back
-</button>
+                            <div class="form-group mb-3">
+                                <label for="sector">Sector *</label>
+                                <select id="sector" name="sector" class="form-control" required disabled>
+                                    <option value="">Select Sector</option>
+                                </select>
+                            </div>
 
-<!-- Load external JavaScript -->
-<script src="{% static 'certificates/toggle_other_field.js' %}"></script>
+                            <div class="form-group mb-3">
+                                <label for="cell">Cell *</label>
+                                <select id="cell" name="cell" class="form-control" required disabled>
+                                    <option value="">Select Cell</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="village">Village (Optional)</label>
+                                <select id="village" name="village" class="form-control" disabled>
+                                    <option value="">Select Village</option>
+                                </select>
+                            </div>
+
+                            <input type="hidden" id="location_code" name="location_code">
+
+                            <div id="locationCodeDisplay" class="alert alert-info" style="display: none;">
+                                <strong>Selected Location Code:</strong> <span id="displayCode"></span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-block mt-4">Submit Request</button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-block mt-2">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    
+    // Show/Hide sections based on certificate type
+    $('#id_cert_type').change(function() {
+        var certType = $(this).val();
+        
+        // Show other description if 'other' is selected
+        if (certType === 'other') {
+            $('#otherDescriptionDiv').show();
+        } else {
+            $('#otherDescriptionDiv').hide();
+        }
+        
+        // Show location section ONLY if 'conduct' is selected
+        if (certType === 'conduct') {
+            $('#locationSection').show();
+            // Make location fields required
+            $('#province, #district, #sector, #cell').prop('required', true);
+        } else {
+            $('#locationSection').hide();
+            // Make location fields not required
+            $('#province, #district, #sector, #cell').prop('required', false);
+            // Reset all location dropdowns
+            resetLocationDropdowns();
+        }
+    });
+
+    function resetLocationDropdowns() {
+        $('#province').val('');
+        $('#district, #sector, #cell, #village').html('<option value="">Select...</option>').prop('disabled', true);
+        $('#location_code').val('');
+        $('#locationCodeDisplay').hide();
+    }
+    
+    // Province changes -> load districts
+    $('#province').change(function() {
+        var provinceId = $(this).val();
+        
+        // Clear and disable dependent dropdowns
+        $('#district, #sector, #cell, #village').html('<option value="">Select...</option>').prop('disabled', true);
+        $('#location_code').val('');
+        $('#locationCodeDisplay').hide();
+        
+        if (provinceId) {
+            $.ajax({
+                url: '{% url "get_districts" %}',
+                data: { 'province': provinceId },
+                success: function(data) {
+                    if (data.districts.length > 0) {
+                        $.each(data.districts, function(i, district) {
+                            $('#district').append($('<option>', {
+                                value: district.location_id,
+                                text: district.name
+                            }));
+                        });
+                        $('#district').prop('disabled', false);
+                    }
+                    updateLocationCode();
+                }
+            });
+        }
+    });
+    
+    // District changes -> load sectors
+    $('#district').change(function() {
+        var districtId = $(this).val();
+        
+        $('#sector, #cell, #village').html('<option value="">Select...</option>').prop('disabled', true);
+        
+        if (districtId) {
+            $.ajax({
+                url: '{% url "get_sectors" %}',
+                data: { 'district': districtId },
+                success: function(data) {
+                    if (data.sectors.length > 0) {
+                        $.each(data.sectors, function(i, sector) {
+                            $('#sector').append($('<option>', {
+                                value: sector.location_id,
+                                text: sector.name
+                            }));
+                        });
+                        $('#sector').prop('disabled', false);
+                    }
+                    updateLocationCode();
+                }
+            });
+        }
+    });
+    
+    // Sector changes -> load cells
+    $('#sector').change(function() {
+        var sectorId = $(this).val();
+        
+        $('#cell, #village').html('<option value="">Select...</option>').prop('disabled', true);
+        
+        if (sectorId) {
+            $.ajax({
+                url: '{% url "get_cells" %}',
+                data: { 'sector': sectorId },
+                success: function(data) {
+                    if (data.cells.length > 0) {
+                        $.each(data.cells, function(i, cell) {
+                            $('#cell').append($('<option>', {
+                                value: cell.location_id,
+                                text: cell.name
+                            }));
+                        });
+                        $('#cell').prop('disabled', false);
+                    }
+                    updateLocationCode();
+                }
+            });
+        }
+    });
+    
+    // Cell changes -> load villages
+    $('#cell').change(function() {
+        var cellId = $(this).val();
+        
+        $('#village').html('<option value="">Select Village</option>').prop('disabled', true);
+        
+        if (cellId) {
+            $.ajax({
+                url: '{% url "get_villages" %}',
+                data: { 'cell': cellId },
+                success: function(data) {
+                    if (data.villages.length > 0) {
+                        $.each(data.villages, function(i, village) {
+                            $('#village').append($('<option>', {
+                                value: village.location_id,
+                                text: village.name
+                            }));
+                        });
+                        $('#village').prop('disabled', false);
+                    }
+                    updateLocationCode();
+                }
+            });
+        }
+    });
+    
+    // Village changes -> update location code
+    $('#village').change(function() {
+        updateLocationCode();
+    });
+    
+    // Update location code display
+    function updateLocationCode() {
+        var selectedId = $('#village').val() || $('#cell').val() || 
+                        $('#sector').val() || $('#district').val() || 
+                        $('#province').val();
+        
+        if (selectedId) {
+            $('#location_code').val(selectedId);
+            $('#displayCode').text(selectedId);
+            $('#locationCodeDisplay').show();
+        } else {
+            $('#location_code').val('');
+            $('#locationCodeDisplay').hide();
+        }
+    }
+});
+</script>
 {% endblock %}
