@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from .forms import SignUpForm, CertificateRequestForm
-from .models import EligiblePerson, CertificateRequest, CustomUser, LocationImport
+from .forms import SignUpForm, CertificateRequestForm, StolenLaptopCertificateForm
+from .models import EligiblePerson, CertificateRequest, CustomUser, LocationImport, Location, StolenLaptopCertificate
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, JsonResponse
 from django.conf import settings
 
@@ -36,51 +36,85 @@ def choose_certificate(request):
 
 @login_required
 def submit_request(request):
-    if request.user.is_superuser:
-        return HttpResponseForbidden("Superusers cannot submit certificate requests.")
-
     if request.method == 'POST':
         form = CertificateRequestForm(request.POST)
+        
         if form.is_valid():
-            certificate_request = form.save(commit=False)
-            certificate_request.user = request.user
-            certificate_request.email = request.user.email
+            # Create the certificate request
+            cert_request = form.save(commit=False)
+            cert_request.user = request.user
+            cert_request.status = 'pending'
             
-            # Save location data if conduct certificate
-            if certificate_request.cert_type == 'conduct':
-                certificate_request.province = request.POST.get('province')
-                certificate_request.district = request.POST.get('district')
-                certificate_request.sector = request.POST.get('sector')
-                certificate_request.cell = request.POST.get('cell')
-                certificate_request.village = request.POST.get('village')
-                certificate_request.location_code = request.POST.get('location_code')
+            cert_type = form.cleaned_data.get('cert_type')
             
-            certificate_request.save()
-            messages.success(request, 'Your request has been submitted successfully!')
+            # Get certificate type name
+            cert_type_name = ''
+            if cert_type:
+                if hasattr(cert_type, 'name'):
+                    cert_type_name = cert_type.name
+            
+            # Handle location code for conduct certificates
+            if cert_type_name == 'conduct':
+                location_code = request.POST.get('location_code')
+                if location_code:
+                    cert_request.location_code = location_code
+            
+            cert_request.save()
+            
+            # Handle stolen laptop/computer certificate data
+            if cert_type_name in ['stolen_laptop', 'stolen_computer']:
+                StolenLaptopCertificate.objects.create(
+                    certificate_request=cert_request,
+                    registration_number=form.cleaned_data.get('registration_number'),
+                    national_id=form.cleaned_data.get('national_id'),
+                    stolen_datetime=form.cleaned_data.get('stolen_datetime'),
+                    location=form.cleaned_data.get('stolen_location'),
+                    device_type=form.cleaned_data.get('device_type'),
+                    brand=form.cleaned_data.get('brand'),
+                    model=form.cleaned_data.get('model'),
+                    serial_number=form.cleaned_data.get('serial_number'),
+                    intel_core=form.cleaned_data.get('intel_core'),
+                    ram=form.cleaned_data.get('ram'),
+                    storage=form.cleaned_data.get('storage'),
+                    witness_1_name=form.cleaned_data.get('witness_1_name'),
+                    witness_1_phone=form.cleaned_data.get('witness_1_phone'),
+                    witness_2_name=form.cleaned_data.get('witness_2_name', ''),
+                    witness_2_phone=form.cleaned_data.get('witness_2_phone', ''),
+                    witness_3_name=form.cleaned_data.get('witness_3_name', ''),
+                    witness_3_phone=form.cleaned_data.get('witness_3_phone', ''),
+                    reported_to_police=form.cleaned_data.get('reported_to_police', False),
+                    other_description=form.cleaned_data.get('laptop_other_description', '')
+                )
+            
+            messages.success(request, 'Certificate request submitted successfully!')
             return redirect('dashboard')
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = CertificateRequestForm()
-
-    # Get provinces for the location dropdown
-    provinces = LocationImport.objects.filter(type='PROVINCE').values('location_id', 'name').order_by('location_id')
     
-    return render(request, 'certificates/submit_request.html', {
+    # Get unique provinces for the dropdown
+    provinces = Location.objects.values('id', 'province', 'code').exclude(
+        province__isnull=True
+    ).exclude(
+        province=''
+    ).exclude(
+        district__isnull=False
+    ).distinct().order_by('province')
+    
+    # Format provinces for the template
+    province_list = []
+    for p in provinces:
+        province_list.append({
+            'location_id': p['code'] or p['id'],
+            'name': p['province']
+        })
+    
+    context = {
         'form': form,
-        'provinces': provinces
-    })
-
-
-@login_required
-def dashboard(request):
-    if request.user.is_superuser:
-        requests = CertificateRequest.objects.all()
-    else:
-        requests = CertificateRequest.objects.filter(user=request.user)
-
-    return render(request, 'certificates/dashboard.html', {
-        'requests': requests,
-        'is_admin': request.user.is_superuser
-    })
+        'provinces': province_list
+    }
+    return render(request, 'certificates/submit_request.html', context)
 
 
 @login_required
@@ -133,6 +167,28 @@ def login_view(request):
         else:
             messages.error(request, 'Invalid email or password.')
     return render(request, 'certificates/login.html')
+
+
+def logout_view(request):
+    logout(request)
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('index')
+
+
+@login_required
+def dashboard(request):
+    """Dashboard view for users and admins"""
+    if request.user.is_superuser:
+        # Admin dashboard - show all requests
+        requests = CertificateRequest.objects.all().order_by('-created_at')
+    else:
+        # User dashboard - show only their requests
+        requests = CertificateRequest.objects.filter(user=request.user).order_by('-created_at')
+    
+    context = {
+        'requests': requests
+    }
+    return render(request, 'certificates/dashboard.html', context)
 
 
 # ==================== AJAX LOCATION FILTERING VIEWS ====================
@@ -265,4 +321,17 @@ def get_location_code(request):
         'code': None,
         'success': False,
         'error': 'No location selected'
+    })
+
+
+@login_required
+def report_stolen_laptop(request):
+    form = StolenLaptopCertificateForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        return redirect('dashboard')  # Fixed typo: was 'dashbboard'
+    return render(request, 'send_request.html', {
+        'form': form,
+        'form_title': 'Report Stolen Laptop',
+        'submit_label': 'Submit Report',
     })

@@ -86,3 +86,40 @@ class Location(models.Model):
 
     def __str__(self):
         return f"{self.province} > {self.district} > {self.sector} > {self.cell} > {self.village}"
+    from django.db import models
+
+class StolenLaptopCertificate(models.Model):
+    registration_number = models.CharField(max_length=50)
+    national_id = models.CharField(max_length=16)
+    stolen_datetime = models.DateTimeField()
+    location = models.TextField()
+
+    # Device description
+    DEVICE_TYPE_CHOICES = [('Laptop', 'Laptop'), ('Tablet', 'Tablet')]
+    BRAND_CHOICES = [('Lenovo', 'Lenovo'), ('HP', 'HP'), ('Dell', 'Dell'), ('Mac', 'Mac')]
+    INTEL_CORE_CHOICES = [('i3', 'Intel Core i3'), ('i5', 'Intel Core i5'), ('i7', 'Intel Core i7')]
+    RAM_CHOICES = [('4GB', '4GB'), ('8GB', '8GB'), ('16GB', '16GB')]
+    STORAGE_CHOICES = [('SSD', 'SSD'), ('HDD', 'Hard Disk')]
+
+    device_type = models.CharField(max_length=20, choices=DEVICE_TYPE_CHOICES)
+    brand = models.CharField(max_length=20, choices=BRAND_CHOICES)
+    model = models.CharField(max_length=50)
+    serial_number = models.CharField(max_length=50)
+    intel_core = models.CharField(max_length=10, choices=INTEL_CORE_CHOICES)
+    ram = models.CharField(max_length=10, choices=RAM_CHOICES)
+    storage = models.CharField(max_length=10, choices=STORAGE_CHOICES)
+
+    # Witnesses
+    witness_1_name = models.CharField(max_length=100)
+    witness_1_phone = models.CharField(max_length=15)
+    witness_2_name = models.CharField(max_length=100)
+    witness_2_phone = models.CharField(max_length=15)
+    witness_3_name = models.CharField(max_length=100)
+    witness_3_phone = models.CharField(max_length=15)
+
+    # Additional info
+    reported_to_police = models.BooleanField(default=False)
+    other_description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Stolen Laptop Certificate - {self.registration_number}"

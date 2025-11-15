@@ -4,35 +4,297 @@
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-10">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h4>Submit Certificate Request</h4>
+                    <h4><i class="fas fa-file-alt"></i> Submit Certificate Request</h4>
                 </div>
                 <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
                     <form method="post" id="certificateForm">
                         {% csrf_token %}
                         
                         <!-- Certificate Type Selection -->
                         <div class="form-group mb-3">
-                            <label for="id_cert_type">Certificate Type *</label>
+                            <label for="{{ form.cert_type.id_for_label }}">Certificate Type *</label>
                             {{ form.cert_type }}
+                            {% if form.cert_type.errors %}
+                                <div class="text-danger">{{ form.cert_type.errors }}</div>
+                            {% endif %}
                         </div>
 
                         <!-- Other Description (shows when 'other' is selected) -->
                         <div class="form-group mb-3" id="otherDescriptionDiv" style="display: none;">
-                            <label for="id_other_description">Description</label>
+                            <label for="{{ form.other_description.id_for_label }}">Description *</label>
                             {{ form.other_description }}
+                            {% if form.other_description.errors %}
+                                <div class="text-danger">{{ form.other_description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Stolen Computer Section -->
+                        <div id="stolenComputerSection" style="display: none;">
+                            <hr class="my-4">
+                            <div class="text-center mb-4">
+                                <h4 class="text-danger"><i class="fas fa-exclamation-triangle"></i> Stolen Computer/Laptop Report</h4>
+                                <p class="text-muted">Please provide accurate information about the stolen device</p>
+                            </div>
+
+                            <!-- Personal Information Card -->
+                            <div class="card border-danger mb-4 shadow-sm">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0"><i class="fas fa-user"></i> Personal Information</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.registration_number.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-id-card"></i> Registration Number *
+                                        </label>
+                                        {{ form.registration_number }}
+                                        {% if form.registration_number.errors %}
+                                            <div class="text-danger small mt-1">{{ form.registration_number.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.national_id.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-id-badge"></i> National ID *
+                                        </label>
+                                        {{ form.national_id }}
+                                        {% if form.national_id.errors %}
+                                            <div class="text-danger small mt-1">{{ form.national_id.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Theft Details Card -->
+                            <div class="card border-warning mb-4 shadow-sm">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0"><i class="fas fa-clock"></i> Theft Details</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.stolen_datetime.id_for_label }}" class="font-weight-bold">
+                                            <i class="far fa-calendar-alt"></i> Date & Time Stolen *
+                                        </label>
+                                        {{ form.stolen_datetime }}
+                                        <small class="form-text text-muted">When did you notice the device was stolen?</small>
+                                        {% if form.stolen_datetime.errors %}
+                                            <div class="text-danger small mt-1">{{ form.stolen_datetime.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.stolen_location.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-map-marker-alt"></i> Location Where Stolen *
+                                        </label>
+                                        {{ form.stolen_location }}
+                                        <small class="form-text text-muted">Describe the exact location (e.g., office, home, café)</small>
+                                        {% if form.stolen_location.errors %}
+                                            <div class="text-danger small mt-1">{{ form.stolen_location.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Device Information Card -->
+                            <div class="card border-primary mb-4 shadow-sm">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-laptop"></i> Device Information</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.device_type.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-mobile-alt"></i> Device Type *
+                                        </label>
+                                        {{ form.device_type }}
+                                        {% if form.device_type.errors %}
+                                            <div class="text-danger small mt-1">{{ form.device_type.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.brand.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-copyright"></i> Brand *
+                                        </label>
+                                        {{ form.brand }}
+                                        {% if form.brand.errors %}
+                                            <div class="text-danger small mt-1">{{ form.brand.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.model.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-tag"></i> Model *
+                                        </label>
+                                        {{ form.model }}
+                                        <small class="form-text text-muted">e.g., ThinkPad X1, Pavilion 15, MacBook Pro</small>
+                                        {% if form.model.errors %}
+                                            <div class="text-danger small mt-1">{{ form.model.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.serial_number.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-barcode"></i> Serial Number *
+                                        </label>
+                                        {{ form.serial_number }}
+                                        <small class="form-text text-muted">Usually found on the bottom of the laptop or in BIOS settings</small>
+                                        {% if form.serial_number.errors %}
+                                            <div class="text-danger small mt-1">{{ form.serial_number.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Technical Specifications Card -->
+                            <div class="card border-info mb-4 shadow-sm">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fas fa-microchip"></i> Technical Specifications</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.intel_core.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-microchip"></i> Processor (Intel Core) *
+                                        </label>
+                                        {{ form.intel_core }}
+                                        {% if form.intel_core.errors %}
+                                            <div class="text-danger small mt-1">{{ form.intel_core.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.ram.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-memory"></i> RAM (Memory) *
+                                        </label>
+                                        {{ form.ram }}
+                                        {% if form.ram.errors %}
+                                            <div class="text-danger small mt-1">{{ form.ram.errors }}</div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="form-group mb-3">
+                                        <label for="{{ form.storage.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-hdd"></i> Storage Type *
+                                        </label>
+                                        {{ form.storage }}
+                                        {% if form.storage.errors %}
+                                            <div class="text-danger small mt-1">{{ form.storage.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Witnesses Card -->
+                            <div class="card border-success mb-4 shadow-sm">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fas fa-users"></i> Witnesses Information</h5>
+                                    <small>At least one witness is required</small>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Witness 1 -->
+                                    <div class="border-bottom pb-3 mb-3">
+                                        <h6 class="text-success font-weight-bold">
+                                            <i class="fas fa-user-check"></i> Witness 1 (Required) *
+                                        </h6>
+                                        <div class="form-group mb-2">
+                                            <label for="{{ form.witness_1_name.id_for_label }}" class="font-weight-bold">Full Name *</label>
+                                            {{ form.witness_1_name }}
+                                            {% if form.witness_1_name.errors %}
+                                                <div class="text-danger small mt-1">{{ form.witness_1_name.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="{{ form.witness_1_phone.id_for_label }}" class="font-weight-bold">Phone Number *</label>
+                                            {{ form.witness_1_phone }}
+                                            {% if form.witness_1_phone.errors %}
+                                                <div class="text-danger small mt-1">{{ form.witness_1_phone.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <!-- Witness 2 -->
+                                    <div class="border-bottom pb-3 mb-3">
+                                        <h6 class="text-secondary">
+                                            <i class="fas fa-user"></i> Witness 2 (Optional)
+                                        </h6>
+                                        <div class="form-group mb-2">
+                                            <label for="{{ form.witness_2_name.id_for_label }}">Full Name</label>
+                                            {{ form.witness_2_name }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="{{ form.witness_2_phone.id_for_label }}">Phone Number</label>
+                                            {{ form.witness_2_phone }}
+                                        </div>
+                                    </div>
+
+                                    <!-- Witness 3 -->
+                                    <div class="pb-2">
+                                        <h6 class="text-secondary">
+                                            <i class="fas fa-user"></i> Witness 3 (Optional)
+                                        </h6>
+                                        <div class="form-group mb-2">
+                                            <label for="{{ form.witness_3_name.id_for_label }}">Full Name</label>
+                                            {{ form.witness_3_name }}
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="{{ form.witness_3_phone.id_for_label }}">Phone Number</label>
+                                            {{ form.witness_3_phone }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Police Report Card -->
+                            <div class="card border-secondary mb-4 shadow-sm">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-shield-alt"></i> Police Report</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3">
+                                        <div class="custom-control custom-checkbox">
+                                            {{ form.reported_to_police }}
+                                            <label class="custom-control-label font-weight-bold" for="{{ form.reported_to_police.id_for_label }}">
+                                                <i class="fas fa-check-circle"></i> I have reported this theft to the police
+                                            </label>
+                                        </div>
+                                        <small class="form-text text-muted ml-4">
+                                            It's recommended to file a police report for stolen devices
+                                        </small>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="{{ form.laptop_other_description.id_for_label }}" class="font-weight-bold">
+                                            <i class="fas fa-comment-alt"></i> Additional Information
+                                        </label>
+                                        {{ form.laptop_other_description }}
+                                        <small class="form-text text-muted">
+                                            Any other relevant details (circumstances, suspects, etc.)
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Location Selection (shows only for 'conduct') -->
                         <div id="locationSection" style="display: none;">
                             <hr>
-                            <h5 class="mb-3">Location Information</h5>
+                            <h5 class="mb-3"><i class="fas fa-map-marker-alt"></i> Location Information</h5>
                             
                             <div class="form-group mb-3">
                                 <label for="province">Province *</label>
-                                <select id="province" name="province" class="form-control" required>
+                                <select id="province" name="province" class="form-control">
                                     <option value="">Select Province</option>
                                     {% for province in provinces %}
                                     <option value="{{ province.location_id }}">{{ province.name }}</option>
@@ -42,21 +304,21 @@
 
                             <div class="form-group mb-3">
                                 <label for="district">District *</label>
-                                <select id="district" name="district" class="form-control" required disabled>
+                                <select id="district" name="district" class="form-control" disabled>
                                     <option value="">Select District</option>
                                 </select>
                             </div>
 
                             <div class="form-group mb-3">
                                 <label for="sector">Sector *</label>
-                                <select id="sector" name="sector" class="form-control" required disabled>
+                                <select id="sector" name="sector" class="form-control" disabled>
                                     <option value="">Select Sector</option>
                                 </select>
                             </div>
 
                             <div class="form-group mb-3">
                                 <label for="cell">Cell *</label>
-                                <select id="cell" name="cell" class="form-control" required disabled>
+                                <select id="cell" name="cell" class="form-control" disabled>
                                     <option value="">Select Cell</option>
                                 </select>
                             </div>
@@ -75,8 +337,14 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-block mt-4">Submit Request</button>
-                        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-block mt-2">Cancel</a>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg btn-block">
+                                <i class="fas fa-paper-plane"></i> Submit Request
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-block mt-2">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -87,28 +355,39 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
+    console.log('Script loaded');
     
     // Show/Hide sections based on certificate type
-    $('#id_cert_type').change(function() {
-        var certType = $(this).val();
+    $('#{{ form.cert_type.id_for_label }}').change(function() {
+        var selectedOption = $(this).find('option:selected');
+        var certTypeName = selectedOption.text().toLowerCase().trim();
+        
+        console.log('Certificate type changed to:', certTypeName);
+        
+        // Hide all conditional sections first
+        $('#otherDescriptionDiv, #stolenComputerSection, #locationSection').hide();
+        
+        // Reset required attributes
+        $('#province, #district, #sector, #cell').prop('required', false);
         
         // Show other description if 'other' is selected
-        if (certType === 'other') {
+        if (certTypeName.includes('other')) {
             $('#otherDescriptionDiv').show();
-        } else {
-            $('#otherDescriptionDiv').hide();
+            console.log('Showing other description');
+        }
+        
+        // Show stolen computer section if 'stolen' or 'laptop' or 'computer' is in the name
+        if (certTypeName.includes('stolen') || certTypeName.includes('laptop') || certTypeName.includes('computer')) {
+            $('#stolenComputerSection').show();
+            console.log('Showing stolen computer section');
         }
         
         // Show location section ONLY if 'conduct' is selected
-        if (certType === 'conduct') {
+        if (certTypeName.includes('conduct')) {
             $('#locationSection').show();
-            // Make location fields required
             $('#province, #district, #sector, #cell').prop('required', true);
+            console.log('Showing location section');
         } else {
-            $('#locationSection').hide();
-            // Make location fields not required
-            $('#province, #district, #sector, #cell').prop('required', false);
-            // Reset all location dropdowns
             resetLocationDropdowns();
         }
     });
@@ -124,7 +403,6 @@ $(document).ready(function() {
     $('#province').change(function() {
         var provinceId = $(this).val();
         
-        // Clear and disable dependent dropdowns
         $('#district, #sector, #cell, #village').html('<option value="">Select...</option>').prop('disabled', true);
         $('#location_code').val('');
         $('#locationCodeDisplay').hide();
@@ -149,7 +427,6 @@ $(document).ready(function() {
         }
     });
     
-    // District changes -> load sectors
     $('#district').change(function() {
         var districtId = $(this).val();
         
@@ -175,7 +452,6 @@ $(document).ready(function() {
         }
     });
     
-    // Sector changes -> load cells
     $('#sector').change(function() {
         var sectorId = $(this).val();
         
@@ -201,7 +477,6 @@ $(document).ready(function() {
         }
     });
     
-    // Cell changes -> load villages
     $('#cell').change(function() {
         var cellId = $(this).val();
         
@@ -227,12 +502,10 @@ $(document).ready(function() {
         }
     });
     
-    // Village changes -> update location code
     $('#village').change(function() {
         updateLocationCode();
     });
     
-    // Update location code display
     function updateLocationCode() {
         var selectedId = $('#village').val() || $('#cell').val() || 
                         $('#sector').val() || $('#district').val() || 
