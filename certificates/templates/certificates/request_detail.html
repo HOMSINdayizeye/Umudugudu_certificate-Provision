@@ -1,30 +1,157 @@
 {% extends 'certificates/base.html' %}
 
 {% block content %}
-<h2>Request Detail</h2>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-file-alt"></i> Request Detail</h4>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
 
-<ul class="list-group">
-  <li class="list-group-item"><strong>Type:</strong> {{ req.get_cert_type_display }}</li>
-  {% if req.cert_type == 'other' %}
-    <li class="list-group-item"><strong>Other Description:</strong> {{ req.other_description }}</li>
-  {% endif %}
-  <li class="list-group-item"><strong>Submitted:</strong> {{ req.created_at }}</li>
-  <li class="list-group-item"><strong>Eligible:</strong> {% if req.eligible %}Yes{% else %}No{% endif %}</li>
-  <li class="list-group-item"><strong>Status:</strong> {{ req.get_status_display }}</li>
-  <li class="list-group-item"><strong>Admin Message:</strong> {{ req.admin_message|default:"—" }}</li>
-  <li class="list-group-item"><strong>Email:</strong> {{ req.user.email }}</li>
-</ul>
-<br>
-<button onclick="window.history.back()" style="
-  background-color: #4CAF50;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 15px;
-">
-  ← Back
-</button>
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-certificate"></i> Type:</strong> 
+                            <span class="badge badge-info">{{ req.get_cert_type_display }}</span>
+                        </li>
+                        
+                        {% if req.cert_type == 'other' %}
+                            <li class="list-group-item">
+                                <strong><i class="fas fa-align-left"></i> Other Description:</strong><br>
+                                {{ req.other_description }}
+                            </li>
+                        {% endif %}
+
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-user"></i> Submitted By:</strong> 
+                            {{ req.user.get_full_name|default:req.user.username }}
+                        </li>
+
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-envelope"></i> Email:</strong> 
+                            {{ req.user.email }}
+                        </li>
+                        
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-calendar"></i> Submitted:</strong> 
+                            {{ req.created_at|date:"F d, Y h:i A" }}
+                        </li>
+                        
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-info-circle"></i> Status:</strong> 
+                            {% if req.status == 'pending' %}
+                                <span class="badge badge-warning">{{ req.get_status_display }}</span>
+                            {% elif req.status == 'approved' %}
+                                <span class="badge badge-success">{{ req.get_status_display }}</span>
+                            {% elif req.status == 'denied' %}
+                                <span class="badge badge-danger">{{ req.get_status_display }}</span>
+                            {% endif %}
+                        </li>
+
+                        {% if req.location_code %}
+                            <li class="list-group-item">
+                                <strong><i class="fas fa-map-marker-alt"></i> Location Code:</strong> 
+                                {{ req.location_code }}
+                            </li>
+                        {% endif %}
+                        
+                        {% if req.admin_message %}
+                            <li class="list-group-item">
+                                <strong><i class="fas fa-comment"></i> Admin Message:</strong><br>
+                                <div class="alert alert-info mt-2">{{ req.admin_message }}</div>
+                            </li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Check if there's a stolen laptop certificate -->
+                    {% if req.cert_type == 'stolen_computer' or req.cert_type == 'stolen_laptop' %}
+                        {% if req.stolenllaptopcertificate_set.first %}
+                            {% with stolen=req.stolenllaptopcertificate_set.first %}
+                                <div class="mt-4">
+                                    <h5 class="text-danger"><i class="fas fa-exclamation-triangle"></i> Stolen Device Details</h5>
+                                    <ul class="list-group">
+                                        <li class="list-group-item"><strong>Registration Number:</strong> {{ stolen.registration_number }}</li>
+                                        <li class="list-group-item"><strong>National ID:</strong> {{ stolen.national_id }}</li>
+                                        <li class="list-group-item"><strong>Date/Time Stolen:</strong> {{ stolen.stolen_datetime|date:"F d, Y h:i A" }}</li>
+                                        <li class="list-group-item"><strong>Location:</strong> {{ stolen.location }}</li>
+                                        <li class="list-group-item"><strong>Device Type:</strong> {{ stolen.device_type }}</li>
+                                        <li class="list-group-item"><strong>Brand:</strong> {{ stolen.brand }}</li>
+                                        <li class="list-group-item"><strong>Model:</strong> {{ stolen.model }}</li>
+                                        <li class="list-group-item"><strong>Serial Number:</strong> {{ stolen.serial_number }}</li>
+                                        <li class="list-group-item"><strong>Processor:</strong> {{ stolen.intel_core }}</li>
+                                        <li class="list-group-item"><strong>RAM:</strong> {{ stolen.ram }}</li>
+                                        <li class="list-group-item"><strong>Storage:</strong> {{ stolen.storage }}</li>
+                                        <li class="list-group-item">
+                                            <strong>Witness 1:</strong> {{ stolen.witness_1_name }} ({{ stolen.witness_1_phone }})
+                                        </li>
+                                        {% if stolen.witness_2_name %}
+                                            <li class="list-group-item">
+                                                <strong>Witness 2:</strong> {{ stolen.witness_2_name }} ({{ stolen.witness_2_phone }})
+                                            </li>
+                                        {% endif %}
+                                        {% if stolen.witness_3_name %}
+                                            <li class="list-group-item">
+                                                <strong>Witness 3:</strong> {{ stolen.witness_3_name }} ({{ stolen.witness_3_phone }})
+                                            </li>
+                                        {% endif %}
+                                        <li class="list-group-item">
+                                            <strong>Reported to Police:</strong> 
+                                            {% if stolen.reported_to_police %}
+                                                <span class="badge badge-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge badge-secondary">No</span>
+                                            {% endif %}
+                                        </li>
+                                        {% if stolen.other_description %}
+                                            <li class="list-group-item">
+                                                <strong>Additional Info:</strong><br>{{ stolen.other_description }}
+                                            </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            {% endwith %}
+                        {% endif %}
+                    {% endif %}
+
+                    <!-- Admin Action Buttons (Only for Superuser and Pending Requests) -->
+                    {% if user.is_superuser and req.status == 'pending' %}
+                        <div class="mt-4">
+                            <h5><i class="fas fa-tasks"></i> Admin Actions</h5>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'update_request_status' req.pk 'approve' %}" 
+                                   class="btn btn-success btn-lg"
+                                   onclick="return confirm('Are you sure you want to approve this request?')">
+                                    <i class="fas fa-check-circle"></i> Approve
+                                </a>
+                                <a href="{% url 'update_request_status' req.pk 'deny' %}" 
+                                   class="btn btn-danger btn-lg"
+                                   onclick="return confirm('Are you sure you want to deny this request?')">
+                                    <i class="fas fa-times-circle"></i> Deny
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Back Button -->
+                    <div class="mt-4">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

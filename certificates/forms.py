@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import CertificateRequest, CertificateType, CustomUser, Location
+from .models import CertificateRequest, CertificateType, CustomUser, LocationImport
 from .models import StolenLaptopCertificate
 
 # 🔐 User Signup Form
@@ -16,12 +16,13 @@ class SignUpForm(UserCreationForm):
 
 # Certificate Request Form with Location Dropdowns and Stolen Laptop Fields
 class CertificateRequestForm(forms.ModelForm):
-    # Location fields for conduct certificates
-    province = forms.ChoiceField(choices=[], required=False)
-    district = forms.ChoiceField(choices=[], required=False)
-    sector = forms.ChoiceField(choices=[], required=False)
-    cell = forms.ChoiceField(choices=[], required=False)
-    village = forms.ChoiceField(choices=[], required=False)
+    # Location fields for conduct certificates - NOT REQUIRED BY DEFAULT
+    province = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    district = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    sector = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    cell = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    village = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    location_code = forms.IntegerField(required=False, widget=forms.HiddenInput())
     
     # Stolen Laptop/Computer Fields
     registration_number = forms.CharField(
@@ -183,16 +184,8 @@ class CertificateRequestForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Optional description unless cert_type is 'other'
+        # Make other_description not required by default
         self.fields['other_description'].required = False
-
-        # Populate province dropdown from Location model
-        # Get unique provinces from the Location table
-        provinces = Location.objects.values('province').exclude(province__isnull=True).exclude(province='').distinct().order_by('province')
-        self.fields['province'].choices = [('', 'Select Province')] + [
-            (p['province'], p['province']) for p in provinces
-        ]
 
     def clean(self):
         cleaned_data = super().clean()
@@ -202,12 +195,13 @@ class CertificateRequestForm(forms.ModelForm):
         # Validate 'other' certificate type
         if cert_type == 'other' and not other_description:
             self.add_error('other_description', 'Please describe the certificate you need.')
-        elif cert_type and cert_type.strip().lower() == 'other':
-
+        
+        # Clear other_description if not 'other' type
+        if cert_type != 'other':
             cleaned_data['other_description'] = None
 
         # Validate stolen laptop fields if that certificate type is selected
-        if cert_type and (cert_type == 'stolen_laptop' or cert_type == 'stolen_computer'):
+        if cert_type in ['stolen_laptop', 'stolen_computer']:
             required_fields = {
                 'registration_number': 'Registration number',
                 'national_id': 'National ID',
@@ -225,7 +219,12 @@ class CertificateRequestForm(forms.ModelForm):
             }
             for field, label in required_fields.items():
                 if not cleaned_data.get(field):
-                    self.add_error(field, f'{label} is required for stolen laptop certificate.')
+                    self.add_error(field, f'{label} is required for stolen laptop/computer certificate.')
+
+        # Validate conduct certificate requires location
+        if cert_type == 'conduct':
+            if not cleaned_data.get('location_code'):
+                self.add_error(None, 'Please select your location (Province, District, Sector, Cell).')
 
         return cleaned_data
 

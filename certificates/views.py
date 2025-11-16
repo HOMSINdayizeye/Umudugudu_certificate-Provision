@@ -47,14 +47,8 @@ def submit_request(request):
             
             cert_type = form.cleaned_data.get('cert_type')
             
-            # Get certificate type name
-            cert_type_name = ''
-            if cert_type:
-                if hasattr(cert_type, 'name'):
-                    cert_type_name = cert_type.name
-            
             # Handle location code for conduct certificates
-            if cert_type_name == 'conduct':
+            if cert_type == 'conduct':
                 location_code = request.POST.get('location_code')
                 if location_code:
                     cert_request.location_code = location_code
@@ -62,7 +56,7 @@ def submit_request(request):
             cert_request.save()
             
             # Handle stolen laptop/computer certificate data
-            if cert_type_name in ['stolen_laptop', 'stolen_computer']:
+            if cert_type in ['stolen_laptop', 'stolen_computer']:
                 StolenLaptopCertificate.objects.create(
                     certificate_request=cert_request,
                     registration_number=form.cleaned_data.get('registration_number'),
@@ -93,26 +87,14 @@ def submit_request(request):
     else:
         form = CertificateRequestForm()
     
-    # Get unique provinces for the dropdown
-    provinces = Location.objects.values('id', 'province', 'code').exclude(
-        province__isnull=True
-    ).exclude(
-        province=''
-    ).exclude(
-        district__isnull=False
-    ).distinct().order_by('province')
-    
-    # Format provinces for the template
-    province_list = []
-    for p in provinces:
-        province_list.append({
-            'location_id': p['code'] or p['id'],
-            'name': p['province']
-        })
+    # FIXED: Get provinces from LocationImport model
+    provinces = LocationImport.objects.filter(
+        type='PROVINCE'
+    ).values('location_id', 'name').order_by('location_id')
     
     context = {
         'form': form,
-        'provinces': province_list
+        'provinces': list(provinces)  # Convert QuerySet to list
     }
     return render(request, 'certificates/submit_request.html', context)
 
@@ -329,7 +311,7 @@ def report_stolen_laptop(request):
     form = StolenLaptopCertificateForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        return redirect('dashboard')  # Fixed typo: was 'dashbboard'
+        return redirect('dashboard')
     return render(request, 'send_request.html', {
         'form': form,
         'form_title': 'Report Stolen Laptop',

@@ -21,6 +21,20 @@
                         {% endfor %}
                     {% endif %}
 
+                    <!-- Display form errors if any -->
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <h5>Please correct the following errors:</h5>
+                            <ul>
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li><strong>{{ field }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
                     <form method="post" id="certificateForm">
                         {% csrf_token %}
                         
@@ -355,14 +369,11 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    console.log('Script loaded');
-    
     // Show/Hide sections based on certificate type
     $('#{{ form.cert_type.id_for_label }}').change(function() {
+        var selectedValue = $(this).val();
         var selectedOption = $(this).find('option:selected');
         var certTypeName = selectedOption.text().toLowerCase().trim();
-        
-        console.log('Certificate type changed to:', certTypeName);
         
         // Hide all conditional sections first
         $('#otherDescriptionDiv, #stolenComputerSection, #locationSection').hide();
@@ -373,20 +384,17 @@ $(document).ready(function() {
         // Show other description if 'other' is selected
         if (certTypeName.includes('other')) {
             $('#otherDescriptionDiv').show();
-            console.log('Showing other description');
         }
         
         // Show stolen computer section if 'stolen' or 'laptop' or 'computer' is in the name
         if (certTypeName.includes('stolen') || certTypeName.includes('laptop') || certTypeName.includes('computer')) {
             $('#stolenComputerSection').show();
-            console.log('Showing stolen computer section');
         }
         
         // Show location section ONLY if 'conduct' is selected
         if (certTypeName.includes('conduct')) {
             $('#locationSection').show();
             $('#province, #district, #sector, #cell').prop('required', true);
-            console.log('Showing location section');
         } else {
             resetLocationDropdowns();
         }
