@@ -317,3 +317,15 @@ def report_stolen_laptop(request):
         'form_title': 'Report Stolen Laptop',
         'submit_label': 'Submit Report',
     })
+# function to display initials
+def display_user_info(firstname, lastname):
+    # Get initials
+    initials = firstname[0].upper() + lastname[0].upper()
+    
+    # Welcome message
+    welcome_message = f"Welcome back {firstname}"
+    
+    # Print results
+    print(f"FIRSTNAME: {firstname}, LASTNAME: {lastname}")
+    print(welcome_message)
+    print(f"Initials in circle: ({initials})")

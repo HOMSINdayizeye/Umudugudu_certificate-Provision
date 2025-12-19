@@ -12,10 +12,25 @@
     <a class="navbar-brand" href="/", style="display: block; color:lime">ISIBO Certificate Portal</a>
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav ms-auto">
-        {% if user.is_authenticated %}
-          <li class="nav-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
-          <li class="nav-item"><a href="{% url 'logout' %}">Logout</a></li>
-        {% else %}
+       {% if user.is_authenticated %}
+  <li class="nav-item">
+    <a href="{% url 'dashboard' %}" 
+       style="display:inline-block; padding:8px 16px; margin:4px;
+              background-color:#4CAF50; color:white; text-decoration:none;
+              border-radius:5px; font-weight:bold;">
+       Dashboard
+    </a>
+  </li>
+  <li class="nav-item">
+    <a href="{% url 'logout' %}" 
+       style="display:inline-block; padding:8px 16px; margin:4px;
+              background-color:#f44336; color:white; text-decoration:none;
+              border-radius:5px; font-weight:bold;">
+       Logout
+    </a>
+  </li>
+{% else %}
+
       <!-- <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li> -->
      <!-- <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}">Logout</a></li> -->
         {% endif %}
