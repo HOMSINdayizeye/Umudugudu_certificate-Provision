@@ -1,3 +1,4 @@
+from urllib import request
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login, logout
 from django.contrib import messages
@@ -6,6 +7,12 @@ from .forms import SignUpForm, CertificateRequestForm, StolenLaptopCertificateFo
 from .models import EligiblePerson, CertificateRequest, CustomUser, LocationImport, Location, StolenLaptopCertificate
 from django.http import HttpResponseForbidden, HttpResponseBadRequest, JsonResponse
 from django.conf import settings
+from django.http import HttpResponse
+from docx import Document
+import io
+import datetime 
+import os
+
 
 
 def index(request):
@@ -329,3 +336,108 @@ def display_user_info(firstname, lastname):
     print(f"FIRSTNAME: {firstname}, LASTNAME: {lastname}")
     print(welcome_message)
     print(f"Initials in circle: ({initials})")
+    #cerificate function from templates /////////////////
+def certificate_request_view(request):
+    if request.method == "POST":
+        template_path = os.path.join(
+            settings.BASE_DIR, "certificates", "templates_docs", "conduct_template.docx"
+        )
+        doc = Document(template_path)
+
+        # Collect form data safely
+        name = request.POST.get("name", "")
+        nid = request.POST.get("nid", "")
+        village = request.POST.get("village_name", "")
+        father = request.POST.get("father_name", "")
+        mother = request.POST.get("mother_name", "")
+        province = request.POST.get("province_name", "")
+        district = request.POST.get("district_name", "")
+        sector = request.POST.get("sector_name", "")
+        cell = request.POST.get("cell_name", "")
+        dob = request.POST.get("dob", "")
+        district_issue = request.POST.get("district_of_issue", "")
+        sector_issue = request.POST.get("id_issue_sector", "")
+        date = request.POST.get("date", "")
+        leader = request.POST.get("leader_name", "")
+
+        replacements = {
+            "{{name}}": str(name),
+            "{{nid}}": str(nid),
+            "{{village_name}}": str(village),
+            "{{father_name}}": str(father),
+            "{{mother_name}}": str(mother),
+            "{{province_name}}": str(province),
+            "{{district_name}}": str(district),
+            "{{sector_name}}": str(sector),
+            "{{cell_name}}": str(cell),
+            "{{dob}}": str(dob),
+            "{{district_of_issue}}": str(district_issue),
+            "{{id_issue_sector}}": str(sector_issue),
+            "{{date}}": str(date),
+            "{{leader_name}}": str(leader),
+        }
+
+        # Replace placeholders in runs
+        for p in doc.paragraphs:
+            for run in p.runs:
+                for key, val in replacements.items():
+                    if key in run.text:
+                        run.text = run.text.replace(key, val)
+
+        # Save to memory and return
+        output_stream = io.BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+
+        response = HttpResponse(
+            output_stream.read(),
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        response['Content-Disposition'] = 'attachment; filename=conduct_certificate.docx'
+        return response
+
+    return render(request, "certificate_request.html")
+#generating certificate////////////////////////////
+@login_required
+def generate_certificate(request, pk):
+    # Only allow POST
+    if request.method == "POST":
+        cert = get_object_or_404(CertificateRequest, pk=pk)
+
+        # Optionally mark as approved
+        cert.status = "approved"
+        cert.save()
+
+        # Load template
+        template_path = os.path.join(
+            settings.BASE_DIR, "certificates", "templates_docs", "conduct_template.docx"
+        )
+        doc = Document(template_path)
+
+        # Replace placeholders with model fields
+        replacements = {
+            "{{name}}": str(cert.name),
+            "{{nid}}": str(cert.nid),
+            "{{village_name}}": str(cert.village_name),
+            # add other fields from your model here
+        }
+
+        for p in doc.paragraphs:
+            for run in p.runs:
+                for key, val in replacements.items():
+                    if key in run.text:
+                        run.text = run.text.replace(key, val)
+
+        # Return as download
+        output_stream = io.BytesIO()
+        doc.save(output_stream)
+        output_stream.seek(0)
+
+        response = HttpResponse(
+            output_stream.read(),
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        response['Content-Disposition'] = 'attachment; filename=certificate.docx'
+        return response
+
+    return HttpResponse("Invalid request", status=400)

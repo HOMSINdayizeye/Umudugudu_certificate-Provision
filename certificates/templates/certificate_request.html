@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="rw">
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Conduct Certificate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f9f9f9;
+            margin: 40px;
+        }
+        h1 {
+            color: #003366;
+            text-align: center;
+        }
+        form {
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #fff;
+            width: 500px;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background: #003366;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0055aa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Conduct Certificate Request</h1>
+
+    <form method="POST" action="{% url 'generate_certificate' %}">
+        {% csrf_token %}
+
+        <label for="name">Requester Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="nid">National ID:</label>
+        <input type="text" id="nid" name="nid" required>
+
+        <label for="village_name">Village:</label>
+        <input type="text" id="village_name" name="village_name" required>
+
+        <label for="father_name">Father's Name:</label>
+        <input type="text" id="father_name" name="father_name" required>
+
+        <label for="mother_name">Mother's Name:</label>
+        <input type="text" id="mother_name" name="mother_name" required>
+
+        <label for="province_name">Province:</label>
+        <input type="text" id="province_name" name="province_name" required>
+
+        <label for="district_name">District:</label>
+        <input type="text" id="district_name" name="district_name" required>
+
+        <label for="sector_name">Sector:</label>
+        <input type="text" id="sector_name" name="sector_name" required>
+
+        <label for="cell_name">Cell:</label>
+        <input type="text" id="cell_name" name="cell_name" required>
+
+        <label for="dob">Date of Birth:</label>
+        <input type="text" id="dob" name="dob" placeholder="DD/MM/YYYY" required>
+
+        <label for="district_of_issue">District of ID Issue:</label>
+        <input type="text" id="district_of_issue" name="district_of_issue" required>
+
+        <label for="id_issue_sector">Sector of ID Issue:</label>
+        <input type="text" id="id_issue_sector" name="id_issue_sector" required>
+
+        <label for="date">Certificate Date:</label>
+        <input type="text" id="date" name="date" placeholder="DD/MM/YYYY" required>
+
+        <label for="leader_name">Leader's Name:</label>
+        <input type="text" id="leader_name" name="leader_name" required>
+
+        <button type="submit" name="type" value="conduct">Generate Conduct Certificate</button>
+    </form>
+</body>
+</html>

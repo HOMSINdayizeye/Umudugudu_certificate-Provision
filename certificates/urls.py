@@ -29,4 +29,8 @@ urlpatterns = [
     path('api/get-cells/', views.get_cells, name='get_cells'),
     path('api/get-villages/', views.get_villages, name='get_villages'),
     path('api/get-location-code/', views.get_location_code, name='get_location_code'),
+    # Certificate generation
+    path("certificate_request/", views.certificate_request_view, name="certificate_request"),
+
+     path("generate_certificate/<int:pk>/", views.generate_certificate, name="generate_certificate"),
 ]
