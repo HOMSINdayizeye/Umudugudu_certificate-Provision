@@ -6,82 +6,129 @@
   Welcome back, {{ request.user.first_name }}
 </div>
 
-<!-- styles and script unchanged -->
+
+<style>
+  .circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #4CAF50; /* green circle */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    position: absolute;
+    top: 50px;
+    left: 10px;   /*  moved to left side */
+    transform: rotate(0deg);
+  }
+
+  .hover-box {
+    display: none;
+    position: absolute;
+    top: 90px;    /*  directly below the circle */
+    left: 20px;   /*  aligned with circle on left */
+    background: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+
+  /* Show hover-box when hovering over circle */
+  .circle:hover + .hover-box {
+    display: block;
+  }
+</style>
+
+<script>
+  const user = {
+    firstname: "{{ request.user.first_name|escapejs }}",
+    lastname: "{{ request.user.last_name|escapejs }}"
+  };
+
+  const initials =
+    (user.firstname?.charAt(0).toUpperCase() || "") +
+    (user.lastname?.charAt(0).toUpperCase() || "");
+
+  // Put initials inside green circle
+  document.getElementById("userCircle").textContent = initials;
+
+  // Show full name in hover box
+  document.getElementById("hoverName").textContent =
+    `${user.firstname} ${user.lastname}`;
+</script>
 
 <div class="container mt-4">
   <h2 class="mb-4 text-center">Your Requests</h2>
 
   <div class="card shadow-sm my-3" style="max-width: 800px; margin: auto;">
-    <div class="card-header bg-primary text-white">
-      <h6 class="mb-0">Certificate Requests</h6>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle mb-0">
-          <thead class="table-light">
+  <div class="card-header bg-primary text-white">
+    <h6 class="mb-0">Certificate Requests</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          
+          <tr>
+            <th>Type</th>
+            <th>Created</th>
+            <th>Eligible</th>
+            <th>Status</th>
+            <th>Action</th>
+            <th>Generate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
             <tr>
-              <th>Type</th>
-              <th>Created</th>
-              <th>Eligible</th>
-              <th>Status</th>
-              <th>Action</th>
+              <td>{{ r.get_cert_type_display }}</td>
+              <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{% if r.eligible %}Yes{% else %}No{% endif %}</td>
+              <td>Generate</td>
+              <td>
+                <span class="badge 
+                  {% if r.get_status_display == 'Approved' %} bg-success 
+                  {% elif r.get_status_display == 'Denied' %} bg-danger 
+                  {% else %} bg-secondary {% endif %}">
+                  {{ r.get_status_display }}
+                </span>
+              </td>
+              <td class="d-flex flex-wrap gap-1">
+                <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+                {% if is_admin %}
+                  <a href="{% url 'update_request_status' r.pk 'approve' %}" class="btn btn-sm btn-success">Approve</a>
+                  <a href="{% url 'update_request_status' r.pk 'deny' %}" class="btn btn-sm btn-danger">Deny</a>
+                 
+                {% endif %}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {% for r in requests %}
+            {% if r.admin_message %}
               <tr>
-                <td>{{ r.get_cert_type_display }}</td>
-                <td>{{ r.created_at|date:"Y-m-d H:i" }}</td>
-                <td>{% if r.eligible %}Yes{% else %}No{% endif %}</td>
-                <td>
-                  <span class="badge 
-                    {% if r.get_status_display == 'Approved' %} bg-success 
-                    {% elif r.get_status_display == 'Denied' %} bg-danger 
-                    {% else %} bg-secondary {% endif %}">
-                    {{ r.get_status_display }}
-                  </span>
-                </td>
-<td class="d-flex flex-wrap gap-1">
-  <!-- View button -->
-  <a href="{% url 'request_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
-
-  {% if is_admin %}
-    <!-- Approve button -->
-    <a href="{% url 'update_request_status' r.pk 'approve' %}" class="btn btn-sm btn-success">Approve</a>
-
-    <!-- Deny button -->
-    <a href="{% url 'update_request_status' r.pk 'deny' %}" class="btn btn-sm btn-danger">Deny</a>
-
-    <!-- Approve & Generate button -->
-    <form method="POST" action="{% url 'generate_certificate' r.pk %}" style="display:inline;">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-primary">Approve & Generate Certificate</button>
-    </form>
-  {% endif %}
-</td>
-              </tr>
-              {% if r.admin_message %}
-                <tr>
-                  <td colspan="5">
-                    <div class="mb-2">
-                      <label for="admin_message_{{ r.pk }}" class="form-label"><strong>Admin Message:</strong></label>
-                      <textarea id="admin_message_{{ r.pk }}" class="form-control form-control-sm" rows="2" readonly>{{ r.admin_message }}</textarea>
-                    </div>
-                  </td>
-                </tr>
-              {% endif %}
-            {% empty %}
-              <tr>
-                <td colspan="5" class="text-center p-3">
-                  No requests yet. <a href="{% url 'choose_certificate' %}">Create one</a>.
+                <td colspan="5">
+                  <div class="mb-2">
+                    <label for="admin_message_{{ r.pk }}" class="form-label"><strong>Admin Message:</strong></label>
+                    <textarea id="admin_message_{{ r.pk }}" class="form-control form-control-sm" rows="2" readonly>{{ r.admin_message }}</textarea>
+                  </div>
                 </td>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+            {% endif %}
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center p-3">
+                No requests yet. <a href="{% url 'choose_certificate' %}">Create one</a>.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
+</div>
+
 
   {% if not request.user.is_superuser %}
     <div class="text-center mb-3">
