@@ -324,7 +324,7 @@ def report_stolen_laptop(request):
         'form_title': 'Report Stolen Laptop',
         'submit_label': 'Submit Report',
     })
-# function to display initials
+# function to display initialsgit
 def display_user_info(firstname, lastname):
     # Get initials
     initials = firstname[0].upper() + lastname[0].upper()
