@@ -158,3 +158,20 @@ body {
 
 .filter-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .filter-row .form-group { min-width: 140px; margin-bottom: 0; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; gap: 0.35rem; margin-top: 1rem; flex-wrap: wrap; }
+.page-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.page-btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.page-info { margin-left: 0.5rem; font-size: 0.88rem; }

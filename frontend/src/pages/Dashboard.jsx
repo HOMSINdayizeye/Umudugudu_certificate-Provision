@@ -19,10 +19,13 @@ export function canActOn(user, request) {
 
 const LEADER_ROLES = Object.keys(ACTIONABLE_STATUS)
 
+const PAGE_SIZE = 5
+
 export default function Dashboard({ user }) {
   const [requests, setRequests] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   const isLeader = LEADER_ROLES.includes(user?.role)
   const isAdmin = user?.is_admin_role || user?.is_superuser
@@ -55,6 +58,10 @@ export default function Dashboard({ user }) {
       ? `Requests in your ${user.role.replace('_leader', '')}`
       : 'My Certificate Requests'
 
+  const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageRequests = requests.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
   return (
     <div>
       <div className="page-head">
@@ -83,7 +90,7 @@ export default function Dashboard({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {requests.map((r) => (
+                {pageRequests.map((r) => (
                   <tr key={r.id}>
                     <td>{r.id}</td>
                     {(isAdmin || isLeader) && (
@@ -105,6 +112,37 @@ export default function Dashboard({ user }) {
                 ))}
               </tbody>
             </table>
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  ‹ Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    className={n === currentPage ? 'page-btn page-btn-active' : 'page-btn'}
+                    onClick={() => setPage(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  className="page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  Next ›
+                </button>
+                <span className="muted page-info">
+                  Page {currentPage} of {totalPages} — {requests.length} request(s)
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
