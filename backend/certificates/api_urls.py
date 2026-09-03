@@ -20,7 +20,9 @@ urlpatterns = [
 
     # Citizens & service payments
     path('citizens/', api.citizen_list, name='api_citizen_list'),
+    path('citizens/<int:pk>/', api.citizen_detail, name='api_citizen_detail'),
     path('payments/', api.payment_list, name='api_payment_list'),
+    path('payments/<int:pk>/', api.payment_detail, name='api_payment_detail'),
 
     # Locations
     path('locations/provinces/', api.provinces, name='api_provinces'),

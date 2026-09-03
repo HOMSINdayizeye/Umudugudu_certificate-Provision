@@ -128,6 +128,24 @@ class Location(models.Model):
         return f"{self.province} > {self.district} > {self.sector} > {self.cell} > {self.village}"
     from django.db import models
 
+class Citizen(models.Model):
+    """Citizen registry record maintained by the isibo leader (not a login account)."""
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    email = models.EmailField(blank=True, default='')
+    phone = models.CharField(max_length=20, blank=True, default='')
+    national_id = models.CharField(max_length=16)
+    age = models.PositiveIntegerField()
+    village = models.IntegerField()
+    isibo = models.CharField(max_length=100, blank=True, default='')
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                 null=True, related_name='citizens_added')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.national_id})"
+
+
 class ServicePayment(models.Model):
     SERVICE_CHOICES = [
         ('cleaning', 'Cleaning Service'),
@@ -135,7 +153,7 @@ class ServicePayment(models.Model):
     ]
     TRIMESTER_CHOICES = [(1, 'Trimester 1'), (2, 'Trimester 2'), (3, 'Trimester 3')]
 
-    citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='service_payments')
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name='payments')
     service = models.CharField(max_length=20, choices=SERVICE_CHOICES)
     trimester = models.IntegerField(choices=TRIMESTER_CHOICES)
     year = models.IntegerField()

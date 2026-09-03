@@ -82,8 +82,11 @@ export const api = {
     request(`/users/${id}/eligibility/`, { method: 'POST', body: { is_eligible: isEligible } }),
 
   listCitizens: (params = {}) => request(`/citizens/?${new URLSearchParams(params)}`),
+  addCitizen: (payload) => request('/citizens/', { method: 'POST', body: payload }),
+  updateCitizen: (id, payload) => request(`/citizens/${id}/`, { method: 'PATCH', body: payload }),
   listPayments: (params = {}) => request(`/payments/?${new URLSearchParams(params)}`),
   recordPayment: (payload) => request('/payments/', { method: 'POST', body: payload }),
+  unmarkPayment: (id) => request(`/payments/${id}/`, { method: 'DELETE' }),
 
   provinces: () => request('/locations/provinces/'),
   districts: (province) => request(`/locations/districts/?province=${province}`),

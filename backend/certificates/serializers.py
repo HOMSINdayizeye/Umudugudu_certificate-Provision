@@ -2,7 +2,10 @@ import re
 
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport, ServicePayment
+from .models import (
+    CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
+    ServicePayment, Citizen,
+)
 
 
 def validate_strong_password(value):
@@ -110,14 +113,21 @@ class LoginSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     is_admin_role = serializers.BooleanField(read_only=True)
+    village_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'is_eligible', 'is_superuser',
             'role', 'role_display', 'is_admin_role',
-            'province', 'district', 'sector', 'cell', 'village', 'isibo',
+            'province', 'district', 'sector', 'cell', 'village', 'village_name', 'isibo',
         ]
+
+    def get_village_name(self, obj):
+        if not obj.village:
+            return ''
+        loc = LocationImport.objects.filter(location_id=obj.village).first()
+        return loc.name if loc else ''
 
 
 class StolenLaptopCertificateSerializer(serializers.ModelSerializer):
@@ -147,6 +157,45 @@ class LocationImportSerializer(serializers.ModelSerializer):
         fields = ['location_id', 'name', 'type']
 
 
+class CitizenSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    village_name = serializers.SerializerMethodField()
+    added_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Citizen
+        fields = [
+            'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'national_id',
+            'age', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
+        ]
+        read_only_fields = ['village', 'created_at']
+
+    def get_name(self, obj):
+        return f'{obj.first_name} {obj.last_name}'.strip()
+
+    def get_village_name(self, obj):
+        loc = LocationImport.objects.filter(location_id=obj.village).first()
+        return loc.name if loc else ''
+
+    def get_added_by_name(self, obj):
+        if not obj.added_by:
+            return ''
+        return f'{obj.added_by.first_name} {obj.added_by.last_name}'.strip() or obj.added_by.username
+
+    def validate_national_id(self, value):
+        qs = Citizen.objects.filter(national_id=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('A citizen with this ID number is already registered.')
+        return value
+
+    def validate_age(self, value):
+        if value < 1 or value > 130:
+            raise serializers.ValidationError('Enter a valid age.')
+        return value
+
+
 class ServicePaymentSerializer(serializers.ModelSerializer):
     citizen_name = serializers.SerializerMethodField()
     citizen_isibo = serializers.CharField(source='citizen.isibo', read_only=True)
@@ -162,7 +211,7 @@ class ServicePaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ['paid_at']
 
     def get_citizen_name(self, obj):
-        return f'{obj.citizen.first_name} {obj.citizen.last_name}'.strip() or obj.citizen.username
+        return f'{obj.citizen.first_name} {obj.citizen.last_name}'.strip()
 
     def get_recorded_by_name(self, obj):
         if not obj.recorded_by:

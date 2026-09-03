@@ -9,6 +9,7 @@ import RequestDetail from './pages/RequestDetail.jsx'
 import ManageEligibility from './pages/ManageEligibility.jsx'
 import Payments from './pages/Payments.jsx'
 import AddUser from './pages/AddUser.jsx'
+import Citizens from './pages/Citizens.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
 const VOLUNTEER_ROLES = ['security_volunteer', 'cleaning_volunteer']
@@ -56,6 +57,7 @@ export default function App() {
               <Link to="/">Dashboard</Link>
               <Link to="/submit">New Request</Link>
               {seesPayments && <Link to="/payments">Payments</Link>}
+              {(isAdmin || user.role === 'isibo_leader') && <Link to="/citizens">Citizens</Link>}
               {isAdmin && <Link to="/add-user">Add User</Link>}
               {isAdmin && <Link to="/eligibility">Eligibility</Link>}
               <span className="user-chip">
@@ -81,6 +83,7 @@ export default function App() {
           <Route path="/submit" element={<RequireAuth><SubmitRequest /></RequireAuth>} />
           <Route path="/requests/:id" element={<RequireAuth><RequestDetail user={user} /></RequireAuth>} />
           <Route path="/payments" element={<RequireAuth><Payments user={user} /></RequireAuth>} />
+          <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

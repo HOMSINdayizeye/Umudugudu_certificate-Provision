@@ -159,6 +159,38 @@ body {
 .filter-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .filter-row .form-group { min-width: 140px; margin-bottom: 0; }
 
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+.modal {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.modal h2 { margin-top: 0; }
+
+.row-clickable { cursor: pointer; }
+
+.btn-outline-dark {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-outline-dark:hover { background: #f0f2f1; }
+
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 0.35rem; margin-top: 1rem; flex-wrap: wrap; }
 .page-btn {
