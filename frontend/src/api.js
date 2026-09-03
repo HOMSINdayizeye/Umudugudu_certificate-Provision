@@ -77,8 +77,13 @@ export const api = {
   downloadCertificate: (id) => request(`/requests/${id}/certificate/download/`, { blob: true }),
 
   listUsers: () => request('/users/'),
+  createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
   setEligibility: (id, isEligible) =>
     request(`/users/${id}/eligibility/`, { method: 'POST', body: { is_eligible: isEligible } }),
+
+  listCitizens: (params = {}) => request(`/citizens/?${new URLSearchParams(params)}`),
+  listPayments: (params = {}) => request(`/payments/?${new URLSearchParams(params)}`),
+  recordPayment: (payload) => request('/payments/', { method: 'POST', body: payload }),
 
   provinces: () => request('/locations/provinces/'),
   districts: (province) => request(`/locations/districts/?province=${province}`),

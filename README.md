@@ -38,6 +38,22 @@ npm run dev
 
 The Vite dev server proxies `/api` requests to the Django backend, so both must be running.
 
+## User roles & approval workflow
+
+Public registration always creates a **citizen** (with their village and optional isibo). The **system admin** creates all other users from the "Add User" page: isibo leader, village leader, cell leader, sector leader, security volunteer, cleaning service volunteer, or another system admin.
+
+Certificate requests move through a three-stage approval chain, each leader only seeing requests inside their own jurisdiction (matched by hierarchical location codes):
+
+```
+pending → (village leader approves) → village_approved
+        → (cell leader approves)    → cell_approved
+        → (sector leader approves)  → approved  → certificate downloadable
+```
+
+Any leader in the chain can deny; the system admin can approve/deny directly.
+
+**Service payments**: cleaning and security volunteers see the citizens of their village and mark trimester payments (RWF) for their own service — single trimester or the whole year at once. Village/cell/sector leaders see payment records within their village/cell/sector (read-only), filterable by service, trimester, year, this month, last month, or all time.
+
 ## API overview
 
 All endpoints are under `/api/` and use token auth (`Authorization: Token <key>`).

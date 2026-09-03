@@ -7,20 +7,54 @@ from django.db.models import TextField
 from django.db.models.functions import Cast, Length
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from docx import Document
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport
+from .models import CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport, ServicePayment
 from .serializers import (
-    RegisterSerializer, LoginSerializer, UserSerializer,
+    RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, StolenLaptopCertificateSerializer,
-    LocationImportSerializer,
+    LocationImportSerializer, ServicePaymentSerializer,
 )
+
+LEADER_STAGE = {
+    # role -> (status it can act on, status approval moves the request to)
+    'village_leader': ('pending', 'village_approved'),
+    'cell_leader': ('village_approved', 'cell_approved'),
+    'sector_leader': ('cell_approved', 'approved'),
+}
+
+VOLUNTEER_SERVICE = {
+    'cleaning_volunteer': 'cleaning',
+    'security_volunteer': 'security',
+}
+
+
+def is_admin(user):
+    return user.is_superuser or user.role == 'system_admin'
+
+
+def request_location_code(req):
+    # Most specific location on the request, falling back to the requester's village
+    return (req.location_code or req.village or req.cell or req.sector
+            or req.district or req.province or req.user.village)
+
+
+def in_scope(code, scope_code):
+    if code is None or scope_code is None:
+        return False
+    return str(code).startswith(str(scope_code))
+
+
+def scope_queryset_by_village_prefix(qs, field, scope_code):
+    # Match hierarchical location ids by string prefix (e.g. village 101010101 is in cell 101010)
+    return qs.annotate(_loc=Cast(field, TextField())).filter(_loc__startswith=str(scope_code))
 
 
 # ---------- Auth ----------
@@ -60,16 +94,24 @@ def me(request):
 
 @api_view(['GET', 'POST'])
 def request_list(request):
+    user = request.user
+
     if request.method == 'GET':
-        if request.user.is_superuser:
-            qs = CertificateRequest.objects.all().order_by('-created_at')
+        if is_admin(user):
+            qs = CertificateRequest.objects.all()
+        elif user.role in LEADER_STAGE and user.scope_code:
+            # Leaders see every request in their jurisdiction, plus their own
+            scoped = [r.pk for r in CertificateRequest.objects.select_related('user')
+                      if in_scope(request_location_code(r), user.scope_code)]
+            qs = CertificateRequest.objects.filter(pk__in=scoped) | CertificateRequest.objects.filter(user=user)
         else:
-            qs = CertificateRequest.objects.filter(user=request.user).order_by('-created_at')
+            qs = CertificateRequest.objects.filter(user=user)
+        qs = qs.select_related('user').order_by('-created_at')
         return Response(CertificateRequestSerializer(qs, many=True).data)
 
     serializer = CertificateRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    cert_request = serializer.save(user=request.user, status='pending', email=request.user.email or 'unknown@example.com')
+    cert_request = serializer.save(user=user, status='pending', email=user.email or 'unknown@example.com')
 
     # Stolen computer requests carry extra device details
     if cert_request.cert_type == 'stolen_computer' and request.data.get('stolen_device'):
@@ -85,37 +127,72 @@ def request_list(request):
 
 @api_view(['GET'])
 def request_detail(request, pk):
-    if request.user.is_superuser:
-        req = get_object_or_404(CertificateRequest, pk=pk)
-    else:
-        req = get_object_or_404(CertificateRequest, pk=pk, user=request.user)
+    user = request.user
+    req = get_object_or_404(CertificateRequest, pk=pk)
+    allowed = (
+        is_admin(user)
+        or req.user_id == user.id
+        or (user.role in LEADER_STAGE and in_scope(request_location_code(req), user.scope_code))
+    )
+    if not allowed:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
     return Response(CertificateRequestSerializer(req).data)
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
 def update_request_status(request, pk, action):
+    user = request.user
     req = get_object_or_404(CertificateRequest, pk=pk)
-    if action == 'approve':
-        req.status = 'approved'
-        req.admin_message = 'Your request has been approved.'
-    elif action == 'deny':
-        req.status = 'denied'
-        req.admin_message = 'Your request has been denied.'
-    else:
+
+    if action not in ('approve', 'deny'):
         return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if is_admin(user):
+        if action == 'approve':
+            req.status = 'approved'
+            req.admin_message = 'Your request has been approved.'
+        else:
+            req.status = 'denied'
+            req.admin_message = 'Your request has been denied.'
+        req.save()
+        return Response(CertificateRequestSerializer(req).data)
+
+    stage = LEADER_STAGE.get(user.role)
+    if not stage:
+        return Response({'detail': 'You are not allowed to approve requests.'}, status=status.HTTP_403_FORBIDDEN)
+    if not in_scope(request_location_code(req), user.scope_code):
+        return Response({'detail': 'This request is outside your jurisdiction.'}, status=status.HTTP_403_FORBIDDEN)
+
+    actionable_status, next_status = stage
+    if req.status != actionable_status:
+        return Response(
+            {'detail': f'This request is not awaiting your approval (current status: {req.get_status_display()}).'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    role_label = user.get_role_display()
+    if action == 'approve':
+        req.status = next_status
+        if next_status == 'approved':
+            req.admin_message = 'Your request has been fully approved.'
+        else:
+            req.admin_message = f'Approved by {role_label}. Awaiting next level approval.'
+    else:
+        req.status = 'denied'
+        req.admin_message = f'Your request has been denied by the {role_label}.'
     req.save()
     return Response(CertificateRequestSerializer(req).data)
 
 
 @api_view(['GET'])
 def download_certificate(request, pk):
-    if request.user.is_superuser:
+    user = request.user
+    if is_admin(user):
         req = get_object_or_404(CertificateRequest, pk=pk)
     else:
-        req = get_object_or_404(CertificateRequest, pk=pk, user=request.user)
+        req = get_object_or_404(CertificateRequest, pk=pk, user=user)
     if req.status != 'approved':
-        return Response({'detail': 'Certificate is only available once the request is approved.'},
+        return Response({'detail': 'Certificate is only available once the request is fully approved.'},
                         status=status.HTTP_403_FORBIDDEN)
 
     template_path = os.path.join(settings.BASE_DIR, 'certificates', 'templates_docs', 'conduct_template.docx')
@@ -154,22 +231,158 @@ def download_certificate(request, pk):
     return response
 
 
-# ---------- Admin: eligibility ----------
+# ---------- Users (system admin) ----------
 
-@api_view(['GET'])
-@permission_classes([IsAdminUser])
+@api_view(['GET', 'POST'])
 def user_list(request):
-    users = CustomUser.objects.all().order_by('username')
-    return Response(UserSerializer(users, many=True).data)
+    if not is_admin(request.user):
+        return Response({'detail': 'Only the system admin can manage users.'}, status=status.HTTP_403_FORBIDDEN)
+
+    if request.method == 'GET':
+        users = CustomUser.objects.all().order_by('username')
+        return Response(UserSerializer(users, many=True).data)
+
+    serializer = AdminCreateUserSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+    return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
 def set_eligibility(request, pk):
+    if not is_admin(request.user):
+        return Response({'detail': 'Only the system admin can manage users.'}, status=status.HTTP_403_FORBIDDEN)
     user = get_object_or_404(CustomUser, pk=pk)
     user.is_eligible = bool(request.data.get('is_eligible'))
     user.save()
     return Response(UserSerializer(user).data)
+
+
+# ---------- Citizens & service payments ----------
+
+def payment_scope(user):
+    """Return (allowed, service_lock, scope_code). service_lock limits a volunteer to their own service."""
+    if is_admin(user):
+        return True, None, None
+    if user.role in VOLUNTEER_SERVICE:
+        return True, VOLUNTEER_SERVICE[user.role], user.village
+    if user.role in ('village_leader', 'cell_leader', 'sector_leader'):
+        return True, None, user.scope_code
+    return False, None, None
+
+
+@api_view(['GET'])
+def citizen_list(request):
+    """Citizens in the caller's jurisdiction, with payment status for a service/year."""
+    user = request.user
+    allowed, service_lock, scope_code = payment_scope(user)
+    if not allowed:
+        return Response({'detail': 'You are not allowed to view citizens.'}, status=status.HTTP_403_FORBIDDEN)
+
+    service = service_lock or request.GET.get('service', 'cleaning')
+    try:
+        year = int(request.GET.get('year', timezone.now().year))
+    except ValueError:
+        year = timezone.now().year
+
+    qs = CustomUser.objects.filter(village__isnull=False)
+    if scope_code is not None:
+        qs = scope_queryset_by_village_prefix(qs, 'village', scope_code)
+    qs = qs.order_by('first_name', 'last_name')
+
+    payments = ServicePayment.objects.filter(service=service, year=year, citizen__in=qs)
+    paid_map = {}
+    for p in payments:
+        paid_map.setdefault(p.citizen_id, {})[p.trimester] = str(p.amount)
+
+    data = []
+    for c in qs:
+        village = LocationImport.objects.filter(location_id=c.village).first()
+        data.append({
+            'id': c.id,
+            'name': f'{c.first_name} {c.last_name}'.strip() or c.username,
+            'email': c.email,
+            'isibo': c.isibo,
+            'village': c.village,
+            'village_name': village.name if village else '',
+            'role': c.role,
+            'paid': paid_map.get(c.id, {}),
+        })
+    return Response({'service': service, 'year': year, 'citizens': data})
+
+
+@api_view(['GET', 'POST'])
+def payment_list(request):
+    user = request.user
+    allowed, service_lock, scope_code = payment_scope(user)
+
+    if request.method == 'POST':
+        # Only volunteers (their own service) and admins can record payments
+        if not (is_admin(user) or user.role in VOLUNTEER_SERVICE):
+            return Response({'detail': 'Only service volunteers can record payments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        service = service_lock or request.data.get('service')
+        if service not in ('cleaning', 'security'):
+            return Response({'service': 'Choose cleaning or security.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        citizen = get_object_or_404(CustomUser, pk=request.data.get('citizen'))
+        if scope_code is not None and not in_scope(citizen.village, scope_code):
+            return Response({'detail': 'This citizen is not in your village.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            year = int(request.data.get('year'))
+            amount = request.data.get('amount')
+            trimesters = request.data.get('trimesters') or [int(request.data.get('trimester'))]
+            trimesters = [int(t) for t in trimesters]
+        except (TypeError, ValueError):
+            return Response({'detail': 'year, amount and trimester(s) are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if any(t not in (1, 2, 3) for t in trimesters):
+            return Response({'detail': 'Trimester must be 1, 2 or 3.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        skipped = []
+        for t in trimesters:
+            payment, was_created = ServicePayment.objects.get_or_create(
+                citizen=citizen, service=service, trimester=t, year=year,
+                defaults={'amount': amount, 'recorded_by': user},
+            )
+            (created if was_created else skipped).append(t)
+
+        return Response({
+            'created_trimesters': created,
+            'already_paid_trimesters': skipped,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    # GET — list payments with filters
+    if not allowed:
+        qs = ServicePayment.objects.filter(citizen=user)  # citizens can see their own payments
+    else:
+        qs = ServicePayment.objects.all()
+        if scope_code is not None:
+            qs = scope_queryset_by_village_prefix(qs, 'citizen__village', scope_code)
+
+    service = service_lock or request.GET.get('service')
+    if service in ('cleaning', 'security'):
+        qs = qs.filter(service=service)
+
+    trimester = request.GET.get('trimester')
+    if trimester in ('1', '2', '3'):
+        qs = qs.filter(trimester=int(trimester))
+
+    year = request.GET.get('year')
+    if year and year.isdigit():
+        qs = qs.filter(year=int(year))
+
+    period = request.GET.get('period')  # this_month | last_month | all
+    now = timezone.now()
+    if period == 'this_month':
+        qs = qs.filter(paid_at__year=now.year, paid_at__month=now.month)
+    elif period == 'last_month':
+        last = (now.replace(day=1) - datetime.timedelta(days=1))
+        qs = qs.filter(paid_at__year=last.year, paid_at__month=last.month)
+
+    qs = qs.select_related('citizen', 'recorded_by').order_by('-paid_at')
+    return Response(ServicePaymentSerializer(qs, many=True).data)
 
 
 # ---------- Locations (hierarchical filtering) ----------

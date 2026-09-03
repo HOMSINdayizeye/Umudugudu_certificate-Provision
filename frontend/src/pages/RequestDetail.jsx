@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../api.js'
+import { canActOn } from './Dashboard.jsx'
 
 export default function RequestDetail({ user }) {
   const { id } = useParams()
@@ -67,7 +68,7 @@ export default function RequestDetail({ user }) {
           {req.status === 'approved' && (
             <button className="btn" onClick={download}>Download Certificate (.docx)</button>
           )}
-          {user?.is_superuser && req.status === 'pending' && (
+          {canActOn(user, req) && (
             <>
               <button className="btn" onClick={() => act('approve')}>Approve</button>
               <button className="btn btn-danger" onClick={() => act('deny')}>Deny</button>

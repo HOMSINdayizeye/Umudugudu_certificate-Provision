@@ -102,6 +102,8 @@ body {
 
 .badge { padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
 .badge-pending { background: #fff4d6; color: #8a6100; }
+.badge-village_approved { background: #e3edf9; color: #1b4f8a; }
+.badge-cell_approved { background: #e9e3f9; color: #4a2f8a; }
 .badge-approved { background: #e8f5ee; color: var(--primary-dark); }
 .badge-denied { background: #fdecea; color: var(--danger); }
 
@@ -117,3 +119,42 @@ body {
 
 .checkbox-row { display: flex; align-items: center; gap: 0.5rem; }
 .checkbox-row input { width: auto; }
+
+.register-card { max-width: 640px; margin: 1.5rem auto; }
+.user-chip em { font-style: normal; opacity: 0.8; font-size: 0.82rem; }
+
+/* Password strength meter */
+.strength-bar { height: 6px; background: var(--border); border-radius: 999px; margin-top: 0.5rem; overflow: hidden; }
+.strength-fill { height: 100%; border-radius: 999px; transition: width 0.2s; }
+.strength-weak { background: var(--danger); }
+.strength-medium { background: var(--accent); }
+.strength-strong { background: var(--primary); }
+.strength-label { font-size: 0.82rem; font-weight: 600; margin-top: 0.25rem; }
+.strength-text-weak { color: var(--danger); }
+.strength-text-medium { color: #8a6100; }
+.strength-text-strong { color: var(--primary-dark); }
+.password-rules { list-style: none; padding: 0; margin: 0.4rem 0 0; font-size: 0.85rem; }
+.password-rules li { padding: 0.1rem 0; }
+.rule-ok { color: var(--primary-dark); }
+.rule-missing { color: var(--muted); }
+
+.field-hint { font-size: 0.85rem; margin-top: 0.3rem; }
+.field-hint-error { color: var(--danger); }
+.field-hint-ok { color: var(--primary-dark); }
+
+/* Tabs (payments page) */
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab-active { background: var(--card); color: var(--primary); border-bottom: 2px solid var(--primary); }
+
+.filter-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.filter-row .form-group { min-width: 140px; margin-bottom: 0; }

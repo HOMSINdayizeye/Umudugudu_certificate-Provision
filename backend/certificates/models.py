@@ -7,7 +7,42 @@ from django.conf import settings
 
 # Custom user model
 class CustomUser(AbstractUser):
+    ROLE_CHOICES = [
+        ('citizen', 'Citizen'),
+        ('isibo_leader', 'Isibo Leader'),
+        ('village_leader', 'Village Leader'),
+        ('cell_leader', 'Cell Leader'),
+        ('sector_leader', 'Sector Leader'),
+        ('security_volunteer', 'Security Volunteer'),
+        ('cleaning_volunteer', 'Cleaning Service Volunteer'),
+        ('system_admin', 'System Admin'),
+    ]
+
     is_eligible = models.BooleanField(default=False)
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='citizen')
+
+    # Residence / jurisdiction (LocationImport location_id values)
+    province = models.IntegerField(blank=True, null=True)
+    district = models.IntegerField(blank=True, null=True)
+    sector = models.IntegerField(blank=True, null=True)
+    cell = models.IntegerField(blank=True, null=True)
+    village = models.IntegerField(blank=True, null=True)
+    isibo = models.CharField(max_length=100, blank=True, default='')
+
+    @property
+    def is_admin_role(self):
+        return self.is_superuser or self.role == 'system_admin'
+
+    @property
+    def scope_code(self):
+        # Location code this user's authority covers (prefix of child location ids)
+        if self.role == 'sector_leader':
+            return self.sector
+        if self.role == 'cell_leader':
+            return self.cell
+        if self.role in ('village_leader', 'isibo_leader', 'security_volunteer', 'cleaning_volunteer'):
+            return self.village
+        return None
 
 # Profile model linked to custom user
 class UserProfile(models.Model):
@@ -52,7 +87,9 @@ class CertificateRequest(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
+        ('pending', 'Pending Village Approval'),
+        ('village_approved', 'Pending Cell Approval'),
+        ('cell_approved', 'Pending Sector Approval'),
         ('approved', 'Approved'),
         ('denied', 'Denied'),
     ]
@@ -90,6 +127,30 @@ class Location(models.Model):
     def __str__(self):
         return f"{self.province} > {self.district} > {self.sector} > {self.cell} > {self.village}"
     from django.db import models
+
+class ServicePayment(models.Model):
+    SERVICE_CHOICES = [
+        ('cleaning', 'Cleaning Service'),
+        ('security', 'Security Service'),
+    ]
+    TRIMESTER_CHOICES = [(1, 'Trimester 1'), (2, 'Trimester 2'), (3, 'Trimester 3')]
+
+    citizen = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='service_payments')
+    service = models.CharField(max_length=20, choices=SERVICE_CHOICES)
+    trimester = models.IntegerField(choices=TRIMESTER_CHOICES)
+    year = models.IntegerField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    paid_at = models.DateTimeField(auto_now_add=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                    null=True, related_name='recorded_payments')
+
+    class Meta:
+        # One payment per citizen per service per trimester per year
+        unique_together = ('citizen', 'service', 'trimester', 'year')
+
+    def __str__(self):
+        return f"{self.citizen} - {self.service} T{self.trimester}/{self.year} ({self.amount} RWF)"
+
 
 class StolenLaptopCertificate(models.Model):
     registration_number = models.CharField(max_length=50)

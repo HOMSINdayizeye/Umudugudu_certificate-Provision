@@ -18,6 +18,10 @@ urlpatterns = [
     path('users/', api.user_list, name='api_user_list'),
     path('users/<int:pk>/eligibility/', api.set_eligibility, name='api_set_eligibility'),
 
+    # Citizens & service payments
+    path('citizens/', api.citizen_list, name='api_citizen_list'),
+    path('payments/', api.payment_list, name='api_payment_list'),
+
     # Locations
     path('locations/provinces/', api.provinces, name='api_provinces'),
     path('locations/districts/', api.districts, name='api_districts'),
