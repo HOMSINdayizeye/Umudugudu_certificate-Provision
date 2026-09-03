@@ -1,0 +1,119 @@
+* { box-sizing: border-box; }
+
+:root {
+  --primary: #1a6b3c;
+  --primary-dark: #12502c;
+  --accent: #f0b429;
+  --bg: #f4f6f5;
+  --card: #ffffff;
+  --text: #1f2a24;
+  --muted: #6b7a72;
+  --danger: #c0392b;
+  --border: #dde4e0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.brand { color: #fff; text-decoration: none; font-size: 1.3rem; font-weight: 700; }
+.brand span { color: var(--accent); font-weight: 400; font-size: 0.95rem; margin-left: 0.4rem; }
+
+.topbar nav { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.topbar nav a { color: #e8f2ec; text-decoration: none; font-weight: 500; }
+.topbar nav a:hover { color: var(--accent); }
+.user-chip { background: rgba(255,255,255,0.15); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.9rem; }
+
+.content { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.auth-card { max-width: 420px; margin: 3rem auto; }
+.auth-card h1 { margin-top: 0; }
+
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.92rem; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #fff;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+.btn {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 0.55rem 1.2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-outline { background: transparent; border: 1px solid #fff; }
+.btn-outline:hover { background: rgba(255,255,255,0.12); }
+.btn-small { padding: 0.3rem 0.8rem; font-size: 0.88rem; }
+.btn-danger { background: var(--danger); }
+.btn-danger:hover { background: #96281b; }
+
+.alert { padding: 0.7rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.95rem; }
+.alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f5c6c0; }
+.alert-success { background: #e8f5ee; color: var(--primary-dark); border: 1px solid #bfe3cf; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); }
+.table th { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.table tr:hover td { background: #f8faf9; }
+
+.badge { padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
+.badge-pending { background: #fff4d6; color: #8a6100; }
+.badge-approved { background: #e8f5ee; color: var(--primary-dark); }
+.badge-denied { background: #fdecea; color: var(--danger); }
+
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+.page-head h1 { margin: 0; font-size: 1.5rem; }
+
+.muted { color: var(--muted); }
+.detail-grid { display: grid; grid-template-columns: 200px 1fr; row-gap: 0.6rem; }
+.detail-grid dt { font-weight: 600; }
+.detail-grid dd { margin: 0; }
+
+.section-title { font-size: 1.05rem; font-weight: 700; margin: 1.5rem 0 0.75rem; border-bottom: 2px solid var(--primary); padding-bottom: 0.3rem; }
+
+.checkbox-row { display: flex; align-items: center; gap: 0.5rem; }
+.checkbox-row input { width: auto; }

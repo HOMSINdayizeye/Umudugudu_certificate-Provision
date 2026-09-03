@@ -8,6 +8,7 @@ from django.shortcuts import redirect
 urlpatterns = [
     path('', lambda request: redirect('certificates/')),
     path('admin/', admin.site.urls),
+    path('api/', include('certificates.api_urls')),
     path('certificates/', include('certificates.urls')),
     path('choose/', views.choose_certificate, name='choose_certificate'),
 ]
