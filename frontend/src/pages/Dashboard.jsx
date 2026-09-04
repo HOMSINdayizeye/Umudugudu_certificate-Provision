@@ -90,9 +90,9 @@ export default function Dashboard({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {pageRequests.map((r) => (
+                {pageRequests.map((r, idx) => (
                   <tr key={r.id}>
-                    <td>{r.id}</td>
+                    <td>{(currentPage - 1) * PAGE_SIZE + idx + 1}</td>
                     {(isAdmin || isLeader) && (
                       <td>{r.user.first_name} {r.user.last_name} ({r.user.email})</td>
                     )}
