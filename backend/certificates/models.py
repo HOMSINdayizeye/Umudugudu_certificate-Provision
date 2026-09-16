@@ -268,6 +268,12 @@ class Announcement(models.Model):
     gathering_point = models.CharField(max_length=200, blank=True, default='')
     partner = models.CharField(max_length=200, blank=True, default='')
     audience = models.CharField(max_length=200, blank=True, default='')
+    # Optional list of {"audience", "place", "time"} entries; supersedes gathering_point/audience when present
+    meeting_points = models.JSONField(default=list, blank=True)
+    # Bracketed detail after the gathering sentence, e.g. "Outside Campus with NYARUGENGE SECTOR Citizens, APE Rugunga"
+    location_details = models.CharField(max_length=300, blank=True, default='')
+    # Closing reminder sentence, e.g. the "Whoever neglects their duty…" line
+    reminder = models.TextField(blank=True, default='')
     # Free text; when empty the body is generated from the fields above
     body = models.TextField(blank=True, default='')
     note = models.TextField(blank=True, default='')
