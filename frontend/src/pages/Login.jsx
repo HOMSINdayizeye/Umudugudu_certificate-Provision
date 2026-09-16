@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api, setSession } from '../api.js'
 
 export default function Login({ onLogin }) {
@@ -49,7 +49,6 @@ export default function Login({ onLogin }) {
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Logging in…' : 'Login'}</button>
       </form>
-      <p className="muted">No account? <Link to="/register">Register here</Link></p>
     </div>
   )
 }
