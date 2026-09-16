@@ -94,7 +94,7 @@ export default function Citizens({ user }) {
         ) : needsVillagePicker ? (
           <>
             <div className="section-title" style={{ fontSize: '0.95rem' }}>Citizen's village</div>
-            <LocationSelect value={loc} onChange={setLoc} />
+            <LocationSelect value={loc} onChange={setLoc} progressive />
           </>
         ) : null}
 

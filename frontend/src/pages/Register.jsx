@@ -82,7 +82,7 @@ export default function Register({ onRegister }) {
         </div>
 
         <div className="section-title">2 — Where you live</div>
-        <LocationSelect value={loc} onChange={setLoc} />
+        <LocationSelect value={loc} onChange={setLoc} progressive />
         <div className="form-group">
           <label>Isibo (optional)</label>
           <input value={form.isibo} onChange={set('isibo')} placeholder="Name of your isibo within the village" />
