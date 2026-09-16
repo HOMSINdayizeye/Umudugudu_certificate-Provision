@@ -119,7 +119,8 @@ export default function AddUser() {
                 : form.role === 'cell_leader' ? 'Cell of authority'
                 : 'Location'}
             </div>
-            <LocationSelect value={loc} onChange={setLoc} upTo={depth === 'sector' ? 'sector' : depth === 'cell' ? 'cell' : 'village'} />
+            <p className="muted small" style={{ marginTop: 0 }}>Pick the province first; each next level appears once the one above it is chosen.</p>
+            <LocationSelect value={loc} onChange={setLoc} progressive upTo={depth === 'sector' ? 'sector' : depth === 'cell' ? 'cell' : 'village'} />
             {(form.role === 'isibo_leader' || form.role === 'citizen') && (
               <div className="form-group">
                 <label>Isibo {form.role === 'isibo_leader' ? '(the isibo they lead)' : '(optional)'}</label>

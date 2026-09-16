@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api, saveBlob } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
+import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
+
+const PAGE_SIZE = 5
 
 // Split an 8-digit village id into the ids the cascading selector expects
 function locFromVillage(village) {
@@ -48,6 +51,16 @@ export default function Announcements({ user }) {
   const [loc, setLoc] = useState(locFromVillage(user?.village))
   const [changingLoc, setChangingLoc] = useState(!user?.village)
   const [prevLoc, setPrevLoc] = useState(null)
+  const [range, setRange] = useState({ from: '', to: '' })
+  const [page, setPage] = useState(1)
+
+  useEffect(() => { setPage(1) }, [range.from, range.to])
+
+  // Date filter matches the letter date, the event date or the creation date
+  const filtered = items.filter((a) => inDateRange([a.letter_date, a.event_date, a.created_at], range.from, range.to))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const current = Math.min(page, totalPages)
+  const pageItems = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState('')
@@ -374,8 +387,11 @@ export default function Announcements({ user }) {
 
       <div className="card">
         <h2 className="card-title">{canCreate ? 'Saved announcements' : 'Announcements from your village'}</h2>
+        {items.length > 0 && <DateFilter from={range.from} to={range.to} onChange={setRange} />}
         {items.length === 0 ? (
           <p className="muted">No announcements yet.</p>
+        ) : filtered.length === 0 ? (
+          <p className="muted">No announcements match these dates.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
@@ -388,7 +404,7 @@ export default function Announcements({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((a) => (
+                {pageItems.map((a) => (
                   <tr key={a.id}>
                     <td>{new Date(a.created_at).toLocaleDateString()}<div className="muted small">{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></td>
                     <td>{a.letter_date}</td>
@@ -415,6 +431,7 @@ export default function Announcements({ user }) {
                 ))}
               </tbody>
             </table>
+            <Pagination page={current} totalPages={totalPages} total={filtered.length} label="announcement" onChange={setPage} />
           </div>
         )}
       </div>

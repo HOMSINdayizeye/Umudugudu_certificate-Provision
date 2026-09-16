@@ -1,16 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
+import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
+
+const PAGE_SIZE = 5
 
 // Archive of every generated letter the user may see, with the date it was created
 export default function Documents({ user }) {
   const [items, setItems] = useState(null)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
+  const [range, setRange] = useState({ from: '', to: '' })
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     api.listDocuments().then(setItems).catch((err) => setError(err.message))
   }, [])
+
+  // Back to the first page whenever the filters change
+  useEffect(() => { setPage(1) }, [filter, range.from, range.to])
 
   async function download(url) {
     setError('')
@@ -22,7 +30,12 @@ export default function Documents({ user }) {
   }
 
   const isLeader = ['village_leader', 'cell_leader', 'sector_leader'].includes(user?.role) || user?.is_admin_role || user?.is_superuser
-  const visible = (items || []).filter((d) => filter === 'all' || d.kind === filter)
+  const visible = (items || [])
+    .filter((d) => filter === 'all' || d.kind === filter)
+    .filter((d) => inDateRange([d.created_at], range.from, range.to))
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  const current = Math.min(page, totalPages)
+  const pageItems = visible.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
 
   return (
     <div>
@@ -37,10 +50,15 @@ export default function Documents({ user }) {
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
+        <DateFilter from={range.from} to={range.to} onChange={setRange} />
         {items === null ? (
           <p className="muted">Loading…</p>
         ) : visible.length === 0 ? (
-          <p className="muted">No documents yet. Approved letters and saved announcements appear here with the date they were created.</p>
+          <p className="muted">
+            {items.length === 0
+              ? 'No documents yet. Approved letters and saved announcements appear here with the date they were created.'
+              : 'No documents match this filter.'}
+          </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
@@ -52,7 +70,7 @@ export default function Documents({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((d) => (
+                {pageItems.map((d) => (
                   <tr key={`${d.kind}-${d.id}`}>
                     <td>
                       {new Date(d.created_at).toLocaleDateString()}
@@ -72,6 +90,7 @@ export default function Documents({ user }) {
                 ))}
               </tbody>
             </table>
+            <Pagination page={current} totalPages={totalPages} total={visible.length} label="document" onChange={setPage} />
           </div>
         )}
       </div>
