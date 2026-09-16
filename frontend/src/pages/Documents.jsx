@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
+import DocViewer from '../components/DocViewer.jsx'
 
 const PAGE_SIZE = 5
 
@@ -20,10 +21,22 @@ export default function Documents({ user }) {
   // Back to the first page whenever the filters change
   useEffect(() => { setPage(1) }, [filter, range.from, range.to])
 
+  const [viewer, setViewer] = useState(null)
+
   async function download(url) {
     setError('')
     try {
       saveBlob(await api.downloadByUrl(url))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function view(d) {
+    setError('')
+    try {
+      const { blob, filename } = await api.downloadByUrl(d.pdf_url)
+      setViewer({ title: `${d.title}${d.subject ? ` · ${d.subject}` : ''}`, blob, filename })
     } catch (err) {
       setError(err.message)
     }
@@ -66,7 +79,7 @@ export default function Documents({ user }) {
                 <tr>
                   <th>Created</th><th>Document</th><th>For / Subject</th>
                   {isLeader && <th>Issued by</th>}
-                  <th>Download</th>
+                  <th>Open</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,7 +96,8 @@ export default function Documents({ user }) {
                     <td>{d.subject || '—'}{d.kind === 'request' && <div><Link to={d.link} className="small">View request #{d.id}</Link></div>}</td>
                     {isLeader && <td>{d.created_by || '—'}</td>}
                     <td className="actions-cell">
-                      <button className="btn btn-small" onClick={() => download(d.pdf_url)}>PDF</button>
+                      <button className="btn btn-small" onClick={() => view(d)}>View</button>
+                      <button className="btn btn-small btn-outline-dark" onClick={() => download(d.pdf_url)}>PDF</button>
                       <button className="btn btn-small btn-outline-dark" onClick={() => download(d.docx_url)}>Word</button>
                     </td>
                   </tr>
@@ -94,6 +108,7 @@ export default function Documents({ user }) {
           </div>
         )}
       </div>
+      <DocViewer doc={viewer} onClose={() => setViewer(null)} />
     </div>
   )
 }

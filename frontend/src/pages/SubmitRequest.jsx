@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api, getUser } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 
@@ -48,7 +48,10 @@ const ATTACHMENT_KINDS = [
   ['other', 'Other'],
 ]
 
-const STEPS = ['Applicant', 'Details', 'Documents', 'Review']
+const STEPS_NEW = ['Applicant', 'Details', 'Documents', 'Review']
+// When editing, files are managed on the request page, so there is no Documents step
+const STEPS_EDIT = ['Applicant', 'Details', 'Review']
+const DEFAULT_DETAILS = { occupation_type: 'student', gender: 'male', id_type: 'national_id', device_type: 'Laptop', witnesses: [{ name: '', phone: '' }] }
 
 // Only these detail fields are sent for each document type, so defaults for other types never leak into the letter
 const BIRTH = ['birth_country', 'birth_province', 'birth_district', 'birth_sector', 'birth_cell', 'birth_village']
@@ -141,12 +144,31 @@ function Parents(fp) {
 
 export default function SubmitRequest() {
   const navigate = useNavigate()
+  const { id: editId } = useParams()
+  const editing = !!editId
+  const STEPS = editing ? STEPS_EDIT : STEPS_NEW
   const user = getUser()
   const formRef = useRef(null)
   const [certType, setCertType] = useState(null)
-  const [step, setStep] = useState(0) // 0 = choose type, 1..4 = STEPS
+  const [step, setStep] = useState(0) // 0 = choose type, 1.. = STEPS
   const [otherDescription, setOtherDescription] = useState('')
-  const [details, setDetails] = useState({ occupation_type: 'student', gender: 'male', id_type: 'national_id', device_type: 'Laptop', witnesses: [{ name: '', phone: '' }] })
+  const [details, setDetails] = useState(DEFAULT_DETAILS)
+  const [locked, setLocked] = useState('') // message when an existing request can no longer be edited
+
+  // Edit mode: load the pending request and start at the first step with its values filled in
+  useEffect(() => {
+    if (!editId) return
+    api.getRequest(editId).then((r) => {
+      if (r.status !== 'pending') {
+        setLocked(`This request is ${r.status_display.toLowerCase()} and can no longer be edited.`)
+        return
+      }
+      setCertType(r.cert_type)
+      setDetails({ ...DEFAULT_DETAILS, ...(r.details || {}), witnesses: r.details?.witnesses?.length ? r.details.witnesses : DEFAULT_DETAILS.witnesses })
+      setOtherDescription(r.other_description || '')
+      setStep(1)
+    }).catch((err) => setError(err.message))
+  }, [editId])
   const [files, setFiles] = useState([]) // [{kind, file}]
   const [pendingKind, setPendingKind] = useState('national_id')
   const [loc, setLoc] = useState({ province: '', district: '', sector: '', cell: '', village: '' })
@@ -203,6 +225,7 @@ export default function SubmitRequest() {
 
   function back() {
     setError('')
+    if (editing && step === 1) { navigate(`/requests/${editId}`); return }
     setStep((s) => Math.max(s - 1, 0))
   }
 
@@ -222,6 +245,14 @@ export default function SubmitRequest() {
     setError('')
     setLoading(true)
     try {
+      if (editing) {
+        setProgress('Saving…')
+        const payload = { details: relevantDetails() }
+        if (certType === 'other') payload.other_description = otherDescription
+        await api.updateRequest(editId, payload)
+        navigate(`/requests/${editId}`)
+        return
+      }
       const payload = { cert_type: certType, details: relevantDetails() }
       if (certType === 'other') payload.other_description = otherDescription
       if (needsLocation) Object.assign(payload, loc, { location_code: loc.village })
@@ -247,6 +278,16 @@ export default function SubmitRequest() {
   }
 
   const fp = { details, set }
+
+  if (locked) {
+    return (
+      <div>
+        <div className="alert alert-error">{locked}</div>
+        <Link to={`/requests/${editId}`} className="btn">Back to the request</Link>
+      </div>
+    )
+  }
+  if (editing && step === 0) return <p className="muted">Loading your application…</p>
 
   // ---------- Step 0: choose the document ----------
   if (step === 0) {
@@ -279,8 +320,8 @@ export default function SubmitRequest() {
   return (
     <div>
       <div className="page-title">
-        <h1>{type.title}</h1>
-        <p>{type.rw}</p>
+        <h1>{editing ? `Edit Application #${editId}` : type.title}</h1>
+        <p>{editing ? `${type.title} · ${type.rw}` : type.rw}</p>
       </div>
 
       <ol className="steps">
@@ -477,8 +518,8 @@ export default function SubmitRequest() {
           </>
         )}
 
-        {/* ---------- Step 3: Documents ---------- */}
-        {step === 3 && (
+        {/* ---------- Step 3: Documents (new applications only) ---------- */}
+        {step === 3 && !editing && (
           <>
             <div className="section-title">Supporting documents</div>
             <p className="muted small" style={{ marginTop: 0 }}>
@@ -537,26 +578,32 @@ export default function SubmitRequest() {
                   <span>{relevant.witnesses.map((w) => w.name + (w.phone ? ` (${w.phone})` : '')).join(', ')}</span>
                 </div>
               )}
-              <div className="review-item" style={{ gridColumn: '1 / -1' }}>
-                <small>Documents</small>
-                <span>{files.length ? files.map((f) => f.file.name).join(', ') : 'None attached'}</span>
-              </div>
+              {!editing && (
+                <div className="review-item" style={{ gridColumn: '1 / -1' }}>
+                  <small>Documents</small>
+                  <span>{files.length ? files.map((f) => f.file.name).join(', ') : 'None attached'}</span>
+                </div>
+              )}
             </div>
             <div className="info-strip" style={{ marginTop: '1.5rem', marginBottom: 0 }}>
               <span>✔</span>
-              <span>By submitting, you confirm the information above is true. The village leader will review it and you will be notified here.</span>
+              <span>
+                {editing
+                  ? 'Saving replaces the details of your pending application. Supporting documents are managed on the request page.'
+                  : 'By submitting, you confirm the information above is true. The village leader will review it and you will be notified here.'}
+              </span>
             </div>
           </>
         )}
 
         <div className="form-actions">
           <button type="button" className="btn btn-ghost" onClick={back} disabled={loading}>
-            ← {step === 1 ? 'Change document' : 'Back'}
+            ← {step === 1 ? (editing ? 'Cancel' : 'Change document') : 'Back'}
           </button>
           {step < STEPS.length ? (
             <button type="button" className="btn" onClick={next}>Continue →</button>
           ) : (
-            <button className="btn" disabled={loading}>{loading ? (progress || 'Submitting…') : 'Submit Application'}</button>
+            <button className="btn" disabled={loading}>{loading ? (progress || 'Submitting…') : editing ? 'Save Changes' : 'Submit Application'}</button>
           )}
         </div>
       </form>

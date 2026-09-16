@@ -213,11 +213,35 @@ def request_list(request):
     return Response(CertificateRequestSerializer(cert_request).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 def request_detail(request, pk):
+    user = request.user
     req = get_object_or_404(CertificateRequest, pk=pk)
-    if not can_view_request(request.user, req):
+    if not can_view_request(user, req):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response(CertificateRequestSerializer(req).data)
+
+    # The applicant may correct a request only while it is still waiting for review
+    if not (is_admin(user) or req.user_id == user.id):
+        return Response({'detail': 'Only the applicant can edit this request.'}, status=status.HTTP_403_FORBIDDEN)
+    if req.status != 'pending' and not is_admin(user):
+        return Response({'detail': 'This request has already been reviewed and can no longer be edited.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    details = request.data.get('details', req.details)
+    if not isinstance(details, dict):
+        return Response({'details': 'Must be an object of field values.'}, status=status.HTTP_400_BAD_REQUEST)
+    missing = {f: 'This field is required.' for f in REQUIRED_DETAILS.get(req.cert_type, [])
+               if not str(details.get(f, '') or '').strip()}
+    if missing:
+        return Response({'details': missing}, status=status.HTTP_400_BAD_REQUEST)
+    if 'other_description' in request.data:
+        req.other_description = (request.data.get('other_description') or '').strip()
+    if req.cert_type == 'other' and not req.other_description:
+        return Response({'other_description': 'Describe the document you need.'}, status=status.HTTP_400_BAD_REQUEST)
+    req.details = details
+    req.save()
     return Response(CertificateRequestSerializer(req).data)
 
 

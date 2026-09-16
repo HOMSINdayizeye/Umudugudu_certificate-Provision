@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
 import { canActOn } from './Dashboard.jsx'
+import DocViewer from '../components/DocViewer.jsx'
 
 // Human labels for the applicant details stored on the request
 const LABELS = {
@@ -48,6 +49,30 @@ export default function RequestDetail({ user }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState('')
   const [uploadKind, setUploadKind] = useState('proof')
+  const [viewer, setViewer] = useState(null)
+
+  // Open the generated letter on screen as PDF
+  async function openLetter() {
+    setError(''); setBusy('view')
+    try {
+      const { blob, filename } = await api.downloadCertificate(id, { format: 'pdf' })
+      setViewer({ title: `${req.cert_type_display} — letter`, blob, filename })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function viewAttachment(att) {
+    setError('')
+    try {
+      const { blob, filename } = await api.downloadAttachment(att.id)
+      setViewer({ title: `${att.kind_display}`, blob, filename })
+    } catch (err) {
+      setError(err.message)
+    }
+  }
 
   async function load() {
     try {
@@ -175,8 +200,10 @@ export default function RequestDetail({ user }) {
                 {req.attachments.map((att) => (
                   <li key={att.id}>
                     <span className="badge badge-kind">{att.kind_display}</span>
-                    <button type="button" className="link-btn file-name" onClick={() => downloadAttachment(att)}>{att.original_name}</button>
+                    <button type="button" className="link-btn file-name" onClick={() => viewAttachment(att)} title="Open on screen">{att.original_name}</button>
                     <span className="muted small">{(att.size / 1024).toFixed(0)} KB</span>
+                    <button type="button" className="btn btn-small" onClick={() => viewAttachment(att)}>View</button>
+                    <button type="button" className="link-btn" onClick={() => downloadAttachment(att)}>download</button>
                     {canUpload && <button type="button" className="link-btn danger" onClick={() => removeAttachment(att)}>remove</button>}
                   </li>
                 ))}
@@ -201,24 +228,31 @@ export default function RequestDetail({ user }) {
           <div className="card" style={{ marginTop: '1rem' }}>
             <h2 className="card-title">{canAct ? 'Review' : 'Letter'}</h2>
             {req.status === 'approved' && (
-              <div className="btn-row">
-                <button className="btn" onClick={() => download(false, 'pdf')} disabled={busy === 'download'}>
-                  {busy === 'download' ? 'Preparing…' : 'Download PDF'}
-                </button>
-                <button className="btn btn-outline-dark" onClick={() => download(false, 'docx')} disabled={busy === 'download'}>
-                  Download Word
-                </button>
-                {(isLeader || isAdmin) && (
-                  <button className="btn btn-outline-dark" onClick={() => download(true)} disabled={busy === 'download'} title="Rebuild the letter from the current details">
-                    Regenerate
+              <>
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  The letter is saved in the system{req.approved_at ? ` since ${new Date(req.approved_at).toLocaleDateString()}` : ''}. Open it here any time.
+                </p>
+                <div className="btn-row">
+                  <button className="btn" onClick={openLetter} disabled={!!busy}>
+                    {busy === 'view' ? 'Opening…' : 'Open Letter'}
                   </button>
-                )}
-              </div>
+                  <button className="btn btn-small btn-outline-dark" onClick={() => download(false, 'pdf')} disabled={!!busy}>PDF</button>
+                  <button className="btn btn-small btn-outline-dark" onClick={() => download(false, 'docx')} disabled={!!busy}>Word</button>
+                  {(isLeader || isAdmin) && (
+                    <button className="btn btn-small btn-ghost" onClick={() => download(true)} disabled={!!busy} title="Rebuild the letter from the current details">
+                      Regenerate
+                    </button>
+                  )}
+                </div>
+              </>
             )}
             {req.status === 'pending' && isOwner && (
-              <p className="muted small">Your application is waiting for the village leader. You will be able to download the letter here once it is approved.</p>
+              <>
+                <p className="muted small" style={{ marginTop: 0 }}>Your application is waiting for the village leader. You can still correct it until it is reviewed.</p>
+                <Link to={`/requests/${req.id}/edit`} className="btn btn-outline-dark">Edit Application</Link>
+              </>
             )}
-            {req.status === 'denied' && <p className="muted small">This request was denied. You may submit a new application with corrected information.</p>}
+            {req.status === 'denied' && <p className="muted small">This request was denied and can no longer be edited. You may submit a new application with corrected information.</p>}
             {canAct && (
               <>
                 <p className="muted small">Check the details and the attached documents. Approving generates the signed letter immediately.</p>
@@ -235,6 +269,7 @@ export default function RequestDetail({ user }) {
           </div>
         </div>
       </div>
+      <DocViewer doc={viewer} onClose={() => setViewer(null)} />
     </div>
   )
 }

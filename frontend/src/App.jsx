@@ -91,6 +91,7 @@ export default function App() {
           <Route path="/" element={<RequireAuth><Dashboard user={user} /></RequireAuth>} />
           <Route path="/submit" element={<RequireAuth><SubmitRequest /></RequireAuth>} />
           <Route path="/requests/:id" element={<RequireAuth><RequestDetail user={user} /></RequireAuth>} />
+          <Route path="/requests/:id/edit" element={<RequireAuth><SubmitRequest /></RequireAuth>} />
           <Route path="/payments" element={<RequireAuth><Payments user={user} /></RequireAuth>} />
           <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
           <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />

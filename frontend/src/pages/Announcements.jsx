@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, saveBlob } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
+import DocViewer from '../components/DocViewer.jsx'
 
 const PAGE_SIZE = 5
 
@@ -172,6 +173,18 @@ export default function Announcements({ user }) {
       setError(err.message)
     } finally {
       setBusy('')
+    }
+  }
+
+  const [viewer, setViewer] = useState(null)
+
+  async function view(a) {
+    setError('')
+    try {
+      const { blob, filename } = await api.downloadAnnouncement(a.id, 'pdf')
+      setViewer({ title: `${a.kind_display}${a.title ? ` · ${a.title}` : ''}`, blob, filename })
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -399,7 +412,7 @@ export default function Announcements({ user }) {
                 <tr>
                   <th>Created</th><th>Letter date</th><th>Type</th><th>Event</th><th>Village</th>
                   {canCreate && <th>Status</th>}
-                  <th>Download</th>
+                  <th>Open</th>
                   {canCreate && <th>Manage</th>}
                 </tr>
               </thead>
@@ -413,7 +426,8 @@ export default function Announcements({ user }) {
                     <td>{a.village_name || '—'}</td>
                     {canCreate && <td><span className={`badge ${a.published ? 'badge-approved' : 'badge-pending'}`}>{a.published ? 'Published' : 'Draft'}</span></td>}
                     <td className="actions-cell">
-                      <button className="btn btn-small" onClick={() => download(a, 'pdf')}>PDF</button>
+                      <button className="btn btn-small" onClick={() => view(a)}>View</button>
+                      <button className="btn btn-small btn-outline-dark" onClick={() => download(a, 'pdf')}>PDF</button>
                       <button className="btn btn-small btn-outline-dark" onClick={() => download(a, 'docx')}>Word</button>
                     </td>
                     {canCreate && (
@@ -435,6 +449,7 @@ export default function Announcements({ user }) {
           </div>
         )}
       </div>
+      <DocViewer doc={viewer} onClose={() => setViewer(null)} />
     </div>
   )
 }

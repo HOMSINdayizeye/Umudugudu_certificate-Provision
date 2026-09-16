@@ -94,6 +94,7 @@ export const api = {
   listRequests: () => request('/requests/'),
   createRequest: (payload) => request('/requests/', { method: 'POST', body: payload }),
   getRequest: (id) => request(`/requests/${id}/`),
+  updateRequest: (id, payload) => request(`/requests/${id}/`, { method: 'PATCH', body: payload }),
   actOnRequest: (id, action, message = '') =>
     request(`/requests/${id}/${action}/`, { method: 'POST', body: { message } }),
   downloadCertificate: (id, { regenerate = false, format = 'docx' } = {}) =>
