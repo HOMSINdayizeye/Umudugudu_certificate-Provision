@@ -96,11 +96,13 @@ class CertificateRequest(models.Model):
 
     STATUS_CHOICES = [
         ('pending', 'Pending Village Leader Review'),
-        ('village_approved', 'Pending Cell Approval'),
-        ('cell_approved', 'Pending Sector Approval'),
-        ('approved', 'Approved'),
+        ('village_approved', 'Approved by Village · awaiting Cell'),
+        ('cell_approved', 'Approved by Cell · awaiting Sector'),
+        ('approved', 'Fully Approved'),
         ('denied', 'Denied'),
     ]
+    # Letter exists and can be opened from these statuses onward
+    ISSUED_STATUSES = ('village_approved', 'cell_approved', 'approved')
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='requests')
     cert_type = models.CharField(max_length=20, choices=CERT_TYPES)
@@ -111,8 +113,12 @@ class CertificateRequest(models.Model):
                                     related_name='approved_requests')
     approved_at = models.DateTimeField(null=True, blank=True)
     generated_document = models.FileField(upload_to='generated/', blank=True, null=True)
-    # Anti-forgery code printed in the letter footer: <village id>-<year>-<sequence>; never shown to citizens
+    # Anti-forgery code printed in the letter footer (location code + running number); never shown to citizens
     verification_code = models.CharField(max_length=40, blank=True, default='', db_index=True)
+    # Every code ever issued for this letter: [{level, prefix, code, by, at}], village → cell → sector
+    code_history = models.JSONField(default=list, blank=True)
+    # Cell / sector endorsements printed under the signature: [{level, name, at}]
+    endorsements = models.JSONField(default=list, blank=True)
 
     # Location fields (only required for 'conduct' certificate)
     province = models.IntegerField(blank=True, null=True)

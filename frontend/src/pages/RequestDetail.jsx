@@ -20,6 +20,10 @@ const LABELS = {
   reported_to_police: 'Reported to police', activities: 'Community activities', subject: 'Subject',
 }
 
+// From village approval onward the letter exists and can be opened
+const ISSUED = ['village_approved', 'cell_approved', 'approved']
+const LEVEL_LABEL = { village: 'Village', cell: 'Cell', sector: 'Sector' }
+
 const ATTACHMENT_KINDS = [
   ['national_id', 'National ID / Passport'],
   ['student_card', 'Student Card'],
@@ -90,7 +94,7 @@ export default function RequestDetail({ user }) {
     try {
       setReq(await api.actOnRequest(id, action, message))
       setMessage('')
-      setNotice(action === 'approve' ? 'Approved. The letter has been generated and is ready to download.' : 'Request denied.')
+      setNotice(action === 'approve' ? 'Approved. The letter has been generated with a new verification code and is ready to open.' : 'Request denied.')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -186,7 +190,19 @@ export default function RequestDetail({ user }) {
               </>
             )}
             {req.approved_by_name && (<><dt>Approved by</dt><dd>{req.approved_by_name} on {new Date(req.approved_at).toLocaleDateString()}</dd></>)}
-            {req.verification_code && (<><dt>Verification code</dt><dd><span className="code-inline">{req.verification_code}</span> <span className="muted small">(leaders only, printed in the letter footer)</span></dd></>)}
+            {(req.endorsements || []).length > 0 && (
+              <>
+                <dt>Endorsements</dt>
+                <dd>{req.endorsements.map((e, i) => <div key={i}>{LEVEL_LABEL[e.level] || e.level} leader {e.name} on {new Date(e.at).toLocaleDateString()}</div>)}</dd>
+              </>
+            )}
+            {req.verification_code && (<><dt>Verification code</dt><dd><span className="code-inline">{req.verification_code}</span> <span className="muted small">(current code, printed in the letter footer)</span></dd></>)}
+            {(req.code_history || []).length > 1 && (
+              <>
+                <dt>Previous codes</dt>
+                <dd>{req.code_history.slice(0, -1).map((h, i) => <div key={i}><span className="code-inline muted">{h.code}</span> <span className="muted small">{LEVEL_LABEL[h.level] || h.level} · {h.by} · {new Date(h.at).toLocaleDateString()}</span></div>)}</dd>
+              </>
+            )}
             {req.admin_message && (<><dt>Message from leader</dt><dd>{req.admin_message}</dd></>)}
           </dl>
         </div>
@@ -228,10 +244,13 @@ export default function RequestDetail({ user }) {
 
           <div className="card" style={{ marginTop: '1rem' }}>
             <h2 className="card-title">{canAct ? 'Review' : 'Letter'}</h2>
-            {req.status === 'approved' && (
+            {ISSUED.includes(req.status) && (
               <>
                 <p className="muted small" style={{ marginTop: 0 }}>
                   The letter is saved in the system{req.approved_at ? ` since ${new Date(req.approved_at).toLocaleDateString()}` : ''}. Open it here any time.
+                  {req.status === 'village_approved' && ' The cell leader has not endorsed it yet; the letter is re-issued with a new code after each endorsement.'}
+                  {req.status === 'cell_approved' && ' Endorsed by the cell; the sector leader endorses next.'}
+                  {req.status === 'approved' && ' Fully approved by village, cell and sector.'}
                 </p>
                 <div className="btn-row">
                   <button className="btn" onClick={openLetter} disabled={!!busy}>
@@ -256,13 +275,19 @@ export default function RequestDetail({ user }) {
             {req.status === 'denied' && <p className="muted small">This request was denied and can no longer be edited. You may submit a new application with corrected information.</p>}
             {canAct && (
               <>
-                <p className="muted small">Check the details and the attached documents. Approving generates the signed letter immediately.</p>
+                <p className="muted small">
+                  {req.status === 'pending'
+                    ? 'Check the details and the attached documents. Approving generates the signed letter immediately.'
+                    : 'Open the letter and the attached documents first. Endorsing re-issues the letter with your endorsement line and a new verification code, and notifies the previous level.'}
+                </p>
                 <div className="form-group">
                   <label>Message to the applicant (optional, required reason if denying)</label>
                   <textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. Please upload a clearer copy of your ID." />
                 </div>
                 <div className="btn-row">
-                  <button className="btn" onClick={() => act('approve')} disabled={!!busy}>{busy === 'approve' ? 'Approving…' : 'Approve & Generate Letter'}</button>
+                  <button className="btn" onClick={() => act('approve')} disabled={!!busy}>
+                    {busy === 'approve' ? 'Approving…' : req.status === 'pending' ? 'Approve & Generate Letter' : 'Approve & Endorse'}
+                  </button>
                   <button className="btn btn-danger" onClick={() => act('deny')} disabled={!!busy}>Deny</button>
                 </div>
               </>

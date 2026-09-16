@@ -33,12 +33,15 @@ from .documents import (
 
 LEADER_STAGE = {
     # role -> (status it can act on, status approval moves the request to)
-    # The village leader signs every letter, so their approval is final.
-    'village_leader': ('pending', 'approved'),
-    # Kept so requests already sitting at these older stages can still be completed
+    # Village leader issues the letter; cell and sector leaders endorse it afterwards, each adding a code
+    'village_leader': ('pending', 'village_approved'),
     'cell_leader': ('village_approved', 'cell_approved'),
     'sector_leader': ('cell_approved', 'approved'),
 }
+NEXT_STATUS = {'pending': 'village_approved', 'village_approved': 'cell_approved', 'cell_approved': 'approved'}
+# status reached -> (level name, digits of the location code used as the code prefix)
+LEVEL_FOR_STATUS = {'village_approved': ('village', 8), 'cell_approved': ('cell', 6), 'approved': ('sector', 4)}
+ISSUED_STATUSES = CertificateRequest.ISSUED_STATUSES
 
 # Fields each letter cannot be written without
 REQUIRED_DETAILS = {
@@ -112,16 +115,31 @@ def req_data(obj, user, many=False):
     return CertificateRequestSerializer(obj, many=many, context={'user': user}).data
 
 
-def issue_verification_code(req):
-    """Location code followed by a running number of at least two digits (e.g. 1109030905); unique, kept for life."""
-    if req.verification_code:
-        return req.verification_code
-    prefix = str(request_location_id(req) or 0)
-    # Only codes of this location count: the prefix plus digits, nothing else
-    n = CertificateRequest.objects.filter(verification_code__regex=rf'^{prefix}\d{{2,}}$').count() + 1
-    while CertificateRequest.objects.filter(verification_code=f'{prefix}{n:02d}').exists():
+def code_taken(code):
+    return CertificateRequest.objects.filter(Q(verification_code=code) | Q(code_history__contains=[{'code': code}])).exists()
+
+
+def issue_level_code(req, level, digits, approver):
+    """Code for one approval level: that level's location code + running number of at least two digits.
+    Village 11090309 → 1109030901…, cell 110903 → 11090301…, sector 1109 → 110901…"""
+    loc = str(request_location_id(req) or '')
+    prefix = loc[:digits] if len(loc) >= digits else (loc or '0')
+    n = CertificateRequest.objects.filter(code_history__contains=[{'level': level, 'prefix': prefix}]).count() + 1
+    while code_taken(f'{prefix}{n:02d}'):
         n += 1
-    req.verification_code = f'{prefix}{n:02d}'
+    code = f'{prefix}{n:02d}'
+    history = list(req.code_history or [])
+    history.append({'level': level, 'prefix': prefix, 'code': code,
+                    'by': approver.display_name if approver else '', 'at': timezone.now().isoformat()})
+    req.code_history = history
+    req.verification_code = code
+    return code
+
+
+def issue_verification_code(req):
+    """Village-level code for a letter that somehow has none yet (older data)."""
+    if not req.verification_code:
+        issue_level_code(req, 'village', 8, req.approved_by)
     return req.verification_code
 
 
@@ -130,36 +148,65 @@ def applicant_name(req):
     return details.get('full_name') or req.user.display_name
 
 
-def notify_letter_issued(req, approver):
-    """Tell the cell leader(s) the code, and the citizen that the letter is ready (without the code)."""
+def leaders_for(req, role, digits):
+    """Leaders of the given role whose area contains the request's village."""
     loc = str(request_location_id(req) or '')
-    cell = int(loc[:6]) if len(loc) >= 6 else None
+    if len(loc) < digits:
+        return CustomUser.objects.none()
+    field = {'village_leader': 'village', 'cell_leader': 'cell', 'sector_leader': 'sector'}[role]
+    return CustomUser.objects.filter(role=role, **{field: int(loc[:digits])})
+
+
+def notify(users, req, title, message):
+    for u in users:
+        Notification.objects.create(user=u, request=req, link=f'/requests/{req.id}', title=title, message=message)
+
+
+def notify_stage(req, approver, level, prev_code):
+    """Who hears what after each approval level; the citizen never receives a code."""
     kind = req.get_cert_type_display()
-    link = f'/requests/{req.id}'
-    if cell:
-        for leader in CustomUser.objects.filter(role='cell_leader', cell=cell):
-            Notification.objects.create(
-                user=leader, request=req, link=link, title=f'{kind} issued in {loc[:8]}',
-                message=f'Verification code {req.verification_code}: {kind} for {applicant_name(req)} '
-                        f'approved by {approver.display_name}.')
-    Notification.objects.create(
-        user=req.user, request=req, link=link, title='Your letter is ready',
-        message=f'Your {kind} has been approved. Open the request to view the letter.')
+    who = applicant_name(req)
+    code = req.verification_code
+    if level == 'village':
+        notify(leaders_for(req, 'cell_leader', 6), req, f'{kind} issued · awaiting your approval',
+               f'Code {code}: {kind} for {who} approved by village leader {approver.display_name}. '
+               f'Open it to review and endorse.')
+        notify([req.user], req, 'Your letter is ready',
+               f'Your {kind} has been approved by the village leader. Open the request to view the letter.')
+    elif level == 'cell':
+        notify(leaders_for(req, 'village_leader', 8), req, f'Cell approved {kind}',
+               f'New code {code} replaces {prev_code} for {who}. Endorsed by cell leader {approver.display_name}.')
+        notify(leaders_for(req, 'sector_leader', 4), req, f'{kind} endorsed by cell · awaiting your approval',
+               f'Code {code} (previously {prev_code}): {kind} for {who}. Open it to review and endorse.')
+        notify([req.user], req, 'Your letter was endorsed by the cell',
+               f'Your {kind} has been approved by the cell leader. The updated letter is ready to open.')
+    else:
+        notify(list(leaders_for(req, 'village_leader', 8)) + list(leaders_for(req, 'cell_leader', 6)), req,
+               f'Sector approved {kind}',
+               f'Final code {code} replaces {prev_code} for {who}. Endorsed by sector leader {approver.display_name}.')
+        notify([req.user], req, 'Your letter is fully approved',
+               f'Your {kind} has been approved by the sector leader. The final letter is ready to open.')
+
+
+def _replace_file(field_file, filename, data):
+    """Store a new version; on Windows the old file may still be streaming to someone, so a locked copy is left behind."""
+    if field_file:
+        try:
+            field_file.delete(save=False)
+        except OSError:
+            pass
+    field_file.save(filename, ContentFile(data), save=False)
 
 
 def generate_letter(req, signer):
     issue_verification_code(req)
     data, filename = render_request_document(req, leader=signer)
-    if req.generated_document:
-        req.generated_document.delete(save=False)
-    req.generated_document.save(filename, ContentFile(data), save=False)
+    _replace_file(req.generated_document, filename, data)
 
 
 def generate_announcement_file(ann):
     data, filename = render_announcement(ann, ann.created_by)
-    if ann.generated_document:
-        ann.generated_document.delete(save=False)
-    ann.generated_document.save(filename, ContentFile(data), save=False)
+    _replace_file(ann.generated_document, filename, data)
     ann.generated_at = timezone.now()
 
 
@@ -302,8 +349,8 @@ def attachment_list(request, pk):
     if not (req.user_id == user.id or is_admin(user)):
         return Response({'detail': 'Only the applicant can add documents to this request.'},
                         status=status.HTTP_403_FORBIDDEN)
-    if req.status in ('approved', 'denied') and not is_admin(user):
-        return Response({'detail': 'This request is closed; documents can no longer be added.'},
+    if req.status != 'pending' and not is_admin(user):
+        return Response({'detail': 'This request is under review; documents can no longer be added.'},
                         status=status.HTTP_400_BAD_REQUEST)
 
     files = request.FILES.getlist('files') or request.FILES.getlist('file')
@@ -359,12 +406,19 @@ def update_request_status(request, pk, action):
         return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
     message = (request.data.get('message') or '').strip()
 
+    STAGE_MESSAGE = {
+        'village_approved': 'Approved by the village leader. Your letter is ready to open; the cell leader will endorse it next.',
+        'cell_approved': 'Endorsed by the cell leader. Your updated letter is ready; the sector leader will endorse it next.',
+        'approved': 'Fully approved and endorsed by the sector leader. Your final letter is ready.',
+    }
+
     if is_admin(user):
         if req.status in ('approved', 'denied'):
             return Response({'detail': 'This request is already closed.'}, status=status.HTTP_400_BAD_REQUEST)
         if action == 'approve':
-            req.admin_message = message or 'Your request has been approved. Your letter is ready to download.'
-            finalize_approval(req, user)
+            next_status = NEXT_STATUS[req.status]
+            req.admin_message = message or STAGE_MESSAGE[next_status]
+            advance_approval(req, user, next_status)
         else:
             req.status = 'denied'
             req.admin_message = message or 'Your request has been denied.'
@@ -386,12 +440,8 @@ def update_request_status(request, pk, action):
 
     role_label = user.get_role_display()
     if action == 'approve':
-        if next_status == 'approved':
-            req.admin_message = message or f'Approved by the {role_label}. Your letter is ready to download.'
-            finalize_approval(req, user)
-        else:
-            req.status = next_status
-            req.admin_message = message or f'Approved by {role_label}. Awaiting next level approval.'
+        req.admin_message = message or STAGE_MESSAGE[next_status]
+        advance_approval(req, user, next_status)
     else:
         req.status = 'denied'
         req.admin_message = message or f'Your request has been denied by the {role_label}.'
@@ -399,13 +449,21 @@ def update_request_status(request, pk, action):
     return Response(req_data(req, user))
 
 
-def finalize_approval(req, approver):
-    """Mark approved, issue the code, write the letter, and notify the cell leader and the citizen."""
-    req.status = 'approved'
-    req.approved_by = approver
-    req.approved_at = timezone.now()
-    generate_letter(req, signing_leader(req, approver))
-    notify_letter_issued(req, approver)
+def advance_approval(req, approver, next_status):
+    """Move one level up the chain: new code for that level, letter re-stamped, everyone concerned notified."""
+    prev_code = req.verification_code
+    level, digits = LEVEL_FOR_STATUS[next_status]
+    req.status = next_status
+    if level == 'village':
+        req.approved_by = approver
+        req.approved_at = timezone.now()
+    else:
+        ends = list(req.endorsements or [])
+        ends.append({'level': level, 'name': approver.display_name, 'at': timezone.localdate().isoformat()})
+        req.endorsements = ends
+    issue_level_code(req, level, digits, approver)
+    generate_letter(req, signing_leader(req, req.approved_by or approver))
+    notify_stage(req, approver, level, prev_code)
 
 
 @api_view(['GET'])
@@ -414,8 +472,8 @@ def download_certificate(request, pk):
     req = get_object_or_404(CertificateRequest, pk=pk)
     if not can_view_request(user, req):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if req.status != 'approved':
-        return Response({'detail': 'The letter is only available once the request is approved.'},
+    if req.status not in ISSUED_STATUSES:
+        return Response({'detail': 'The letter is only available once the village leader has approved the request.'},
                         status=status.HTTP_403_FORBIDDEN)
 
     can_regenerate = is_admin(user) or user.role in LEADER_STAGE
@@ -436,7 +494,7 @@ def document_list(request):
     """Every generated letter the user may see, newest first, with Word and PDF links."""
     user = request.user
     items = []
-    reqs = visible_requests_qs(user).filter(status='approved').select_related('user', 'approved_by')
+    reqs = visible_requests_qs(user).filter(status__in=ISSUED_STATUSES).select_related('user', 'approved_by')
     for r in reqs:
         details = r.details if isinstance(r.details, dict) else {}
         items.append({
@@ -497,6 +555,8 @@ def code_entry(r):
         'village_name': location_chain(request_location_id(r))['village'],
         'approved_at': r.approved_at, 'approved_by': r.approved_by.display_name if r.approved_by else '',
         'has_document': bool(r.generated_document),
+        'status': r.status, 'status_display': r.get_status_display(),
+        'history': r.code_history or [], 'endorsements': r.endorsements or [],
     }
 
 
@@ -505,7 +565,7 @@ def code_list(request):
     user = request.user
     if not can_see_codes(user):
         return Response({'detail': 'Verification codes are only visible to leaders.'}, status=status.HTTP_403_FORBIDDEN)
-    qs = (visible_requests_qs(user).filter(status='approved').exclude(verification_code='')
+    qs = (visible_requests_qs(user).filter(status__in=ISSUED_STATUSES).exclude(verification_code='')
           .select_related('user', 'approved_by').order_by('-approved_at'))
     q = (request.GET.get('q') or '').strip().lower()
     items = [code_entry(r) for r in qs]
@@ -520,7 +580,9 @@ def code_lookup(request, code):
     user = request.user
     if not can_see_codes(user):
         return Response({'detail': 'Verification codes are only visible to leaders.'}, status=status.HTTP_403_FORBIDDEN)
-    r = (CertificateRequest.objects.filter(verification_code__iexact=code.strip(), status='approved')
+    code = code.strip()
+    r = (CertificateRequest.objects.filter(status__in=ISSUED_STATUSES)
+         .filter(Q(verification_code__iexact=code) | Q(code_history__contains=[{'code': code}]))
          .select_related('user', 'approved_by').first())
     if not r:
         return Response({'valid': False, 'detail': 'No issued letter carries this code. Treat the document as unverified.'},
@@ -528,6 +590,8 @@ def code_lookup(request, code):
     entry = code_entry(r)
     entry['valid'] = True
     entry['in_scope'] = can_view_request(user, r)
+    # An older code still identifies the letter, but the holder should have the latest copy
+    entry['superseded'] = r.verification_code.lower() != code.lower()
     return Response(entry)
 
 

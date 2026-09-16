@@ -173,14 +173,17 @@ class CertificateRequestSerializer(serializers.ModelSerializer):
             'province', 'district', 'sector', 'cell', 'village', 'village_name', 'location_code',
             'created_at', 'status', 'status_display', 'admin_message',
             'attachments', 'approved_by_name', 'approved_at', 'has_document', 'verification_code',
+            'code_history', 'endorsements',
         ]
-        read_only_fields = ['status', 'admin_message', 'created_at', 'approved_at', 'verification_code']
+        read_only_fields = ['status', 'admin_message', 'created_at', 'approved_at', 'verification_code',
+                            'code_history', 'endorsements']
 
     def to_representation(self, obj):
         data = super().to_representation(obj)
-        # The code is for leaders only; without a known leader in context it is withheld
+        # Codes are for leaders only; without a known leader in context they are withheld
         if not can_see_codes(self.context.get('user')):
             data['verification_code'] = ''
+            data['code_history'] = []
         return data
 
     def get_approved_by_name(self, obj):

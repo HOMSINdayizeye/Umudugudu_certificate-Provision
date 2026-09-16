@@ -54,11 +54,13 @@ Citizens apply for one of the village letters, fill in the details the letter ne
 | `community` | Community Engagement Referral Letter | English |
 | `other` | Generic attestation from the free-text description | English |
 
-The **village leader** (whose village matches the applicant's) reviews the details and attachments and approves or denies with a message. Approval is final: the system immediately generates the `.docx` letter in the same layout as the Isibo office documents (letterhead, body, leader signature and phone) and stores it under `backend/media/generated/`. Cell and sector leaders can view requests in their jurisdiction; the legacy `village_approved`/`cell_approved` stages remain only so older requests can still be completed.
+The **village leader** (whose village matches the applicant's) reviews the details and attachments and approves or denies with a message. Approval generates the `.docx` letter immediately (letterhead, body, leader signature and phone) under `backend/media/generated/`, and the citizen can open it from then on. The **cell leader** and then the **sector leader** endorse the same letter afterwards: each endorsement re-issues the file with an endorsement line under the signature and a **new verification code** whose prefix is that level's location code. The previous level is notified with the new code linked to the old one, and old codes still resolve in the verifier as "superseded".
 
 ```
-pending → (village leader approves) → approved → letter downloadable (.docx)
-        → (village leader denies)   → denied
+pending → village leader approves → village_approved  (code 11090309nn, letter opens)
+        → cell leader endorses    → cell_approved     (code 110903nn, endorsement line added)
+        → sector leader endorses  → approved          (code 1109nn, final)
+        → any leader denies       → denied
 ```
 
 Letter text lives in `backend/certificates/documents.py` (one builder per type). Leaders can **Regenerate** a letter after fixing details.

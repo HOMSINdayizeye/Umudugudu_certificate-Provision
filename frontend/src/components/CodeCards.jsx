@@ -28,6 +28,11 @@ export function CodeModal({ item, onClose }) {
           <button className="btn btn-small btn-ghost" onClick={onClose}>Close ✕</button>
         </div>
         <div className="code-big">{item.code}</div>
+        {item.superseded && (
+          <div className="alert alert-error" style={{ marginTop: '1rem' }}>
+            This code was valid but has been replaced by <strong>{item.history?.[item.history.length - 1]?.code}</strong> after a later endorsement. Ask for the latest copy of the letter.
+          </div>
+        )}
         {item.valid === false ? (
           <div className="alert alert-error" style={{ marginTop: '1rem' }}>{item.detail}</div>
         ) : (
@@ -36,8 +41,15 @@ export function CodeModal({ item, onClose }) {
               <dt>Document</dt><dd>{item.cert_type_display}</dd>
               <dt>Issued to</dt><dd>{item.applicant || '—'}</dd>
               {item.village_name && (<><dt>Village</dt><dd>{item.village_name}</dd></>)}
+              {item.status_display && (<><dt>Stage</dt><dd><span className={`badge badge-${item.status}`}>{item.status_display}</span></dd></>)}
               <dt>Approved</dt><dd>{item.approved_at ? new Date(item.approved_at).toLocaleString() : '—'}</dd>
               <dt>Approved by</dt><dd>{item.approved_by || '—'}</dd>
+              {(item.history || []).length > 0 && (
+                <>
+                  <dt>Code history</dt>
+                  <dd>{item.history.map((h, i) => <div key={i}><span className="code-inline">{h.code}</span> <span className="muted small">{h.level} · {h.by} · {new Date(h.at).toLocaleDateString()}</span></div>)}</dd>
+                </>
+              )}
               {item.in_scope === false && (<><dt>Note</dt><dd>This letter was issued outside your area, so only the summary is shown.</dd></>)}
             </dl>
             {item.in_scope !== false && (

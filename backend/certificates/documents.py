@@ -305,6 +305,33 @@ def add_footer(docx_bytes, text):
     return _save(doc)
 
 
+LETTER_LANG = {'conduct': 'rw', 'residence': 'rw'}
+
+
+def add_endorsements(docx_bytes, req, chain):
+    """Append the cell / sector endorsement lines under the village leader's signature."""
+    ends = [e for e in (req.endorsements or []) if isinstance(e, dict) and e.get('name')]
+    if not ends:
+        return docx_bytes
+    lang = LETTER_LANG.get(req.cert_type, 'en')
+    doc = Document(io.BytesIO(docx_bytes))
+    doc.add_paragraph()
+    for e in ends:
+        date = rw_date(e.get('at')) if lang == 'rw' else en_date(e.get('at'))
+        if e.get('level') == 'sector':
+            title = (f"Byemejwe n'Umuyobozi w'Umurenge wa {chain['sector']}" if lang == 'rw'
+                     else f"Endorsed by the {chain['sector']} Sector Leader")
+        else:
+            title = (f"Byemejwe n'Umuyobozi w'Akagari ka {chain['cell']}" if lang == 'rw'
+                     else f"Endorsed by the {chain['cell']} Cell Leader")
+        p = doc.add_paragraph()
+        p.add_run(f'{title}: ')
+        p.add_run(e['name']).bold = True
+        p.add_run(f'  —  {date}')
+        p.paragraph_format.space_after = Pt(2)
+    return _save(doc)
+
+
 def footer_text(doc):
     parts = [p.text.strip() for s in doc.sections for p in s.footer.paragraphs if p.text.strip()]
     return parts[0] if parts else ''
@@ -572,6 +599,7 @@ def render_request_document(req, leader=None):
     today = timezone.localtime(req.approved_at).date() if req.approved_at else datetime.date.today()
     builder = BUILDERS.get(req.cert_type, build_other)
     data = builder(req, details, chain, leader_info(signer), today)
+    data = add_endorsements(data, req, chain)
     if req.verification_code:
         # Footer carries the bare code only
         data = add_footer(data, req.verification_code)
