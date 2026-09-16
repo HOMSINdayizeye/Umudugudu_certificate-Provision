@@ -169,7 +169,10 @@ img { max-width: 100%; }
 .table th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; }
 .table tr:hover td { background: #f8fafc; }
 .row-clickable { cursor: pointer; }
-.actions-cell { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+/* Keep action buttons on one line; the table scrolls sideways if the screen is too narrow */
+.actions-cell { white-space: nowrap; }
+.actions-cell .btn { vertical-align: middle; }
+.actions-cell .btn + .btn { margin-left: 0.35rem; }
 
 .badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
 .badge-pending { background: #fff4d6; color: #8a6100; }
