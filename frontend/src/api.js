@@ -90,6 +90,8 @@ export const api = {
   login: (payload) => request('/auth/login/', { method: 'POST', body: payload }),
   logout: () => request('/auth/logout/', { method: 'POST' }),
   me: () => request('/auth/me/'),
+  updateMe: (payload) => request('/auth/me/', { method: 'PATCH', body: payload }),
+  changePassword: (payload) => request('/auth/change-password/', { method: 'POST', body: payload }),
 
   listRequests: () => request('/requests/'),
   createRequest: (payload) => request('/requests/', { method: 'POST', body: payload }),

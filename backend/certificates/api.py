@@ -24,7 +24,7 @@ from .serializers import (
     RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, NotificationSerializer,
-    can_see_codes,
+    ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
@@ -260,9 +260,22 @@ def logout(request):
     return Response({'detail': 'Logged out.'})
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 def me(request):
+    if request.method == 'PATCH':
+        serializer = ProfileUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
     return Response(UserSerializer(request.user).data)
+
+
+@api_view(['POST'])
+def change_password(request):
+    serializer = ChangePasswordSerializer(data=request.data, context={'user': request.user})
+    serializer.is_valid(raise_exception=True)
+    request.user.set_password(serializer.validated_data['new_password'])
+    request.user.save()
+    return Response({'detail': 'Password changed. You stay signed in on this device.'})
 
 
 # ---------- Certificate requests ----------

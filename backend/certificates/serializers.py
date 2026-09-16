@@ -100,6 +100,33 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         return user
 
 
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """Fields a signed-in user may change about themselves."""
+    class Meta:
+        model = CustomUser
+        fields = ['first_name', 'last_name', 'email', 'phone']
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError('Another account already uses this email.')
+        return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, validators=[validate_strong_password])
+
+    def validate_current_password(self, value):
+        if not self.context['user'].check_password(value):
+            raise serializers.ValidationError('Your current password is not correct.')
+        return value
+
+    def validate(self, attrs):
+        if attrs['current_password'] == attrs['new_password']:
+            raise serializers.ValidationError({'new_password': 'Choose a password different from the current one.'})
+        return attrs
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)

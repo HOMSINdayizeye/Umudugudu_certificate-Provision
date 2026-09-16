@@ -7,6 +7,7 @@ urlpatterns = [
     path('auth/login/', api.login, name='api_login'),
     path('auth/logout/', api.logout, name='api_logout'),
     path('auth/me/', api.me, name='api_me'),
+    path('auth/change-password/', api.change_password, name='api_change_password'),
 
     # Certificate requests (fixed sub-paths must come before the <action> catch-all)
     path('requests/', api.request_list, name='api_request_list'),

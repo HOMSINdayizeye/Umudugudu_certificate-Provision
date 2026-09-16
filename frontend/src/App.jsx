@@ -13,6 +13,7 @@ import Citizens from './pages/Citizens.jsx'
 import Announcements from './pages/Announcements.jsx'
 import Documents from './pages/Documents.jsx'
 import Codes from './pages/Codes.jsx'
+import Profile from './pages/Profile.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
@@ -73,10 +74,10 @@ export default function App() {
               {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
               {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
               <NotificationBell />
-              <span className="user-chip">
+              <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
-              </span>
+              </NavLink>
               <button className="btn btn-outline" onClick={handleLogout}>Logout</button>
             </>
           ) : (
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />
           <Route path="/documents" element={<RequireAuth><Documents user={user} /></RequireAuth>} />
           <Route path="/codes" element={<RequireAuth><Codes /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Profile user={user} onUpdate={setUser} /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

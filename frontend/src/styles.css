@@ -62,6 +62,9 @@ img { max-width: 100%; }
 }
 .topbar nav a:hover, .topbar nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
 .user-chip { background: var(--primary-tint); color: var(--primary-dark); padding: 0.35rem 0.8rem; font-size: 0.8rem; font-weight: 600; }
+.topbar nav a.user-chip { text-transform: none; letter-spacing: 0; border-bottom: none; padding: 0.35rem 0.8rem; }
+.topbar nav a.user-chip:hover, .topbar nav a.user-chip.active { background: var(--primary); color: #fff; }
+.topbar nav a.user-chip em { color: inherit; }
 .user-chip em { font-style: normal; opacity: 0.85; font-weight: 500; }
 .topbar .btn-outline { background: var(--primary); color: #fff; border: none; }
 .topbar .btn-outline:hover { background: var(--primary-dark); }
