@@ -72,37 +72,34 @@ export default function Dashboard({ user }) {
 
   return (
     <div>
-      <div className="page-head">
-        <h1>{title}</h1>
-        {!isAdmin && !isLeader && <Link to="/submit" className="btn">Apply for a Document</Link>}
+      <div className="page-head dashboard-head">
+        <div>
+          <h1>{title}</h1>
+          {!isAdmin && !isLeader && <Link to="/submit" className="btn" style={{ marginTop: '0.75rem' }}>Apply for a Document</Link>}
+        </div>
+        {!loading && (
+          <div className="stat-card" aria-label="Request summary">
+            <div className="stat stat-pending">
+              <span className="stat-value">{requests.filter((r) => r.status === 'pending').length}</span>
+              <span className="stat-label">Pending</span>
+            </div>
+            <div className="stat stat-approved">
+              <span className="stat-value">{requests.filter((r) => ['village_approved', 'cell_approved', 'approved'].includes(r.status)).length}</span>
+              <span className="stat-label">Approved</span>
+            </div>
+            <div className="stat stat-denied">
+              <span className="stat-value">{requests.filter((r) => r.status === 'denied').length}</span>
+              <span className="stat-label">Rejected</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{requests.length}</span>
+              <span className="stat-label">Total</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-
-      {!loading && (
-        <div className="stat-grid">
-          <div className="stat-tile stat-pending">
-            <span className="stat-label">Pending</span>
-            <span className="stat-value">{requests.filter((r) => r.status === 'pending').length}</span>
-            <span className="stat-hint">awaiting the village leader</span>
-          </div>
-          <div className="stat-tile stat-approved">
-            <span className="stat-label">Approved</span>
-            <span className="stat-value">{requests.filter((r) => ['village_approved', 'cell_approved', 'approved'].includes(r.status)).length}</span>
-            <span className="stat-hint">letters issued</span>
-          </div>
-          <div className="stat-tile stat-denied">
-            <span className="stat-label">Rejected</span>
-            <span className="stat-value">{requests.filter((r) => r.status === 'denied').length}</span>
-            <span className="stat-hint">requests denied</span>
-          </div>
-          <div className="stat-tile">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">{requests.length}</span>
-            <span className="stat-hint">{isAdmin ? 'all requests' : isLeader ? 'in your area' : 'your requests'}</span>
-          </div>
-        </div>
-      )}
 
       {(isLeader || isAdmin) && (
         <div className="card" style={{ marginBottom: '1.25rem' }}>
