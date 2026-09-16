@@ -62,7 +62,7 @@ export default function App() {
           {user ? (
             <>
               <NavLink to="/" end>Dashboard</NavLink>
-              <NavLink to="/submit">Apply</NavLink>
+              {!isAdmin && !LEADER_ROLES.includes(user.role) && <NavLink to="/submit">Apply</NavLink>}
               <NavLink to="/announcements">Announcements</NavLink>
               <NavLink to="/documents">Documents</NavLink>
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}

@@ -66,7 +66,7 @@ export default function Dashboard({ user }) {
     <div>
       <div className="page-head">
         <h1>{title}</h1>
-        <Link to="/submit" className="btn">Apply for a Document</Link>
+        {!isAdmin && !isLeader && <Link to="/submit" className="btn">Apply for a Document</Link>}
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -75,7 +75,7 @@ export default function Dashboard({ user }) {
         {loading ? (
           <p className="muted">Loading…</p>
         ) : requests.length === 0 ? (
-          <p className="muted">No requests yet. Click "New Request" to submit one.</p>
+          <p className="muted">{isAdmin || isLeader ? 'No document requests yet.' : 'No requests yet. Click "Apply for a Document" to submit one.'}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="table">
