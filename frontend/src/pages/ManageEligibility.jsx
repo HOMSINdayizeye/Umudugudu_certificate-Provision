@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 5
 
 export default function ManageEligibility() {
   const [users, setUsers] = useState(null)
