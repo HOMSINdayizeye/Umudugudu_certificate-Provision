@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
+import CountUp from '../components/CountUp.jsx'
+
+// Each summary number counts up in turn: Pending, then Approved, then Rejected, then Total
+const COUNT_MS = 550
 
 // Which request status each leader role can act on
 const ACTIONABLE_STATUS = {
@@ -79,22 +83,17 @@ export default function Dashboard({ user }) {
         </div>
         {!loading && (
           <div className="stat-card" aria-label="Request summary">
-            <div className="stat stat-pending">
-              <span className="stat-value">{requests.filter((r) => r.status === 'pending').length}</span>
-              <span className="stat-label">Pending</span>
-            </div>
-            <div className="stat stat-approved">
-              <span className="stat-value">{requests.filter((r) => ['village_approved', 'cell_approved', 'approved'].includes(r.status)).length}</span>
-              <span className="stat-label">Approved</span>
-            </div>
-            <div className="stat stat-denied">
-              <span className="stat-value">{requests.filter((r) => r.status === 'denied').length}</span>
-              <span className="stat-label">Rejected</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{requests.length}</span>
-              <span className="stat-label">Total</span>
-            </div>
+            {[
+              ['Pending', requests.filter((r) => r.status === 'pending').length],
+              ['Approved', requests.filter((r) => ['village_approved', 'cell_approved', 'approved'].includes(r.status)).length],
+              ['Rejected', requests.filter((r) => r.status === 'denied').length],
+              ['Total', requests.length],
+            ].map(([label, value], i) => (
+              <div className="stat" key={label}>
+                <span className="stat-value"><CountUp value={value} duration={COUNT_MS} delay={i * COUNT_MS} /></span>
+                <span className="stat-label">{label}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
