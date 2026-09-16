@@ -227,10 +227,12 @@ img { max-width: 100%; }
 .step-active .step-num { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 /* Repeatable gathering points on announcements */
-.point-row { display: grid; grid-template-columns: 1.3fr 1.3fr 0.7fr auto; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem; }
+.point-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(120px, 0.7fr) 44px; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem; }
 .point-row .form-group { margin-bottom: 0; }
-.point-row .link-btn { padding-bottom: 0.9rem; }
-@media (max-width: 600px) { .point-row { grid-template-columns: 1fr; } .point-row .link-btn { padding-bottom: 0; justify-self: start; } }
+.point-row input { min-width: 0; }
+.remove-btn { width: 44px; height: 44px; padding: 0; font-size: 1rem; color: var(--danger); border-color: var(--border); }
+.remove-btn:hover { background: #fdecea; border-color: var(--danger); }
+@media (max-width: 700px) { .point-row { grid-template-columns: 1fr 1fr; } .point-row .remove-btn { justify-self: start; } }
 
 /* Review summary */
 .review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem 1.5rem; }

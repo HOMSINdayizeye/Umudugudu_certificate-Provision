@@ -273,7 +273,7 @@ export default function Announcements({ user }) {
             <div className="form-row">
               <div className="form-group">
                 <label>Start time</label>
-                <input value={form.start_time} onChange={set('start_time')} placeholder={rw ? 'e.g. 8h00' : 'e.g. 8:00 AM'} />
+                <input type="time" value={form.start_time} onChange={set('start_time')} />
               </div>
               <div className="form-group">
                 <label>Venue</label>
@@ -296,9 +296,9 @@ export default function Announcements({ user }) {
                       </div>
                       <div className="form-group">
                         <label>Time</label>
-                        <input value={p.time || ''} onChange={(e) => setPoint(i, 'time', e.target.value)} placeholder={rw ? '8h00' : '8:00 AM'} />
+                        <input type="time" value={p.time || ''} onChange={(e) => setPoint(i, 'time', e.target.value)} />
                       </div>
-                      <button type="button" className="link-btn danger" onClick={() => removePoint(i)}>remove</button>
+                      <button type="button" className="btn btn-small btn-ghost remove-btn" title="Remove this gathering point" aria-label="Remove" onClick={() => removePoint(i)}>✕</button>
                     </div>
                   ))}
                   <button type="button" className="btn btn-small btn-ghost" onClick={addPoint}>

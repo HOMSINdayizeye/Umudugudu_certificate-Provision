@@ -1,6 +1,7 @@
 """Builds the official village letters (.docx) in the same layout as the Isibo office documents."""
 import datetime
 import io
+import re
 
 from django.utils import timezone
 from docx import Document
@@ -86,6 +87,20 @@ def en_long_date(value):
     if not d:
         return str(value or '')
     return d.strftime('%A, %d %B %Y')
+
+
+def fmt_time(value, lang):
+    """"08:30" from a time picker → "8:30 AM" (en) or "8h30" (rw); anything else is printed as typed."""
+    s = str(value or '').strip()
+    m = re.fullmatch(r'(\d{1,2}):(\d{2})(?::\d{2})?', s)
+    if not m:
+        return s
+    h, mi = int(m.group(1)), m.group(2)
+    if lang == 'rw':
+        return f'{h}h{mi}'
+    suffix = 'AM' if h < 12 else 'PM'
+    h12 = h % 12 or 12
+    return f'{h12}:{mi} {suffix}'
 
 
 def pronouns(gender):
@@ -542,7 +557,8 @@ def announcement_paragraphs(a, chain, leader_name):
     venue = (a.get('venue') or '').strip()
     gathering = (a.get('gathering_point') or '').strip()
     audience = (a.get('audience') or '').strip()
-    start_time = (a.get('start_time') or '').strip()
+    lang = a.get('language', 'en')
+    start_time = fmt_time(a.get('start_time'), lang)
     location_details = (a.get('location_details') or '').strip()
     reminder = (a.get('reminder') or '').strip()
     activities = (a.get('activities') or '').strip().rstrip('.')
@@ -560,7 +576,7 @@ def announcement_paragraphs(a, chain, leader_name):
             s = f"{who} {will_gather}" if who else default_who
             s += f" {str(p['place']).strip()}"
             if str(p.get('time', '')).strip():
-                s += f" {time_word} {str(p['time']).strip()}"
+                s += f" {time_word} {fmt_time(p['time'], lang)}"
             sentences.append(s + '.')
         return ' '.join(sentences)
     note = (a.get('note') or '').strip()
