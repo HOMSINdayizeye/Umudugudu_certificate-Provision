@@ -73,10 +73,10 @@ export default function RequestDetail({ user }) {
     }
   }
 
-  async function download(regenerate = false) {
+  async function download(regenerate = false, format = 'docx') {
     setError(''); setBusy('download')
     try {
-      saveBlob(await api.downloadCertificate(id, regenerate))
+      saveBlob(await api.downloadCertificate(id, { regenerate, format }))
       if (regenerate) await load()
     } catch (err) {
       setError(err.message)
@@ -202,8 +202,11 @@ export default function RequestDetail({ user }) {
             <h2 className="card-title">{canAct ? 'Review' : 'Letter'}</h2>
             {req.status === 'approved' && (
               <div className="btn-row">
-                <button className="btn" onClick={() => download(false)} disabled={busy === 'download'}>
-                  {busy === 'download' ? 'Preparing…' : 'Download Letter (.docx)'}
+                <button className="btn" onClick={() => download(false, 'pdf')} disabled={busy === 'download'}>
+                  {busy === 'download' ? 'Preparing…' : 'Download PDF'}
+                </button>
+                <button className="btn btn-outline-dark" onClick={() => download(false, 'docx')} disabled={busy === 'download'}>
+                  Download Word
                 </button>
                 {(isLeader || isAdmin) && (
                   <button className="btn btn-outline-dark" onClick={() => download(true)} disabled={busy === 'download'} title="Rebuild the letter from the current details">

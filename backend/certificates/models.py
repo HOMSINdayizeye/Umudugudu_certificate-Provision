@@ -280,6 +280,9 @@ class Announcement(models.Model):
     body = models.TextField(blank=True, default='')
     note = models.TextField(blank=True, default='')
     published = models.BooleanField(default=False)
+    # The rendered letter is kept on disk so it can be downloaded again later
+    generated_document = models.FileField(upload_to='announcements/', blank=True, null=True)
+    generated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

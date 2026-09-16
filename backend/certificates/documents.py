@@ -4,6 +4,7 @@ import io
 
 from django.utils import timezone
 from docx import Document
+from docx.enum.section import WD_ORIENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
@@ -102,11 +103,79 @@ def _new_document():
     normal.font.name = 'Times New Roman'
     normal.font.size = Pt(12)
     for section in doc.sections:
+        # A4 portrait, stated explicitly so every viewer agrees
+        section.orientation = WD_ORIENT.PORTRAIT
+        section.page_width = Cm(21)
+        section.page_height = Cm(29.7)
         section.top_margin = Cm(2)
         section.bottom_margin = Cm(2)
         section.left_margin = Cm(2.5)
         section.right_margin = Cm(2.5)
     return doc
+
+
+def docx_to_pdf(docx_bytes):
+    """Render one of our letters to PDF: paragraphs with bold/italic runs, bullets and the letterhead table."""
+    from xml.sax.saxutils import escape
+    from docx.table import Table as DocxTable
+    from docx.text.paragraph import Paragraph as DocxParagraph
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    source = Document(io.BytesIO(docx_bytes))
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+                            topMargin=2 * cm, bottomMargin=2 * cm, title='Letter')
+    base = ParagraphStyle('base', fontName='Times-Roman', fontSize=12, leading=16)
+    align = {WD_ALIGN_PARAGRAPH.CENTER: TA_CENTER, WD_ALIGN_PARAGRAPH.RIGHT: TA_RIGHT, WD_ALIGN_PARAGRAPH.JUSTIFY: TA_JUSTIFY}
+
+    def markup(p):
+        parts = []
+        for r in p.runs:
+            t = escape(r.text)
+            if r.bold:
+                t = f'<b>{t}</b>'
+            if r.italic:
+                t = f'<i>{t}</i>'
+            if r.underline:
+                t = f'<u>{t}</u>'
+            parts.append(t)
+        return ''.join(parts) or escape(p.text)
+
+    def para_style(p, space_after=None):
+        sa = p.paragraph_format.space_after
+        return ParagraphStyle('p', parent=base, alignment=align.get(p.alignment, TA_LEFT),
+                              spaceAfter=space_after if space_after is not None else (sa.pt if sa is not None else 8))
+
+    story = []
+    for child in source.element.body.iterchildren():
+        if child.tag.endswith('}tbl'):
+            table = DocxTable(child, source)
+            data = [[[Paragraph(markup(p), para_style(p, 0)) for p in cell.paragraphs] for cell in row.cells]
+                    for row in table.rows]
+            ncols = len(table.columns)
+            widths = [pdf.width * 0.62, pdf.width * 0.38] if ncols == 2 else [pdf.width / ncols] * ncols
+            t = Table(data, colWidths=widths)
+            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                                   ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0)]))
+            story.append(t)
+        elif child.tag.endswith('}p'):
+            p = DocxParagraph(child, source)
+            if not p.text.strip():
+                story.append(Spacer(1, 12))
+                continue
+            style = para_style(p)
+            if p.style is not None and 'List' in p.style.name:
+                style.leftIndent = 18
+                style.bulletIndent = 6
+                story.append(Paragraph(markup(p), style, bulletText='•'))
+            else:
+                story.append(Paragraph(markup(p), style))
+    pdf.build(story)
+    return buf.getvalue()
 
 
 def _letterhead(doc, chain, date_text, lang):

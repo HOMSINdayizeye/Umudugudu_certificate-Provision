@@ -152,7 +152,7 @@ export default function Announcements({ user }) {
         saved = await api.createAnnouncement(payload)
         setNotice('Announcement saved. Use Download in the list below whenever you need the letter again.')
       }
-      if (andDownload) saveBlob(await api.downloadAnnouncement(saved.id))
+      if (andDownload) saveBlob(await api.downloadAnnouncement(saved.id, 'pdf'))
       reset()
       await load()
     } catch (err) {
@@ -162,10 +162,10 @@ export default function Announcements({ user }) {
     }
   }
 
-  async function download(a) {
+  async function download(a, format = 'docx') {
     setError('')
     try {
-      saveBlob(await api.downloadAnnouncement(a.id))
+      saveBlob(await api.downloadAnnouncement(a.id, format))
     } catch (err) {
       setError(err.message)
     }
@@ -331,7 +331,7 @@ export default function Announcements({ user }) {
             <div className="btn-row">
               <button className="btn" disabled={!!busy}>{busy === 'save' ? 'Saving…' : editingId ? 'Save changes' : 'Save'}</button>
               <button type="button" className="btn btn-outline-dark" disabled={!!busy} onClick={(e) => save(e, true)}>
-                {busy === 'save-download' ? 'Preparing…' : 'Save & Download (.docx)'}
+                {busy === 'save-download' ? 'Preparing…' : 'Save & Download PDF'}
               </button>
               {editingId && <button type="button" className="btn btn-outline-dark" onClick={reset}>Cancel</button>}
             </div>
@@ -381,30 +381,36 @@ export default function Announcements({ user }) {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th><th>Type</th><th>Event</th><th>Venue</th><th>Village</th>
+                  <th>Created</th><th>Letter date</th><th>Type</th><th>Event</th><th>Village</th>
                   {canCreate && <th>Status</th>}
-                  <th>Actions</th>
+                  <th>Download</th>
+                  {canCreate && <th>Manage</th>}
                 </tr>
               </thead>
               <tbody>
                 {items.map((a) => (
                   <tr key={a.id}>
+                    <td>{new Date(a.created_at).toLocaleDateString()}<div className="muted small">{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></td>
                     <td>{a.letter_date}</td>
                     <td>{a.kind_display}<div className="muted small">{a.language_display}{a.title ? ` · ${a.title}` : ''}</div></td>
-                    <td>{a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}</td>
-                    <td>{a.venue || '—'}</td>
+                    <td>{a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}{a.venue ? <div className="muted small">{a.venue}</div> : null}</td>
                     <td>{a.village_name || '—'}</td>
                     {canCreate && <td><span className={`badge ${a.published ? 'badge-approved' : 'badge-pending'}`}>{a.published ? 'Published' : 'Draft'}</span></td>}
                     <td className="actions-cell">
-                      <button className="btn btn-small" onClick={() => download(a)}>Download (.docx)</button>
-                      {canCreate && (a.created_by === user?.id || user?.is_admin_role || user?.is_superuser) && (
-                        <>
-                          <button className="btn btn-small btn-outline-dark" onClick={() => startEdit(a)}>Edit</button>
-                          <button className="btn btn-small btn-outline-dark" onClick={() => togglePublish(a)}>{a.published ? 'Unpublish' : 'Publish'}</button>
-                          <button className="btn btn-small btn-danger" onClick={() => remove(a)}>Delete</button>
-                        </>
-                      )}
+                      <button className="btn btn-small" onClick={() => download(a, 'pdf')}>PDF</button>
+                      <button className="btn btn-small btn-outline-dark" onClick={() => download(a, 'docx')}>Word</button>
                     </td>
+                    {canCreate && (
+                      <td className="actions-cell">
+                        {(a.created_by === user?.id || user?.is_admin_role || user?.is_superuser) && (
+                          <>
+                            <button className="btn btn-small btn-ghost" onClick={() => startEdit(a)}>Edit</button>
+                            <button className="btn btn-small btn-ghost" onClick={() => togglePublish(a)}>{a.published ? 'Unpublish' : 'Publish'}</button>
+                            <button className="btn btn-small btn-danger" onClick={() => remove(a)}>Delete</button>
+                          </>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -27,7 +27,7 @@ from .serializers import (
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
-    request_location_id,
+    request_location_id, docx_to_pdf,
 )
 
 LEADER_STAGE = {
@@ -113,6 +113,36 @@ def generate_letter(req, signer):
     req.generated_document.save(filename, ContentFile(data), save=False)
 
 
+def generate_announcement_file(ann):
+    data, filename = render_announcement(ann, ann.created_by)
+    if ann.generated_document:
+        ann.generated_document.delete(save=False)
+    ann.generated_document.save(filename, ContentFile(data), save=False)
+    ann.generated_at = timezone.now()
+
+
+def send_stored_document(field_file, fmt):
+    """Serve a stored .docx as-is, or converted to PDF when ?format=pdf."""
+    filename = os.path.basename(field_file.name)
+    if fmt == 'pdf':
+        with field_file.open('rb') as fh:
+            pdf = docx_to_pdf(fh.read())
+        return FileResponse(io.BytesIO(pdf), as_attachment=True,
+                            filename=os.path.splitext(filename)[0] + '.pdf', content_type='application/pdf')
+    return FileResponse(field_file.open('rb'), as_attachment=True, filename=filename, content_type=DOCX_MIME)
+
+
+def visible_requests_qs(user):
+    if is_admin(user):
+        return CertificateRequest.objects.all()
+    if user.role in LEADER_STAGE and user.scope_code:
+        # Leaders see every request in their jurisdiction, plus their own
+        scoped = [r.pk for r in CertificateRequest.objects.select_related('user')
+                  if in_scope(request_location_code(r), user.scope_code)]
+        return CertificateRequest.objects.filter(pk__in=scoped) | CertificateRequest.objects.filter(user=user)
+    return CertificateRequest.objects.filter(user=user)
+
+
 # ---------- Auth ----------
 
 @api_view(['POST'])
@@ -153,16 +183,7 @@ def request_list(request):
     user = request.user
 
     if request.method == 'GET':
-        if is_admin(user):
-            qs = CertificateRequest.objects.all()
-        elif user.role in LEADER_STAGE and user.scope_code:
-            # Leaders see every request in their jurisdiction, plus their own
-            scoped = [r.pk for r in CertificateRequest.objects.select_related('user')
-                      if in_scope(request_location_code(r), user.scope_code)]
-            qs = CertificateRequest.objects.filter(pk__in=scoped) | CertificateRequest.objects.filter(user=user)
-        else:
-            qs = CertificateRequest.objects.filter(user=user)
-        qs = qs.select_related('user').order_by('-created_at')
+        qs = visible_requests_qs(user).select_related('user').order_by('-created_at')
         return Response(CertificateRequestSerializer(qs, many=True).data)
 
     serializer = CertificateRequestSerializer(data=request.data)
@@ -337,9 +358,40 @@ def download_certificate(request, pk):
         generate_letter(req, signing_leader(req, req.approved_by or user))
         req.save()
 
-    filename = os.path.basename(req.generated_document.name)
-    return FileResponse(req.generated_document.open('rb'), as_attachment=True, filename=filename,
-                        content_type=DOCX_MIME)
+    return send_stored_document(req.generated_document, request.GET.get('format'))
+
+
+# ---------- Generated documents archive ----------
+
+@api_view(['GET'])
+def document_list(request):
+    """Every generated letter the user may see, newest first, with Word and PDF links."""
+    user = request.user
+    items = []
+    reqs = visible_requests_qs(user).filter(status='approved').select_related('user', 'approved_by')
+    for r in reqs:
+        details = r.details if isinstance(r.details, dict) else {}
+        items.append({
+            'kind': 'request', 'id': r.id, 'title': r.get_cert_type_display(),
+            'subject': details.get('full_name') or r.user.display_name,
+            'created_at': r.approved_at or r.created_at,
+            'created_by': r.approved_by.display_name if r.approved_by else '',
+            'docx_url': f'/api/requests/{r.id}/certificate/download/',
+            'pdf_url': f'/api/requests/{r.id}/certificate/download/?format=pdf',
+            'link': f'/requests/{r.id}',
+        })
+    for a in announcements_qs(user).select_related('created_by'):
+        items.append({
+            'kind': 'announcement', 'id': a.id, 'title': a.get_kind_display(),
+            'subject': a.title or a.venue or (a.event_date.isoformat() if a.event_date else ''),
+            'created_at': a.created_at,
+            'created_by': a.created_by.display_name if a.created_by else '',
+            'docx_url': f'/api/announcements/{a.id}/download/',
+            'pdf_url': f'/api/announcements/{a.id}/download/?format=pdf',
+            'link': '/announcements',
+        })
+    items.sort(key=lambda x: x['created_at'] or timezone.now(), reverse=True)
+    return Response(items)
 
 
 # ---------- Announcements ----------
@@ -383,6 +435,8 @@ def announcement_list(request):
     serializer = AnnouncementSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     ann = serializer.save(created_by=user, village=int(village))
+    generate_announcement_file(ann)
+    ann.save()
     return Response(AnnouncementSerializer(ann).data, status=status.HTTP_201_CREATED)
 
 
@@ -398,12 +452,18 @@ def announcement_detail(request, pk):
     if not can_edit_announcement(user, ann):
         return Response({'detail': 'Only the author can change this announcement.'}, status=status.HTTP_403_FORBIDDEN)
     if request.method == 'DELETE':
+        if ann.generated_document:
+            ann.generated_document.delete(save=False)
         ann.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     serializer = AnnouncementSerializer(ann, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
-    return Response(serializer.data)
+    ann = serializer.save()
+    # Any edit beyond publishing changes the letter text, so rebuild the stored file
+    if set(request.data.keys()) - {'published'}:
+        generate_announcement_file(ann)
+        ann.save()
+    return Response(AnnouncementSerializer(ann).data)
 
 
 @api_view(['POST'])
@@ -427,8 +487,10 @@ def announcement_download(request, pk):
     ann = get_object_or_404(Announcement, pk=pk)
     if not announcements_qs(user).filter(pk=pk).exists():
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-    data, filename = render_announcement(ann, ann.created_by or user)
-    return FileResponse(io.BytesIO(data), as_attachment=True, filename=filename, content_type=DOCX_MIME)
+    if not ann.generated_document or not os.path.exists(ann.generated_document.path):
+        generate_announcement_file(ann)
+        ann.save()
+    return send_stored_document(ann.generated_document, request.GET.get('format'))
 
 
 # ---------- Users (system admin) ----------

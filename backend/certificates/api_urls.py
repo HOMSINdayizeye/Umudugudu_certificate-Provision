@@ -17,6 +17,9 @@ urlpatterns = [
     path('attachments/<int:pk>/download/', api.attachment_download, name='api_attachment_download'),
     path('attachments/<int:pk>/', api.attachment_delete, name='api_attachment_delete'),
 
+    # Generated documents archive
+    path('documents/', api.document_list, name='api_document_list'),
+
     # Announcements
     path('announcements/', api.announcement_list, name='api_announcement_list'),
     path('announcements/preview/', api.announcement_preview, name='api_announcement_preview'),

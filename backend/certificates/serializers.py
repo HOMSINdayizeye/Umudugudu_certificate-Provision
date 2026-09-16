@@ -186,6 +186,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     language_display = serializers.CharField(source='get_language_display', read_only=True)
     created_by_name = serializers.SerializerMethodField()
     village_name = serializers.SerializerMethodField()
+    has_document = serializers.SerializerMethodField()
 
     class Meta:
         model = Announcement
@@ -194,8 +195,12 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'meeting_points', 'location_details',
             'activities', 'reminder', 'body', 'note', 'published',
             'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
+            'has_document', 'generated_at',
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'generated_at']
+
+    def get_has_document(self, obj):
+        return bool(obj.generated_document)
 
     def get_created_by_name(self, obj):
         return obj.created_by.display_name if obj.created_by else ''

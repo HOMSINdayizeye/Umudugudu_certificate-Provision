@@ -11,6 +11,7 @@ import Payments from './pages/Payments.jsx'
 import AddUser from './pages/AddUser.jsx'
 import Citizens from './pages/Citizens.jsx'
 import Announcements from './pages/Announcements.jsx'
+import Documents from './pages/Documents.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
 const VOLUNTEER_ROLES = ['security_volunteer', 'cleaning_volunteer']
@@ -63,6 +64,7 @@ export default function App() {
               <NavLink to="/" end>Dashboard</NavLink>
               <NavLink to="/submit">Apply</NavLink>
               <NavLink to="/announcements">Announcements</NavLink>
+              <NavLink to="/documents">Documents</NavLink>
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}
               {(isAdmin || user.role === 'isibo_leader') && <NavLink to="/citizens">Citizens</NavLink>}
               {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
@@ -92,6 +94,7 @@ export default function App() {
           <Route path="/payments" element={<RequireAuth><Payments user={user} /></RequireAuth>} />
           <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
           <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />
+          <Route path="/documents" element={<RequireAuth><Documents user={user} /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
