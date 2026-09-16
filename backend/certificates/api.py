@@ -358,7 +358,8 @@ def download_certificate(request, pk):
         generate_letter(req, signing_leader(req, req.approved_by or user))
         req.save()
 
-    return send_stored_document(req.generated_document, request.GET.get('format'))
+    # "?as=pdf" (not "format": DRF reserves that name for its own renderers)
+    return send_stored_document(req.generated_document, request.GET.get('as'))
 
 
 # ---------- Generated documents archive ----------
@@ -377,7 +378,7 @@ def document_list(request):
             'created_at': r.approved_at or r.created_at,
             'created_by': r.approved_by.display_name if r.approved_by else '',
             'docx_url': f'/api/requests/{r.id}/certificate/download/',
-            'pdf_url': f'/api/requests/{r.id}/certificate/download/?format=pdf',
+            'pdf_url': f'/api/requests/{r.id}/certificate/download/?as=pdf',
             'link': f'/requests/{r.id}',
         })
     for a in announcements_qs(user).select_related('created_by'):
@@ -387,7 +388,7 @@ def document_list(request):
             'created_at': a.created_at,
             'created_by': a.created_by.display_name if a.created_by else '',
             'docx_url': f'/api/announcements/{a.id}/download/',
-            'pdf_url': f'/api/announcements/{a.id}/download/?format=pdf',
+            'pdf_url': f'/api/announcements/{a.id}/download/?as=pdf',
             'link': '/announcements',
         })
     items.sort(key=lambda x: x['created_at'] or timezone.now(), reverse=True)
@@ -490,7 +491,7 @@ def announcement_download(request, pk):
     if not ann.generated_document or not os.path.exists(ann.generated_document.path):
         generate_announcement_file(ann)
         ann.save()
-    return send_stored_document(ann.generated_document, request.GET.get('format'))
+    return send_stored_document(ann.generated_document, request.GET.get('as'))
 
 
 # ---------- Users (system admin) ----------

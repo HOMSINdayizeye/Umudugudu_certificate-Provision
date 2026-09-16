@@ -63,6 +63,8 @@ pending → (village leader approves) → approved → letter downloadable (.doc
 
 Letter text lives in `backend/certificates/documents.py` (one builder per type). Leaders can **Regenerate** a letter after fixing details.
 
+Every letter is A4 portrait and can be downloaded as **Word (.docx)** or **PDF** (`?as=pdf`, rendered with reportlab from the stored .docx). Generated files stay under `backend/media/` (`generated/` for letters, `announcements/` for notices) and the **Documents** page lists them with the date each was created, newest first.
+
 ### Announcements
 
 Village, cell and sector leaders have an **Announcements** page to write Umuganda communiqués, meeting notices or general announcements in English or Kinyarwanda. The changeable parts (letter date, event date, start time, venue, gathering point, partner, audience, note) are filled in a form with a live preview; the letter can be downloaded as `.docx`. Publishing an announcement makes it visible to citizens of that village.
@@ -78,12 +80,13 @@ All endpoints are under `/api/` and use token auth (`Authorization: Token <key>`
 - `GET|POST /api/requests/` — list own requests (leaders: their jurisdiction, admins: all) / submit `{cert_type, details, other_description?}`
 - `GET /api/requests/<id>/` — detail incl. `details`, `attachments`, `approved_by_name`, `has_document`
 - `POST /api/requests/<id>/approve/` or `/deny/` with optional `{message}` — village leader in scope, or admin
-- `GET /api/requests/<id>/certificate/download/` — generated .docx (`?regenerate=1` for leaders/admins)
+- `GET /api/requests/<id>/certificate/download/` — generated .docx (`?as=pdf` for PDF, `?regenerate=1` for leaders/admins)
+- `GET /api/documents/` — archive of generated letters and announcements visible to the user, with Word/PDF links
 - `GET|POST /api/requests/<id>/attachments/` — list / multipart upload (`kind`, `files[]`)
 - `GET /api/attachments/<id>/download/`, `DELETE /api/attachments/<id>/`
 - `GET|POST /api/announcements/`, `GET|PATCH|DELETE /api/announcements/<id>/`
 - `POST /api/announcements/preview/` — letter paragraphs for the given fields
-- `GET /api/announcements/<id>/download/` — .docx
+- `GET /api/announcements/<id>/download/` — stored .docx (`?as=pdf` for PDF)
 - `GET /api/users/`, `POST /api/users/<id>/eligibility/` — admin eligibility management
 - `GET /api/locations/provinces|districts|sectors|cells|villages/` — cascading location data
 

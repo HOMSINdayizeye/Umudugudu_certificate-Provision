@@ -97,7 +97,7 @@ export const api = {
   actOnRequest: (id, action, message = '') =>
     request(`/requests/${id}/${action}/`, { method: 'POST', body: { message } }),
   downloadCertificate: (id, { regenerate = false, format = 'docx' } = {}) =>
-    request(`/requests/${id}/certificate/download/?${new URLSearchParams({ ...(regenerate ? { regenerate: 1 } : {}), format })}`, { blob: true }),
+    request(`/requests/${id}/certificate/download/?${new URLSearchParams({ ...(regenerate ? { regenerate: 1 } : {}), as: format })}`, { blob: true }),
   listDocuments: () => request('/documents/'),
   downloadByUrl: (url) => request(url.replace(/^\/api/, ''), { blob: true }),
 
@@ -115,7 +115,7 @@ export const api = {
   updateAnnouncement: (id, payload) => request(`/announcements/${id}/`, { method: 'PATCH', body: payload }),
   deleteAnnouncement: (id) => request(`/announcements/${id}/`, { method: 'DELETE' }),
   previewAnnouncement: (payload) => request('/announcements/preview/', { method: 'POST', body: payload }),
-  downloadAnnouncement: (id, format = 'docx') => request(`/announcements/${id}/download/?format=${format}`, { blob: true }),
+  downloadAnnouncement: (id, format = 'docx') => request(`/announcements/${id}/download/?as=${format}`, { blob: true }),
 
   listUsers: () => request('/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
