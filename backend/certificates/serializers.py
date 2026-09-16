@@ -194,7 +194,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'body', 'note', 'published',
             'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at', 'village']
+        read_only_fields = ['created_by', 'created_at', 'updated_at']
 
     def get_created_by_name(self, obj):
         return obj.created_by.display_name if obj.created_by else ''
