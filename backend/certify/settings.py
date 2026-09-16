@@ -89,6 +89,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Uploaded attachments and generated letters; served only through authenticated API endpoints
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+MAX_ATTACHMENT_MB = 10
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = '/certificates/login/'

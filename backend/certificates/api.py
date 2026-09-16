@@ -3,12 +3,12 @@ import os
 import datetime
 
 from django.conf import settings
-from django.db.models import TextField
+from django.core.files.base import ContentFile
+from django.db.models import Q, TextField
 from django.db.models.functions import Cast, Length
-from django.http import HttpResponse
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from docx import Document
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -17,21 +17,41 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import (
-    CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
-    ServicePayment, Citizen,
+    CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen,
+    RequestAttachment, Announcement,
 )
 from .serializers import (
     RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
-    CertificateRequestSerializer, StolenLaptopCertificateSerializer,
+    CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer,
+)
+from .documents import (
+    render_request_document, render_announcement, announcement_paragraphs, location_chain,
+    request_location_id,
 )
 
 LEADER_STAGE = {
     # role -> (status it can act on, status approval moves the request to)
-    'village_leader': ('pending', 'village_approved'),
+    # The village leader signs every letter, so their approval is final.
+    'village_leader': ('pending', 'approved'),
+    # Kept so requests already sitting at these older stages can still be completed
     'cell_leader': ('village_approved', 'cell_approved'),
     'sector_leader': ('cell_approved', 'approved'),
 }
+
+# Fields each letter cannot be written without
+REQUIRED_DETAILS = {
+    'conduct': ['full_name', 'father_name', 'mother_name', 'dob', 'national_id'],
+    'residence': ['full_name', 'national_id', 'dob', 'father_name', 'mother_name', 'resident_since'],
+    'stolen_computer': ['full_name', 'id_number', 'incident_date', 'incident_location', 'device_type', 'brand',
+                        'serial_number'],
+    'community': ['full_name', 'national_id', 'activities'],
+    'other': [],
+}
+ALLOWED_ATTACHMENT_EXT = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'}
+MAX_ATTACHMENTS = 10
+ANNOUNCER_ROLES = ('village_leader', 'cell_leader', 'sector_leader')
+DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 VOLUNTEER_SERVICE = {
     'cleaning_volunteer': 'cleaning',
@@ -58,6 +78,39 @@ def in_scope(code, scope_code):
 def scope_queryset_by_village_prefix(qs, field, scope_code):
     # Match hierarchical location ids by string prefix (e.g. village 101010101 is in cell 101010)
     return qs.annotate(_loc=Cast(field, TextField())).filter(_loc__startswith=str(scope_code))
+
+
+def location_fields_from(village_id):
+    """Split an 8-digit village id into the province…village ids stored on a request."""
+    s = str(village_id)
+    out = {}
+    for key, n in (('province', 1), ('district', 2), ('sector', 4), ('cell', 6), ('village', 8)):
+        if len(s) >= n:
+            out[key] = int(s[:n])
+    out['location_code'] = int(s)
+    return out
+
+
+def can_view_request(user, req):
+    return (
+        is_admin(user)
+        or req.user_id == user.id
+        or (user.role in LEADER_STAGE and in_scope(request_location_code(req), user.scope_code))
+    )
+
+
+def signing_leader(req, fallback):
+    """The village leader of the request's village signs the letter; fall back to whoever approved."""
+    code = request_location_id(req)
+    leader = CustomUser.objects.filter(role='village_leader', village=code).first() if code else None
+    return leader or fallback
+
+
+def generate_letter(req, signer):
+    data, filename = render_request_document(req, leader=signer)
+    if req.generated_document:
+        req.generated_document.delete(save=False)
+    req.generated_document.save(filename, ContentFile(data), save=False)
 
 
 # ---------- Auth ----------
@@ -114,32 +167,100 @@ def request_list(request):
 
     serializer = CertificateRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    cert_request = serializer.save(user=user, status='pending', email=user.email or 'unknown@example.com')
+    cert_type = serializer.validated_data['cert_type']
+    details = serializer.validated_data.get('details') or {}
+    if not isinstance(details, dict):
+        return Response({'details': 'Must be an object of field values.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Stolen computer requests carry extra device details
-    if cert_request.cert_type == 'stolen_computer' and request.data.get('stolen_device'):
-        device = StolenLaptopCertificateSerializer(data=request.data['stolen_device'])
-        if device.is_valid():
-            device.save()
-        else:
-            cert_request.delete()
-            return Response({'stolen_device': device.errors}, status=status.HTTP_400_BAD_REQUEST)
+    missing = {f: 'This field is required.' for f in REQUIRED_DETAILS.get(cert_type, [])
+               if not str(details.get(f, '') or '').strip()}
+    if missing:
+        return Response({'details': missing}, status=status.HTTP_400_BAD_REQUEST)
+    if cert_type == 'other' and not (serializer.validated_data.get('other_description') or '').strip():
+        return Response({'other_description': 'Describe the document you need.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # The letter is issued by the applicant's own village unless a location was chosen explicitly
+    location = {}
+    if not serializer.validated_data.get('village') and user.village:
+        location = location_fields_from(user.village)
+    if not location and not serializer.validated_data.get('village'):
+        return Response({'village': 'Your account has no village. Select your location or ask the admin to set it.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    cert_request = serializer.save(user=user, status='pending', details=details,
+                                   email=user.email or 'unknown@example.com', **location)
     return Response(CertificateRequestSerializer(cert_request).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
 def request_detail(request, pk):
-    user = request.user
     req = get_object_or_404(CertificateRequest, pk=pk)
-    allowed = (
-        is_admin(user)
-        or req.user_id == user.id
-        or (user.role in LEADER_STAGE and in_scope(request_location_code(req), user.scope_code))
-    )
-    if not allowed:
+    if not can_view_request(request.user, req):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
     return Response(CertificateRequestSerializer(req).data)
+
+
+# ---------- Attachments ----------
+
+@api_view(['GET', 'POST'])
+def attachment_list(request, pk):
+    user = request.user
+    req = get_object_or_404(CertificateRequest, pk=pk)
+    if not can_view_request(user, req):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(RequestAttachmentSerializer(req.attachments.order_by('uploaded_at'), many=True).data)
+
+    if not (req.user_id == user.id or is_admin(user)):
+        return Response({'detail': 'Only the applicant can add documents to this request.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    if req.status in ('approved', 'denied') and not is_admin(user):
+        return Response({'detail': 'This request is closed; documents can no longer be added.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    files = request.FILES.getlist('files') or request.FILES.getlist('file')
+    if not files:
+        return Response({'detail': 'Choose at least one file.'}, status=status.HTTP_400_BAD_REQUEST)
+    if req.attachments.count() + len(files) > MAX_ATTACHMENTS:
+        return Response({'detail': f'A request can hold at most {MAX_ATTACHMENTS} files.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    kind = request.data.get('kind', 'other')
+    if kind not in dict(RequestAttachment.KIND_CHOICES):
+        kind = 'other'
+    limit = settings.MAX_ATTACHMENT_MB * 1024 * 1024
+    created = []
+    for f in files:
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in ALLOWED_ATTACHMENT_EXT:
+            return Response({'detail': f'{f.name}: only PDF, JPG, PNG, DOC and DOCX files are accepted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if f.size > limit:
+            return Response({'detail': f'{f.name} is larger than {settings.MAX_ATTACHMENT_MB} MB.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        created.append(RequestAttachment.objects.create(
+            request=req, kind=kind, file=f, original_name=f.name[:255], size=f.size))
+    return Response(RequestAttachmentSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def attachment_download(request, pk):
+    att = get_object_or_404(RequestAttachment.objects.select_related('request__user'), pk=pk)
+    if not can_view_request(request.user, att.request):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    return FileResponse(att.file.open('rb'), as_attachment=True, filename=att.original_name)
+
+
+@api_view(['DELETE'])
+def attachment_delete(request, pk):
+    user = request.user
+    att = get_object_or_404(RequestAttachment.objects.select_related('request'), pk=pk)
+    if not (is_admin(user) or (att.request.user_id == user.id and att.request.status == 'pending')):
+        return Response({'detail': 'This document can no longer be removed.'}, status=status.HTTP_403_FORBIDDEN)
+    att.file.delete(save=False)
+    att.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])
@@ -149,14 +270,17 @@ def update_request_status(request, pk, action):
 
     if action not in ('approve', 'deny'):
         return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
+    message = (request.data.get('message') or '').strip()
 
     if is_admin(user):
+        if req.status in ('approved', 'denied'):
+            return Response({'detail': 'This request is already closed.'}, status=status.HTTP_400_BAD_REQUEST)
         if action == 'approve':
-            req.status = 'approved'
-            req.admin_message = 'Your request has been approved.'
+            req.admin_message = message or 'Your request has been approved. Your letter is ready to download.'
+            finalize_approval(req, user)
         else:
             req.status = 'denied'
-            req.admin_message = 'Your request has been denied.'
+            req.admin_message = message or 'Your request has been denied.'
         req.save()
         return Response(CertificateRequestSerializer(req).data)
 
@@ -175,63 +299,136 @@ def update_request_status(request, pk, action):
 
     role_label = user.get_role_display()
     if action == 'approve':
-        req.status = next_status
         if next_status == 'approved':
-            req.admin_message = 'Your request has been fully approved.'
+            req.admin_message = message or f'Approved by the {role_label}. Your letter is ready to download.'
+            finalize_approval(req, user)
         else:
-            req.admin_message = f'Approved by {role_label}. Awaiting next level approval.'
+            req.status = next_status
+            req.admin_message = message or f'Approved by {role_label}. Awaiting next level approval.'
     else:
         req.status = 'denied'
-        req.admin_message = f'Your request has been denied by the {role_label}.'
+        req.admin_message = message or f'Your request has been denied by the {role_label}.'
     req.save()
     return Response(CertificateRequestSerializer(req).data)
+
+
+def finalize_approval(req, approver):
+    """Mark approved and write the letter so it is ready the moment the citizen looks."""
+    req.status = 'approved'
+    req.approved_by = approver
+    req.approved_at = timezone.now()
+    generate_letter(req, signing_leader(req, approver))
 
 
 @api_view(['GET'])
 def download_certificate(request, pk):
     user = request.user
-    if is_admin(user):
-        req = get_object_or_404(CertificateRequest, pk=pk)
-    else:
-        req = get_object_or_404(CertificateRequest, pk=pk, user=user)
+    req = get_object_or_404(CertificateRequest, pk=pk)
+    if not can_view_request(user, req):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
     if req.status != 'approved':
-        return Response({'detail': 'Certificate is only available once the request is fully approved.'},
+        return Response({'detail': 'The letter is only available once the request is approved.'},
                         status=status.HTTP_403_FORBIDDEN)
 
-    template_path = os.path.join(settings.BASE_DIR, 'certificates', 'templates_docs', 'conduct_template.docx')
-    doc = Document(template_path)
+    can_regenerate = is_admin(user) or user.role in LEADER_STAGE
+    wants_regenerate = request.GET.get('regenerate') == '1' and can_regenerate
+    missing = not req.generated_document or not os.path.exists(req.generated_document.path)
+    if wants_regenerate or missing:
+        generate_letter(req, signing_leader(req, req.approved_by or user))
+        req.save()
 
-    def location_name(location_id):
-        if not location_id:
-            return ''
-        loc = LocationImport.objects.filter(location_id=location_id).first()
-        return loc.name if loc else ''
+    filename = os.path.basename(req.generated_document.name)
+    return FileResponse(req.generated_document.open('rb'), as_attachment=True, filename=filename,
+                        content_type=DOCX_MIME)
 
-    replacements = {
-        '{{name}}': f'{req.user.first_name} {req.user.last_name}'.strip() or req.user.username,
-        '{{province_name}}': location_name(req.province),
-        '{{district_name}}': location_name(req.district),
-        '{{sector_name}}': location_name(req.sector),
-        '{{cell_name}}': location_name(req.cell),
-        '{{village_name}}': location_name(req.village),
-        '{{date}}': datetime.date.today().strftime('%d/%m/%Y'),
-    }
 
-    for p in doc.paragraphs:
-        for run in p.runs:
-            for key, val in replacements.items():
-                if key in run.text:
-                    run.text = run.text.replace(key, val)
+# ---------- Announcements ----------
 
-    output = io.BytesIO()
-    doc.save(output)
-    output.seek(0)
-    response = HttpResponse(
-        output.read(),
-        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    )
-    response['Content-Disposition'] = f'attachment; filename=certificate_{req.pk}.docx'
-    return response
+def announcements_qs(user):
+    if is_admin(user):
+        return Announcement.objects.all()
+    if user.role == 'village_leader':
+        return Announcement.objects.filter(Q(village=user.village) | Q(created_by=user))
+    if user.role in ('cell_leader', 'sector_leader') and user.scope_code:
+        qs = scope_queryset_by_village_prefix(Announcement.objects.all(), 'village', user.scope_code)
+        return qs | Announcement.objects.filter(created_by=user)
+    # Citizens and volunteers only read what their village leader has published
+    return Announcement.objects.filter(published=True, village=user.village)
+
+
+def can_announce(user):
+    return is_admin(user) or user.role in ANNOUNCER_ROLES
+
+
+def can_edit_announcement(user, ann):
+    return is_admin(user) or ann.created_by_id == user.id
+
+
+@api_view(['GET', 'POST'])
+def announcement_list(request):
+    user = request.user
+    if request.method == 'GET':
+        qs = announcements_qs(user).select_related('created_by')
+        return Response({
+            'can_create': can_announce(user),
+            'announcements': AnnouncementSerializer(qs, many=True).data,
+        })
+
+    if not can_announce(user):
+        return Response({'detail': 'Only village, cell or sector leaders can create announcements.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    village = request.data.get('village') or user.village
+    if not village:
+        return Response({'village': 'Choose the village this announcement is for.'}, status=status.HTTP_400_BAD_REQUEST)
+    serializer = AnnouncementSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    ann = serializer.save(created_by=user, village=int(village))
+    return Response(AnnouncementSerializer(ann).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def announcement_detail(request, pk):
+    user = request.user
+    ann = get_object_or_404(Announcement, pk=pk)
+    if not announcements_qs(user).filter(pk=pk).exists():
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(AnnouncementSerializer(ann).data)
+    if not can_edit_announcement(user, ann):
+        return Response({'detail': 'Only the author can change this announcement.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.method == 'DELETE':
+        ann.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = AnnouncementSerializer(ann, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+def announcement_preview(request):
+    """Text of the announcement as it will read in the letter, for live preview while editing."""
+    user = request.user
+    if not can_announce(user):
+        return Response({'detail': 'Not allowed.'}, status=status.HTTP_403_FORBIDDEN)
+    village = request.data.get('village') or user.village
+    chain = location_chain(village)
+    paragraphs = announcement_paragraphs(request.data, chain, user.display_name)
+    return Response({
+        'letterhead': chain,
+        'paragraphs': [{'style': s, 'text': t} for s, t in paragraphs],
+    })
+
+
+@api_view(['GET'])
+def announcement_download(request, pk):
+    user = request.user
+    ann = get_object_or_404(Announcement, pk=pk)
+    if not announcements_qs(user).filter(pk=pk).exists():
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    data, filename = render_announcement(ann, ann.created_by or user)
+    return FileResponse(io.BytesIO(data), as_attachment=True, filename=filename, content_type=DOCX_MIME)
 
 
 # ---------- Users (system admin) ----------

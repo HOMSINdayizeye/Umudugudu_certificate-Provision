@@ -4,7 +4,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
-    ServicePayment, Citizen,
+    ServicePayment, Citizen, RequestAttachment, Announcement,
 )
 
 
@@ -31,7 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'password',
+            'id', 'username', 'email', 'first_name', 'last_name', 'password', 'phone',
             'province', 'district', 'sector', 'cell', 'village', 'isibo',
         ]
 
@@ -60,7 +60,7 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'password', 'role',
+            'id', 'username', 'email', 'first_name', 'last_name', 'password', 'role', 'phone',
             'province', 'district', 'sector', 'cell', 'village', 'isibo',
         ]
 
@@ -114,12 +114,13 @@ class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     is_admin_role = serializers.BooleanField(read_only=True)
     village_name = serializers.SerializerMethodField()
+    display_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'is_eligible', 'is_superuser',
-            'role', 'role_display', 'is_admin_role',
+            'id', 'username', 'email', 'first_name', 'last_name', 'display_name', 'phone',
+            'is_eligible', 'is_superuser', 'role', 'role_display', 'is_admin_role',
             'province', 'district', 'sector', 'cell', 'village', 'village_name', 'isibo',
         ]
 
@@ -136,19 +137,71 @@ class StolenLaptopCertificateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RequestAttachmentSerializer(serializers.ModelSerializer):
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
+    download_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RequestAttachment
+        fields = ['id', 'kind', 'kind_display', 'original_name', 'size', 'uploaded_at', 'download_url']
+
+    def get_download_url(self, obj):
+        return f'/api/attachments/{obj.id}/download/'
+
+
 class CertificateRequestSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     cert_type_display = serializers.CharField(source='get_cert_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    details = serializers.JSONField(required=False)
+    attachments = RequestAttachmentSerializer(many=True, read_only=True)
+    approved_by_name = serializers.SerializerMethodField()
+    has_document = serializers.SerializerMethodField()
+    village_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CertificateRequest
         fields = [
-            'id', 'user', 'cert_type', 'cert_type_display', 'other_description',
-            'province', 'district', 'sector', 'cell', 'village', 'location_code',
+            'id', 'user', 'cert_type', 'cert_type_display', 'other_description', 'details',
+            'province', 'district', 'sector', 'cell', 'village', 'village_name', 'location_code',
             'created_at', 'status', 'status_display', 'admin_message',
+            'attachments', 'approved_by_name', 'approved_at', 'has_document',
         ]
-        read_only_fields = ['status', 'admin_message', 'created_at']
+        read_only_fields = ['status', 'admin_message', 'created_at', 'approved_at']
+
+    def get_approved_by_name(self, obj):
+        return obj.approved_by.display_name if obj.approved_by else ''
+
+    def get_has_document(self, obj):
+        return bool(obj.generated_document)
+
+    def get_village_name(self, obj):
+        code = obj.village or obj.location_code or obj.user.village
+        loc = LocationImport.objects.filter(location_id=code).first() if code else None
+        return loc.name if loc else ''
+
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
+    language_display = serializers.CharField(source='get_language_display', read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    village_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Announcement
+        fields = [
+            'id', 'kind', 'kind_display', 'language', 'language_display', 'title', 'letter_date', 'event_date',
+            'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'body', 'note', 'published',
+            'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'village']
+
+    def get_created_by_name(self, obj):
+        return obj.created_by.display_name if obj.created_by else ''
+
+    def get_village_name(self, obj):
+        loc = LocationImport.objects.filter(location_id=obj.village).first() if obj.village else None
+        return loc.name if loc else ''
 
 
 class LocationImportSerializer(serializers.ModelSerializer):

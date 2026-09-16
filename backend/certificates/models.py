@@ -28,6 +28,14 @@ class CustomUser(AbstractUser):
     cell = models.IntegerField(blank=True, null=True)
     village = models.IntegerField(blank=True, null=True)
     isibo = models.CharField(max_length=100, blank=True, default='')
+    phone = models.CharField(max_length=20, blank=True, default='')
+
+    @property
+    def display_name(self):
+        # Official letters write the surname first: "NDAYIZEYE Amos"
+        if self.last_name or self.first_name:
+            return f'{self.last_name.upper()} {self.first_name}'.strip()
+        return self.username
 
     @property
     def is_admin_role(self):
@@ -79,15 +87,15 @@ class CertificateType(models.Model):
 # Certificate request model
 class CertificateRequest(models.Model):
     CERT_TYPES = [
-        ('conduct', 'Conduct'),
+        ('conduct', 'Certificate of Conduct'),
         ('residence', 'Residence Recognition'),
-        ('community', 'Community Engagement'),
-        ('stolen_computer', 'Stolen Computer'),
+        ('community', 'Community Engagement Referral'),
+        ('stolen_computer', 'Stolen Laptop / Electronic Device Report'),
         ('other', 'Other'),
     ]
 
     STATUS_CHOICES = [
-        ('pending', 'Pending Village Approval'),
+        ('pending', 'Pending Village Leader Review'),
         ('village_approved', 'Pending Cell Approval'),
         ('cell_approved', 'Pending Sector Approval'),
         ('approved', 'Approved'),
@@ -97,7 +105,13 @@ class CertificateRequest(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='requests')
     cert_type = models.CharField(max_length=20, choices=CERT_TYPES)
     other_description = models.TextField(blank=True, null=True)
-    
+    # Type-specific applicant data used to fill the letter (names, ID, device, witnesses…)
+    details = models.JSONField(default=dict, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='approved_requests')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    generated_document = models.FileField(upload_to='generated/', blank=True, null=True)
+
     # Location fields (only required for 'conduct' certificate)
     province = models.IntegerField(blank=True, null=True)
     district = models.IntegerField(blank=True, null=True)
@@ -205,3 +219,64 @@ class StolenLaptopCertificate(models.Model):
 
     def __str__(self):
         return f"Stolen Laptop Certificate - {self.registration_number}"
+
+
+def attachment_upload_path(instance, filename):
+    return f'attachments/request_{instance.request_id}/{filename}'
+
+
+class RequestAttachment(models.Model):
+    """Supporting file a citizen uploads with a request (ID copy, student card, proof…)."""
+    KIND_CHOICES = [
+        ('national_id', 'National ID / Passport'),
+        ('student_card', 'Student Card'),
+        ('proof', 'Proof / Supporting Document'),
+        ('photo', 'Photo'),
+        ('other', 'Other'),
+    ]
+
+    request = models.ForeignKey(CertificateRequest, on_delete=models.CASCADE, related_name='attachments')
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='other')
+    file = models.FileField(upload_to=attachment_upload_path)
+    original_name = models.CharField(max_length=255)
+    size = models.PositiveIntegerField(default=0)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.original_name} ({self.get_kind_display()})'
+
+
+class Announcement(models.Model):
+    """Leader-authored notice (e.g. Umuganda communique) rendered to a downloadable letter."""
+    KIND_CHOICES = [
+        ('umuganda', 'Community Work (Umuganda)'),
+        ('meeting', 'Meeting / Gathering'),
+        ('general', 'General Announcement'),
+    ]
+    LANGUAGE_CHOICES = [('en', 'English'), ('rw', 'Kinyarwanda')]
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name='announcements')
+    village = models.IntegerField(blank=True, null=True)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='umuganda')
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='en')
+    title = models.CharField(max_length=200, blank=True, default='')
+    letter_date = models.DateField()
+    event_date = models.DateField(blank=True, null=True)
+    start_time = models.CharField(max_length=30, blank=True, default='')
+    venue = models.CharField(max_length=200, blank=True, default='')
+    gathering_point = models.CharField(max_length=200, blank=True, default='')
+    partner = models.CharField(max_length=200, blank=True, default='')
+    audience = models.CharField(max_length=200, blank=True, default='')
+    # Free text; when empty the body is generated from the fields above
+    body = models.TextField(blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    published = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-letter_date', '-created_at']
+
+    def __str__(self):
+        return f'{self.get_kind_display()} – {self.letter_date}'
