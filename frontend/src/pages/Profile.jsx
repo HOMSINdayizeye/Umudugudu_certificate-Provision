@@ -4,7 +4,7 @@ import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx
 
 // The signed-in user's own account: details they may edit, and a password change
 export default function Profile({ user, onUpdate }) {
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '' })
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '' })
   const [pw, setPw] = useState({ current_password: '', new_password: '', confirm: '' })
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -13,7 +13,7 @@ export default function Profile({ user, onUpdate }) {
   const [busy, setBusy] = useState('')
 
   useEffect(() => {
-    if (user) setForm({ first_name: user.first_name || '', last_name: user.last_name || '', email: user.email || '', phone: user.phone || '' })
+    if (user) setForm({ first_name: user.first_name || '', last_name: user.last_name || '', phone: user.phone || '' })
   }, [user])
 
   function set(field) {
@@ -64,12 +64,13 @@ export default function Profile({ user, onUpdate }) {
             <h2 className="card-title">Account</h2>
             <dl className="detail-grid">
               <dt>Username</dt><dd>{user.username}</dd>
+              <dt>Email</dt><dd>{user.email}</dd>
               <dt>Role</dt><dd>{user.role_display}</dd>
               {user.village_name && (<><dt>Village</dt><dd>{user.village_name}</dd></>)}
               {user.isibo && (<><dt>Isibo</dt><dd>{user.isibo}</dd></>)}
               <dt>Name on letters</dt><dd>{user.display_name}</dd>
             </dl>
-            <p className="muted small" style={{ marginBottom: 0 }}>Username, role and location are set by the administrator. Ask them if these need to change.</p>
+            <p className="muted small" style={{ marginBottom: 0 }}>Username, email, role and location are set by the administrator. Ask them if these need to change.</p>
           </div>
 
           <form className="card" style={{ marginTop: '1rem' }} onSubmit={saveProfile}>
@@ -86,15 +87,9 @@ export default function Profile({ user, onUpdate }) {
                 <input value={form.last_name} onChange={set('last_name')} required />
               </div>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Email</label>
-                <input type="email" value={form.email} onChange={set('email')} required />
-              </div>
-              <div className="form-group">
-                <label>Phone</label>
-                <input value={form.phone} onChange={set('phone')} placeholder="+250 7xx xxx xxx" />
-              </div>
+            <div className="form-group">
+              <label>Phone</label>
+              <input value={form.phone} onChange={set('phone')} placeholder="+250 7xx xxx xxx" />
             </div>
             {user.role !== 'citizen' && <p className="muted small">Your name and phone are printed on the letters you sign.</p>}
             <button className="btn" disabled={busy === 'profile'}>{busy === 'profile' ? 'Saving…' : 'Save Changes'}</button>

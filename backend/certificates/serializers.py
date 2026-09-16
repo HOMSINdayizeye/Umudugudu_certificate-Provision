@@ -101,15 +101,10 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
-    """Fields a signed-in user may change about themselves."""
+    """Fields a signed-in user may change about themselves (email is fixed; the admin changes it)."""
     class Meta:
         model = CustomUser
-        fields = ['first_name', 'last_name', 'email', 'phone']
-
-    def validate_email(self, value):
-        if CustomUser.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
-            raise serializers.ValidationError('Another account already uses this email.')
-        return value
+        fields = ['first_name', 'last_name', 'phone']
 
 
 class ChangePasswordSerializer(serializers.Serializer):
