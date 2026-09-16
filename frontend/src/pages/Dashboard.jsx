@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
+import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
 
 // Which request status each leader role can act on
 const ACTIONABLE_STATUS = {
@@ -29,6 +30,13 @@ export default function Dashboard({ user }) {
 
   const isLeader = LEADER_ROLES.includes(user?.role)
   const isAdmin = user?.is_admin_role || user?.is_superuser
+  const [codes, setCodes] = useState([])
+  const [selectedCode, setSelectedCode] = useState(null)
+
+  // Recent verification codes for leaders and admins
+  useEffect(() => {
+    if (isLeader || isAdmin) api.listCodes().then(setCodes).catch(() => {})
+  }, [isLeader, isAdmin])
 
   async function load() {
     try {
@@ -70,6 +78,22 @@ export default function Dashboard({ user }) {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {(isLeader || isAdmin) && (
+        <div className="card" style={{ marginBottom: '1.25rem' }}>
+          <div className="page-head" style={{ marginBottom: '0.75rem' }}>
+            <h2 className="card-title" style={{ margin: 0 }}>Verification codes</h2>
+            <Link to="/codes" className="arrow-link">All codes & verify →</Link>
+          </div>
+          {codes.length === 0 ? (
+            <p className="muted small">No codes yet. A code is issued every time a letter is approved.</p>
+          ) : (
+            <div className="code-grid">
+              {codes.slice(0, 6).map((c) => <CodeCard key={c.code} item={c} onOpen={setSelectedCode} />)}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card">
         {loading ? (
@@ -141,6 +165,7 @@ export default function Dashboard({ user }) {
           </div>
         )}
       </div>
+      <CodeModal item={selectedCode} onClose={() => setSelectedCode(null)} />
     </div>
   )
 }

@@ -12,6 +12,8 @@ import AddUser from './pages/AddUser.jsx'
 import Citizens from './pages/Citizens.jsx'
 import Announcements from './pages/Announcements.jsx'
 import Documents from './pages/Documents.jsx'
+import Codes from './pages/Codes.jsx'
+import NotificationBell from './components/NotificationBell.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
 const VOLUNTEER_ROLES = ['security_volunteer', 'cleaning_volunteer']
@@ -65,10 +67,12 @@ export default function App() {
               {!isAdmin && !LEADER_ROLES.includes(user.role) && <NavLink to="/submit">Apply</NavLink>}
               <NavLink to="/announcements">Announcements</NavLink>
               <NavLink to="/documents">Documents</NavLink>
+              {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/codes">Codes</NavLink>}
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}
               {(isAdmin || user.role === 'isibo_leader') && <NavLink to="/citizens">Citizens</NavLink>}
               {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
               {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
+              <NotificationBell />
               <span className="user-chip">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -96,6 +100,7 @@ export default function App() {
           <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
           <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />
           <Route path="/documents" element={<RequireAuth><Documents user={user} /></RequireAuth>} />
+          <Route path="/codes" element={<RequireAuth><Codes /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

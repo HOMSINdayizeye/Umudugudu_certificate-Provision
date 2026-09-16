@@ -100,6 +100,12 @@ export const api = {
   downloadCertificate: (id, { regenerate = false, format = 'docx' } = {}) =>
     request(`/requests/${id}/certificate/download/?${new URLSearchParams({ ...(regenerate ? { regenerate: 1 } : {}), as: format })}`, { blob: true }),
   listDocuments: () => request('/documents/'),
+
+  notifications: () => request('/notifications/'),
+  markNotificationRead: (id) => request(`/notifications/${id}/read/`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/read-all/', { method: 'POST' }),
+  listCodes: (q = '') => request(`/codes/?q=${encodeURIComponent(q)}`),
+  lookupCode: (code) => request(`/codes/${encodeURIComponent(code.trim())}/`),
   downloadByUrl: (url) => request(url.replace(/^\/api/, ''), { blob: true }),
 
   uploadAttachments: (id, kind, files) => {

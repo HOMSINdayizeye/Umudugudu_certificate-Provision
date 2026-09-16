@@ -186,6 +186,7 @@ export default function RequestDetail({ user }) {
               </>
             )}
             {req.approved_by_name && (<><dt>Approved by</dt><dd>{req.approved_by_name} on {new Date(req.approved_at).toLocaleDateString()}</dd></>)}
+            {req.verification_code && (<><dt>Verification code</dt><dd><span className="code-inline">{req.verification_code}</span> <span className="muted small">(leaders only, printed in the letter footer)</span></dd></>)}
             {req.admin_message && (<><dt>Message from leader</dt><dd>{req.admin_message}</dd></>)}
           </dl>
         </div>

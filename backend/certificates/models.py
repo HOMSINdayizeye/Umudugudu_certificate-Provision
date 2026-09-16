@@ -111,6 +111,8 @@ class CertificateRequest(models.Model):
                                     related_name='approved_requests')
     approved_at = models.DateTimeField(null=True, blank=True)
     generated_document = models.FileField(upload_to='generated/', blank=True, null=True)
+    # Anti-forgery code printed in the letter footer: <village id>-<year>-<sequence>; never shown to citizens
+    verification_code = models.CharField(max_length=40, blank=True, default='', db_index=True)
 
     # Location fields (only required for 'conduct' certificate)
     province = models.IntegerField(blank=True, null=True)
@@ -219,6 +221,24 @@ class StolenLaptopCertificate(models.Model):
 
     def __str__(self):
         return f"Stolen Laptop Certificate - {self.registration_number}"
+
+
+class Notification(models.Model):
+    """In-app notice for one user, e.g. a cell leader told that a letter was issued."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True, default='')
+    link = models.CharField(max_length=200, blank=True, default='')
+    request = models.ForeignKey(CertificateRequest, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='notifications')
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user} – {self.title}'
 
 
 def attachment_upload_path(instance, filename):

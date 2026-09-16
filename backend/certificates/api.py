@@ -18,12 +18,13 @@ from rest_framework.response import Response
 
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen,
-    RequestAttachment, Announcement,
+    RequestAttachment, Announcement, Notification,
 )
 from .serializers import (
     RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
-    LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer,
+    LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, NotificationSerializer,
+    can_see_codes,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
@@ -106,7 +107,47 @@ def signing_leader(req, fallback):
     return leader or fallback
 
 
+def req_data(obj, user, many=False):
+    """Serialize with the viewer in context so the verification code is only shown to leaders."""
+    return CertificateRequestSerializer(obj, many=many, context={'user': user}).data
+
+
+def issue_verification_code(req):
+    """<village id>-<year>-<sequence>, unique; kept for life once issued."""
+    if req.verification_code:
+        return req.verification_code
+    prefix = f'{request_location_id(req) or 0}-{timezone.now().year}-'
+    n = CertificateRequest.objects.filter(verification_code__startswith=prefix).count() + 1
+    while CertificateRequest.objects.filter(verification_code=f'{prefix}{n:04d}').exists():
+        n += 1
+    req.verification_code = f'{prefix}{n:04d}'
+    return req.verification_code
+
+
+def applicant_name(req):
+    details = req.details if isinstance(req.details, dict) else {}
+    return details.get('full_name') or req.user.display_name
+
+
+def notify_letter_issued(req, approver):
+    """Tell the cell leader(s) the code, and the citizen that the letter is ready (without the code)."""
+    loc = str(request_location_id(req) or '')
+    cell = int(loc[:6]) if len(loc) >= 6 else None
+    kind = req.get_cert_type_display()
+    link = f'/requests/{req.id}'
+    if cell:
+        for leader in CustomUser.objects.filter(role='cell_leader', cell=cell):
+            Notification.objects.create(
+                user=leader, request=req, link=link, title=f'{kind} issued in {loc[:8]}',
+                message=f'Verification code {req.verification_code}: {kind} for {applicant_name(req)} '
+                        f'approved by {approver.display_name}.')
+    Notification.objects.create(
+        user=req.user, request=req, link=link, title='Your letter is ready',
+        message=f'Your {kind} has been approved. Open the request to view the letter.')
+
+
 def generate_letter(req, signer):
+    issue_verification_code(req)
     data, filename = render_request_document(req, leader=signer)
     if req.generated_document:
         req.generated_document.delete(save=False)
@@ -184,7 +225,7 @@ def request_list(request):
 
     if request.method == 'GET':
         qs = visible_requests_qs(user).select_related('user').order_by('-created_at')
-        return Response(CertificateRequestSerializer(qs, many=True).data)
+        return Response(req_data(qs, user, many=True))
 
     serializer = CertificateRequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -210,7 +251,7 @@ def request_list(request):
 
     cert_request = serializer.save(user=user, status='pending', details=details,
                                    email=user.email or 'unknown@example.com', **location)
-    return Response(CertificateRequestSerializer(cert_request).data, status=status.HTTP_201_CREATED)
+    return Response(req_data(cert_request, user), status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET', 'PATCH'])
@@ -220,7 +261,7 @@ def request_detail(request, pk):
     if not can_view_request(user, req):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
     if request.method == 'GET':
-        return Response(CertificateRequestSerializer(req).data)
+        return Response(req_data(req, user))
 
     # The applicant may correct a request only while it is still waiting for review
     if not (is_admin(user) or req.user_id == user.id):
@@ -242,7 +283,7 @@ def request_detail(request, pk):
         return Response({'other_description': 'Describe the document you need.'}, status=status.HTTP_400_BAD_REQUEST)
     req.details = details
     req.save()
-    return Response(CertificateRequestSerializer(req).data)
+    return Response(req_data(req, user))
 
 
 # ---------- Attachments ----------
@@ -327,7 +368,7 @@ def update_request_status(request, pk, action):
             req.status = 'denied'
             req.admin_message = message or 'Your request has been denied.'
         req.save()
-        return Response(CertificateRequestSerializer(req).data)
+        return Response(req_data(req, user))
 
     stage = LEADER_STAGE.get(user.role)
     if not stage:
@@ -354,15 +395,16 @@ def update_request_status(request, pk, action):
         req.status = 'denied'
         req.admin_message = message or f'Your request has been denied by the {role_label}.'
     req.save()
-    return Response(CertificateRequestSerializer(req).data)
+    return Response(req_data(req, user))
 
 
 def finalize_approval(req, approver):
-    """Mark approved and write the letter so it is ready the moment the citizen looks."""
+    """Mark approved, issue the code, write the letter, and notify the cell leader and the citizen."""
     req.status = 'approved'
     req.approved_by = approver
     req.approved_at = timezone.now()
     generate_letter(req, signing_leader(req, approver))
+    notify_letter_issued(req, approver)
 
 
 @api_view(['GET'])
@@ -417,6 +459,75 @@ def document_list(request):
         })
     items.sort(key=lambda x: x['created_at'] or timezone.now(), reverse=True)
     return Response(items)
+
+
+# ---------- Notifications ----------
+
+@api_view(['GET'])
+def notification_list(request):
+    qs = request.user.notifications.all()
+    return Response({
+        'unread': qs.filter(read_at__isnull=True).count(),
+        'items': NotificationSerializer(qs[:30], many=True).data,
+    })
+
+
+@api_view(['POST'])
+def notification_read(request, pk):
+    n = get_object_or_404(Notification, pk=pk, user=request.user)
+    if not n.read_at:
+        n.read_at = timezone.now()
+        n.save()
+    return Response(NotificationSerializer(n).data)
+
+
+@api_view(['POST'])
+def notification_read_all(request):
+    request.user.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
+    return Response({'detail': 'All notifications marked as read.'})
+
+
+# ---------- Verification codes (leaders only) ----------
+
+def code_entry(r):
+    return {
+        'code': r.verification_code, 'request_id': r.id, 'cert_type': r.cert_type,
+        'cert_type_display': r.get_cert_type_display(), 'applicant': applicant_name(r),
+        'village_name': location_chain(request_location_id(r))['village'],
+        'approved_at': r.approved_at, 'approved_by': r.approved_by.display_name if r.approved_by else '',
+        'has_document': bool(r.generated_document),
+    }
+
+
+@api_view(['GET'])
+def code_list(request):
+    user = request.user
+    if not can_see_codes(user):
+        return Response({'detail': 'Verification codes are only visible to leaders.'}, status=status.HTTP_403_FORBIDDEN)
+    qs = (visible_requests_qs(user).filter(status='approved').exclude(verification_code='')
+          .select_related('user', 'approved_by').order_by('-approved_at'))
+    q = (request.GET.get('q') or '').strip().lower()
+    items = [code_entry(r) for r in qs]
+    if q:
+        items = [i for i in items if q in i['code'].lower() or q in (i['applicant'] or '').lower()]
+    return Response(items)
+
+
+@api_view(['GET'])
+def code_lookup(request, code):
+    """Check a code someone presents; leaders may verify any issued letter, not only those in their area."""
+    user = request.user
+    if not can_see_codes(user):
+        return Response({'detail': 'Verification codes are only visible to leaders.'}, status=status.HTTP_403_FORBIDDEN)
+    r = (CertificateRequest.objects.filter(verification_code__iexact=code.strip(), status='approved')
+         .select_related('user', 'approved_by').first())
+    if not r:
+        return Response({'valid': False, 'detail': 'No issued letter carries this code. Treat the document as unverified.'},
+                        status=status.HTTP_404_NOT_FOUND)
+    entry = code_entry(r)
+    entry['valid'] = True
+    entry['in_scope'] = can_view_request(user, r)
+    return Response(entry)
 
 
 # ---------- Announcements ----------

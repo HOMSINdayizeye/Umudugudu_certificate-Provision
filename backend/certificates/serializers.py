@@ -4,8 +4,15 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
-    ServicePayment, Citizen, RequestAttachment, Announcement,
+    ServicePayment, Citizen, RequestAttachment, Announcement, Notification,
 )
+
+# Roles allowed to see verification codes
+CODE_ROLES = ('village_leader', 'cell_leader', 'sector_leader', 'system_admin')
+
+
+def can_see_codes(user):
+    return bool(user) and (user.is_superuser or user.role in CODE_ROLES)
 
 
 def validate_strong_password(value):
@@ -165,9 +172,16 @@ class CertificateRequestSerializer(serializers.ModelSerializer):
             'id', 'user', 'cert_type', 'cert_type_display', 'other_description', 'details',
             'province', 'district', 'sector', 'cell', 'village', 'village_name', 'location_code',
             'created_at', 'status', 'status_display', 'admin_message',
-            'attachments', 'approved_by_name', 'approved_at', 'has_document',
+            'attachments', 'approved_by_name', 'approved_at', 'has_document', 'verification_code',
         ]
-        read_only_fields = ['status', 'admin_message', 'created_at', 'approved_at']
+        read_only_fields = ['status', 'admin_message', 'created_at', 'approved_at', 'verification_code']
+
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        # The code is for leaders only; without a known leader in context it is withheld
+        if not can_see_codes(self.context.get('user')):
+            data['verification_code'] = ''
+        return data
 
     def get_approved_by_name(self, obj):
         return obj.approved_by.display_name if obj.approved_by else ''
@@ -179,6 +193,12 @@ class CertificateRequestSerializer(serializers.ModelSerializer):
         code = obj.village or obj.location_code or obj.user.village
         loc = LocationImport.objects.filter(location_id=code).first() if code else None
         return loc.name if loc else ''
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'title', 'message', 'link', 'request', 'created_at', 'read_at']
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):

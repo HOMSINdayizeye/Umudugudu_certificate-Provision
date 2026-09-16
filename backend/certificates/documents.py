@@ -189,7 +189,19 @@ def docx_to_pdf(docx_bytes):
                 story.append(Paragraph(markup(p), style, bulletText='•'))
             else:
                 story.append(Paragraph(markup(p), style))
-    pdf.build(story)
+
+    footer = footer_text(source)
+
+    def draw_footer(canvas, _doc):
+        if not footer:
+            return
+        canvas.saveState()
+        canvas.setFont('Times-Italic', 8)
+        canvas.setFillGray(0.35)
+        canvas.drawCentredString(A4[0] / 2, 1.1 * cm, footer)
+        canvas.restoreState()
+
+    pdf.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     return buf.getvalue()
 
 
@@ -277,6 +289,25 @@ def _save(doc):
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def add_footer(docx_bytes, text):
+    """Stamp a small grey footer line (the verification code) on every page of a finished letter."""
+    doc = Document(io.BytesIO(docx_bytes))
+    for section in doc.sections:
+        footer = section.footer
+        p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+        p.text = ''
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(text)
+        run.font.size = Pt(8)
+        run.italic = True
+    return _save(doc)
+
+
+def footer_text(doc):
+    parts = [p.text.strip() for s in doc.sections for p in s.footer.paragraphs if p.text.strip()]
+    return parts[0] if parts else ''
 
 
 def _g(details, key, default=''):
@@ -541,6 +572,9 @@ def render_request_document(req, leader=None):
     today = timezone.localtime(req.approved_at).date() if req.approved_at else datetime.date.today()
     builder = BUILDERS.get(req.cert_type, build_other)
     data = builder(req, details, chain, leader_info(signer), today)
+    if req.verification_code:
+        data = add_footer(data, f"Verification code: {req.verification_code}  ·  "
+                                f"Issued through Certify, City of Kigali. The cell or village office can confirm this code.")
     applicant = (details.get('full_name') or req.user.display_name or 'applicant').replace(' ', '_')
     filename = f"{FILE_SLUGS.get(req.cert_type, 'Document')}_{applicant}_{req.pk}.docx"
     return data, filename

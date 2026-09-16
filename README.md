@@ -65,6 +65,12 @@ Letter text lives in `backend/certificates/documents.py` (one builder per type).
 
 Every letter is A4 portrait and can be downloaded as **Word (.docx)** or **PDF** (`?as=pdf`, rendered with reportlab from the stored .docx). Generated files stay under `backend/media/` (`generated/` for letters, `announcements/` for notices) and the **Documents** page lists them with the date each was created, newest first.
 
+### Verification codes & notifications
+
+Every approved letter receives a **verification code** `<village id>-<year>-<sequence>` (e.g. `11090309-2026-0004`) that is printed in the footer of the Word and PDF file. The code is visible to village, cell and sector leaders and admins only; the API blanks it for citizens. Leaders see recent codes as cards on the Dashboard and all of them on the **Codes** page, which also has a "Verify a document" box to check any code someone presents (`GET /api/codes/<code>/`).
+
+When a letter is issued the **cell leader(s)** of that cell receive an in-app notification with the code, and the citizen receives a "your letter is ready" notice without it. The bell in the navbar lists notifications (`/api/notifications/`).
+
 ### Announcements
 
 Village, cell and sector leaders have an **Announcements** page to write Umuganda communiqués, meeting notices or general announcements in English or Kinyarwanda. The changeable parts (letter date, event date, start time, venue, gathering point, partner, audience, note) are filled in a form with a live preview; the letter can be downloaded as `.docx`. Publishing an announcement makes it visible to citizens of that village.

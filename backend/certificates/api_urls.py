@@ -20,6 +20,13 @@ urlpatterns = [
     # Generated documents archive
     path('documents/', api.document_list, name='api_document_list'),
 
+    # Notifications & verification codes
+    path('notifications/', api.notification_list, name='api_notification_list'),
+    path('notifications/read-all/', api.notification_read_all, name='api_notification_read_all'),
+    path('notifications/<int:pk>/read/', api.notification_read, name='api_notification_read'),
+    path('codes/', api.code_list, name='api_code_list'),
+    path('codes/<str:code>/', api.code_lookup, name='api_code_lookup'),
+
     # Announcements
     path('announcements/', api.announcement_list, name='api_announcement_list'),
     path('announcements/preview/', api.announcement_preview, name='api_announcement_preview'),
