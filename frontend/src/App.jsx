@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api, getToken, getUser, setSession, clearSession } from './api.js'
 import Login from './pages/Login.jsx'
@@ -10,6 +10,7 @@ import ManageEligibility from './pages/ManageEligibility.jsx'
 import Payments from './pages/Payments.jsx'
 import AddUser from './pages/AddUser.jsx'
 import Citizens from './pages/Citizens.jsx'
+import Announcements from './pages/Announcements.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
 const VOLUNTEER_ROLES = ['security_volunteer', 'cleaning_volunteer']
@@ -50,16 +51,22 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand">Certify <span>Kigali City</span></Link>
+        <Link to="/" className="brand">
+          {/* Drop the coat of arms at frontend/public/logo.png and it replaces the blue tile */}
+          <img src="/logo.png" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'grid' }} />
+          <span className="brand-mark" style={{ display: 'none' }}>CK</span>
+          Kigali City <span>Certify</span>
+        </Link>
         <nav>
           {user ? (
             <>
-              <Link to="/">Dashboard</Link>
-              <Link to="/submit">New Request</Link>
-              {seesPayments && <Link to="/payments">Payments</Link>}
-              {(isAdmin || user.role === 'isibo_leader') && <Link to="/citizens">Citizens</Link>}
-              {isAdmin && <Link to="/add-user">Add User</Link>}
-              {isAdmin && <Link to="/eligibility">Eligibility</Link>}
+              <NavLink to="/" end>Dashboard</NavLink>
+              <NavLink to="/submit">Apply</NavLink>
+              <NavLink to="/announcements">Announcements</NavLink>
+              {seesPayments && <NavLink to="/payments">Payments</NavLink>}
+              {(isAdmin || user.role === 'isibo_leader') && <NavLink to="/citizens">Citizens</NavLink>}
+              {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
+              {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
               <span className="user-chip">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -84,11 +91,13 @@ export default function App() {
           <Route path="/requests/:id" element={<RequireAuth><RequestDetail user={user} /></RequireAuth>} />
           <Route path="/payments" element={<RequireAuth><Payments user={user} /></RequireAuth>} />
           <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
+          <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <footer className="site-footer">© {new Date().getFullYear()} <strong>City of Kigali</strong>. All Rights Reserved.</footer>
     </div>
   )
 }

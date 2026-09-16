@@ -53,10 +53,10 @@ export default function Dashboard({ user }) {
   }
 
   const title = isAdmin
-    ? 'All Certificate Requests'
+    ? 'All Document Requests'
     : isLeader
-      ? `Requests in your ${user.role.replace('_leader', '')}`
-      : 'My Certificate Requests'
+      ? `Document requests in your ${user.role.replace('_leader', '')}`
+      : 'My Document Requests'
 
   const totalPages = Math.max(1, Math.ceil(requests.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -66,7 +66,7 @@ export default function Dashboard({ user }) {
     <div>
       <div className="page-head">
         <h1>{title}</h1>
-        <Link to="/submit" className="btn">New Request</Link>
+        <Link to="/submit" className="btn">Apply for a Document</Link>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -100,13 +100,8 @@ export default function Dashboard({ user }) {
                     <td>{new Date(r.created_at).toLocaleDateString()}</td>
                     <td><span className={`badge badge-${r.status}`}>{r.status_display}</span></td>
                     <td>
-                      <Link to={`/requests/${r.id}`} className="btn btn-small">View</Link>{' '}
-                      {canActOn(user, r) && (
-                        <>
-                          <button className="btn btn-small" onClick={() => act(r.id, 'approve')}>Approve</button>{' '}
-                          <button className="btn btn-small btn-danger" onClick={() => act(r.id, 'deny')}>Deny</button>
-                        </>
-                      )}
+                      <Link to={`/requests/${r.id}`} className="btn btn-small">{canActOn(user, r) ? 'Review' : 'View'}</Link>
+                      {r.attachments?.length > 0 && <span className="muted small" title="Attached documents"> 📎{r.attachments.length}</span>}
                     </td>
                   </tr>
                 ))}

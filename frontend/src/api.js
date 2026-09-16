@@ -19,15 +19,18 @@ export function getUser() {
   return raw ? JSON.parse(raw) : null
 }
 
-async function request(path, { method = 'GET', body, blob = false } = {}) {
-  const headers = { 'Content-Type': 'application/json' }
+// formData: send multipart (browser sets the boundary header itself)
+// blob: resolve to {blob, filename} using the server's Content-Disposition
+async function request(path, { method = 'GET', body, formData, blob = false } = {}) {
+  const headers = {}
+  if (!formData) headers['Content-Type'] = 'application/json'
   const token = getToken()
   if (token) headers['Authorization'] = `Token ${token}`
 
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: formData ? formData : body ? JSON.stringify(body) : undefined,
   })
 
   if (res.status === 401) {
@@ -37,8 +40,14 @@ async function request(path, { method = 'GET', body, blob = false } = {}) {
   }
 
   if (blob) {
-    if (!res.ok) throw new Error('Download failed.')
-    return res.blob()
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      throw new Error(extractError(data) || 'Download failed.')
+    }
+    const disposition = res.headers.get('Content-Disposition') || ''
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)
+    const filename = match ? decodeURIComponent(match[1]) : 'download'
+    return { blob: await res.blob(), filename }
   }
 
   const data = res.status === 204 ? null : await res.json().catch(() => null)
@@ -64,6 +73,18 @@ function extractError(data) {
   return null
 }
 
+// Trigger a browser download for a blob returned by the API
+export function saveBlob({ blob, filename }) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export const api = {
   register: (payload) => request('/auth/register/', { method: 'POST', body: payload }),
   login: (payload) => request('/auth/login/', { method: 'POST', body: payload }),
@@ -73,8 +94,26 @@ export const api = {
   listRequests: () => request('/requests/'),
   createRequest: (payload) => request('/requests/', { method: 'POST', body: payload }),
   getRequest: (id) => request(`/requests/${id}/`),
-  actOnRequest: (id, action) => request(`/requests/${id}/${action}/`, { method: 'POST' }),
-  downloadCertificate: (id) => request(`/requests/${id}/certificate/download/`, { blob: true }),
+  actOnRequest: (id, action, message = '') =>
+    request(`/requests/${id}/${action}/`, { method: 'POST', body: { message } }),
+  downloadCertificate: (id, regenerate = false) =>
+    request(`/requests/${id}/certificate/download/${regenerate ? '?regenerate=1' : ''}`, { blob: true }),
+
+  uploadAttachments: (id, kind, files) => {
+    const fd = new FormData()
+    fd.append('kind', kind)
+    for (const f of files) fd.append('files', f)
+    return request(`/requests/${id}/attachments/`, { method: 'POST', formData: fd })
+  },
+  downloadAttachment: (id) => request(`/attachments/${id}/download/`, { blob: true }),
+  deleteAttachment: (id) => request(`/attachments/${id}/`, { method: 'DELETE' }),
+
+  listAnnouncements: () => request('/announcements/'),
+  createAnnouncement: (payload) => request('/announcements/', { method: 'POST', body: payload }),
+  updateAnnouncement: (id, payload) => request(`/announcements/${id}/`, { method: 'PATCH', body: payload }),
+  deleteAnnouncement: (id) => request(`/announcements/${id}/`, { method: 'DELETE' }),
+  previewAnnouncement: (payload) => request('/announcements/preview/', { method: 'POST', body: payload }),
+  downloadAnnouncement: (id) => request(`/announcements/${id}/download/`, { blob: true }),
 
   listUsers: () => request('/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
