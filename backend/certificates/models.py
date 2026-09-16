@@ -274,6 +274,8 @@ class Announcement(models.Model):
     location_details = models.CharField(max_length=300, blank=True, default='')
     # Closing reminder sentence, e.g. the "Whoever neglects their duty…" line
     reminder = models.TextField(blank=True, default='')
+    # What will be done; when empty the letter says further details will be shared at the gathering point
+    activities = models.TextField(blank=True, default='')
     # Free text; when empty the body is generated from the fields above
     body = models.TextField(blank=True, default='')
     note = models.TextField(blank=True, default='')

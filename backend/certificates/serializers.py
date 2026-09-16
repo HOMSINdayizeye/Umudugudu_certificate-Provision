@@ -192,7 +192,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'kind', 'kind_display', 'language', 'language_display', 'title', 'letter_date', 'event_date',
             'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'meeting_points', 'location_details',
-            'reminder', 'body', 'note', 'published',
+            'activities', 'reminder', 'body', 'note', 'published',
             'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at']

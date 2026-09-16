@@ -35,7 +35,7 @@ const DEFAULTS = {
 const EMPTY = {
   kind: 'umuganda', language: 'en', title: '', letter_date: today(), event_date: '', start_time: '',
   venue: '', gathering_point: '', partner: DEFAULTS.en.partner, audience: '', meeting_points: [{ audience: '', place: '', time: '' }],
-  location_details: '', reminder: DEFAULTS.en.reminder, body: '', note: DEFAULTS.en.note, published: false,
+  location_details: '', activities: '', reminder: DEFAULTS.en.reminder, body: '', note: DEFAULTS.en.note, published: false,
 }
 
 export default function Announcements({ user }) {
@@ -119,7 +119,7 @@ export default function Announcements({ user }) {
       kind: a.kind, language: a.language, title: a.title, letter_date: a.letter_date, event_date: a.event_date || '',
       start_time: a.start_time, venue: a.venue, gathering_point: a.gathering_point, partner: a.partner,
       audience: a.audience, body: a.body, note: a.note, published: a.published,
-      location_details: a.location_details || '', reminder: a.reminder || '',
+      location_details: a.location_details || '', activities: a.activities || '', reminder: a.reminder || '',
       // Older announcements stored a single pair; show it as the first point
       meeting_points: a.meeting_points?.length ? a.meeting_points : a.gathering_point ? [{ audience: a.audience, place: a.gathering_point, time: '' }] : [],
     })
@@ -293,7 +293,11 @@ export default function Announcements({ user }) {
                   </button>
                 </div>
                 <div className="form-group">
-                  <label>Location details <span className="muted small" style={{ textTransform: 'none', letterSpacing: 0 }}>(shown in brackets)</span></label>
+                  <label>What will be done <span className="muted small" style={{ textTransform: 'none', letterSpacing: 0 }}>(optional; if empty the letter says details will be shared at the gathering point)</span></label>
+                  <textarea rows={2} value={form.activities} onChange={set('activities')} placeholder={rw ? 'e.g. gusukura imihanda no gutema ibihuru' : 'e.g. cleaning the roadside and clearing bushes'} />
+                </div>
+                <div className="form-group">
+                  <label>Location details <span className="muted small" style={{ textTransform: 'none', letterSpacing: 0 }}>(shown in brackets after that sentence)</span></label>
                   <input value={form.location_details} onChange={set('location_details')} placeholder="e.g. Outside Campus with NYARUGENGE SECTOR Citizens, APE Rugunga" />
                 </div>
                 <div className="form-group">

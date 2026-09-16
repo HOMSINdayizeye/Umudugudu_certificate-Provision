@@ -470,27 +470,24 @@ def announcement_paragraphs(a, chain, leader_name):
     start_time = (a.get('start_time') or '').strip()
     location_details = (a.get('location_details') or '').strip()
     reminder = (a.get('reminder') or '').strip()
+    activities = (a.get('activities') or '').strip().rstrip('.')
     # Gathering points: the new list, or the single legacy pair
     points = [p for p in (a.get('meeting_points') or []) if isinstance(p, dict) and str(p.get('place', '')).strip()]
     if not points and gathering:
         points = [{'audience': audience, 'place': gathering}]
+    bracket = f' ({location_details})' if location_details else ''
 
-    def gathering_sentences(default_who, at_word, detail_clause, time_word):
-        """One sentence per gathering point; the first carries the 'further details' clause and the bracketed detail."""
-        out_ = ''
-        for i, p in enumerate(points):
-            who = str(p.get('audience', '')).strip() or default_who
-            s = f" {who} {at_word} {str(p['place']).strip()}"
+    def gathering_paragraph(default_who, will_gather, time_word):
+        """One full sentence per gathering point: "<Who> will gather at <place> at <time>." """
+        sentences = []
+        for p in points:
+            who = str(p.get('audience', '')).strip()
+            s = f"{who} {will_gather}" if who else default_who
+            s += f" {str(p['place']).strip()}"
             if str(p.get('time', '')).strip():
                 s += f" {time_word} {str(p['time']).strip()}"
-            if i == 0:
-                s += detail_clause
-                if location_details:
-                    s += f' ({location_details})'
-            out_ += s + '.'
-        if not points and location_details:
-            out_ += f' ({location_details}).'
-        return out_
+            sentences.append(s + '.')
+        return ' '.join(sentences)
     note = (a.get('note') or '').strip()
     body = (a.get('body') or '').strip()
     event_date = a.get('event_date')
@@ -511,10 +508,16 @@ def announcement_paragraphs(a, chain, leader_name):
             text += '.'
             if start_time:
                 text += f' Umuganda uzatangira saa {start_time}.'
-            text += gathering_sentences('Twese', 'tuzahurira', ", aho tuzahabwa andi makuru ku hantu n'ibikorwa", 'saa')
-            if reminder:
-                text += f' {reminder}'
             out.append(('body', text))
+            # Where and when people gather, then what will be done (or that details follow on arrival)
+            second = gathering_paragraph('Twese tuzahurira', 'bazahurira', 'saa')
+            if activities:
+                second += f" Ibikorwa bizakorwa ni: {activities}{bracket}."
+            else:
+                second += f" Andi makuru ku hantu n'ibikorwa azatangwa aho tuzahurira{bracket}."
+            out.append(('body', second.strip()))
+            if reminder:
+                out.append(('body', reminder))
         else:
             text = f"Ubuyobozi {rw_of(rw_of(village, 'umudugudu w'), 'bw')} burabamenyesha ko hateganyijwe " \
                    f"{(a.get('title') or 'inama').strip()} kuwa {rw_date(event_date)}"
@@ -544,11 +547,16 @@ def announcement_paragraphs(a, chain, leader_name):
             text += '.'
             if start_time:
                 text += f' The community work (Umuganda) will start at {start_time}.'
-            text += gathering_sentences('We will all', 'gather at',
-                                        ', where further details about the location and activities will be shared', 'at')
-            if reminder:
-                text += f' {reminder}'
             out.append(('body', text))
+            # Where and when people gather, then what will be done (or that details follow on arrival)
+            second = gathering_paragraph('We will all gather at', 'will gather at', 'at')
+            if activities:
+                second += f" The work will focus on {activities}{bracket}."
+            else:
+                second += f" Further details about the location and activities will be shared at the gathering point{bracket}."
+            out.append(('body', second.strip()))
+            if reminder:
+                out.append(('body', reminder))
         else:
             text = f"The Office of {village} Village wishes to inform you of a forthcoming " \
                    f"{(a.get('title') or 'meeting').strip().lower()} on {en_long_date(event_date)}"
@@ -573,6 +581,7 @@ def render_announcement(ann, leader):
         'language': ann.language, 'kind': ann.kind, 'title': ann.title, 'partner': ann.partner,
         'venue': ann.venue, 'gathering_point': ann.gathering_point, 'audience': ann.audience,
         'meeting_points': ann.meeting_points, 'location_details': ann.location_details, 'reminder': ann.reminder,
+        'activities': ann.activities,
         'start_time': ann.start_time, 'note': ann.note, 'body': ann.body, 'event_date': ann.event_date,
     }
     info = leader_info(leader or ann.created_by)
