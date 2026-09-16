@@ -252,6 +252,12 @@ def _signature(doc, title, name, phone=''):
         doc.add_paragraph(f'Tel: {phone}')
 
 
+def _blank_lines(doc, n):
+    for _ in range(n):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+
+
 def _save(doc):
     buf = io.BytesIO()
     doc.save(buf)
@@ -659,9 +665,13 @@ def render_announcement(ann, leader):
     doc = _new_document()
     date_text = rw_date(ann.letter_date) if ann.language == 'rw' else en_date(ann.letter_date)
     _letterhead(doc, chain, date_text, ann.language)
+    # Letterhead already ends with one blank line; five in total before the title, three after it
+    _blank_lines(doc, 4)
     for style, text in paragraphs:
         if style == 'title':
-            _title(doc, text, center=True)
+            p = _title(doc, text, center=True)
+            p.paragraph_format.space_after = Pt(0)
+            _blank_lines(doc, 3)
         elif style == 'body':
             _para(doc, text)
         elif style == 'note':
