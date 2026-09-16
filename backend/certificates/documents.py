@@ -573,8 +573,8 @@ def render_request_document(req, leader=None):
     builder = BUILDERS.get(req.cert_type, build_other)
     data = builder(req, details, chain, leader_info(signer), today)
     if req.verification_code:
-        data = add_footer(data, f"Verification code: {req.verification_code}  ·  "
-                                f"Issued through Certify, City of Kigali. The cell or village office can confirm this code.")
+        # Footer carries the bare code only
+        data = add_footer(data, req.verification_code)
     applicant = (details.get('full_name') or req.user.display_name or 'applicant').replace(' ', '_')
     filename = f"{FILE_SLUGS.get(req.cert_type, 'Document')}_{applicant}_{req.pk}.docx"
     return data, filename

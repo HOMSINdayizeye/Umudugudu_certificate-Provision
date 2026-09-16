@@ -113,14 +113,15 @@ def req_data(obj, user, many=False):
 
 
 def issue_verification_code(req):
-    """<village id>-<year>-<sequence>, unique; kept for life once issued."""
+    """Location code followed by a running number of at least two digits (e.g. 1109030905); unique, kept for life."""
     if req.verification_code:
         return req.verification_code
-    prefix = f'{request_location_id(req) or 0}-{timezone.now().year}-'
-    n = CertificateRequest.objects.filter(verification_code__startswith=prefix).count() + 1
-    while CertificateRequest.objects.filter(verification_code=f'{prefix}{n:04d}').exists():
+    prefix = str(request_location_id(req) or 0)
+    # Only codes of this location count: the prefix plus digits, nothing else
+    n = CertificateRequest.objects.filter(verification_code__regex=rf'^{prefix}\d{{2,}}$').count() + 1
+    while CertificateRequest.objects.filter(verification_code=f'{prefix}{n:02d}').exists():
         n += 1
-    req.verification_code = f'{prefix}{n:04d}'
+    req.verification_code = f'{prefix}{n:02d}'
     return req.verification_code
 
 

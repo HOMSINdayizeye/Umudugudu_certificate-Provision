@@ -52,7 +52,7 @@ export default function Codes() {
           <p className="muted small" style={{ marginTop: 0 }}>Type the code printed in the footer of a letter to confirm it was issued by this system.</p>
           <div className="form-group">
             <label>Verification code</label>
-            <input value={verify} onChange={(e) => setVerify(e.target.value)} placeholder="e.g. 11090309-2026-0004" />
+            <input value={verify} onChange={(e) => setVerify(e.target.value)} placeholder="e.g. 1109030905" />
           </div>
           <button className="btn" disabled={checking || !verify.trim()}>{checking ? 'Checking…' : 'Verify'}</button>
         </form>

@@ -67,7 +67,7 @@ Every letter is A4 portrait and can be downloaded as **Word (.docx)** or **PDF**
 
 ### Verification codes & notifications
 
-Every approved letter receives a **verification code** `<village id>-<year>-<sequence>` (e.g. `11090309-2026-0004`) that is printed in the footer of the Word and PDF file. The code is visible to village, cell and sector leaders and admins only; the API blanks it for citizens. Leaders see recent codes as cards on the Dashboard and all of them on the **Codes** page, which also has a "Verify a document" box to check any code someone presents (`GET /api/codes/<code>/`).
+Every approved letter receives a **verification code**: the village location code followed by a running number of at least two digits (e.g. `1109030905` = village `11090309`, letter 05). The bare code is printed in the footer of the Word and PDF file. The code is visible to village, cell and sector leaders and admins only; the API blanks it for citizens. Leaders see recent codes as cards on the Dashboard and all of them on the **Codes** page, which also has a "Verify a document" box to check any code someone presents (`GET /api/codes/<code>/`).
 
 When a letter is issued the **cell leader(s)** of that cell receive an in-app notification with the code, and the citizen receives a "your letter is ready" notice without it. The bell in the navbar lists notifications (`/api/notifications/`).
 
