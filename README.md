@@ -38,6 +38,47 @@ npm run dev
 
 The Vite dev server proxies `/api` requests to the Django backend, so both must be running.
 
+## Deploying to Vercel (two projects)
+
+The repository holds two independently deployable folders. Create **two Vercel projects** from the same Git repository, each with a different *Root Directory*.
+
+### 1. Backend project (Root Directory: `backend`)
+
+`backend/vercel.json` builds Django with the Python runtime (`certify/wsgi.py` exposes `app`) and runs `build_files.sh` to collect the admin's static files. Set these environment variables in the Vercel project:
+
+| Variable | Value |
+|---|---|
+| `SECRET_KEY` | long random string |
+| `DEBUG` | `False` |
+| `DATABASE_URL` | Postgres URL from Neon, Supabase, Railway… (Vercel has no database of its own) |
+| `CORS_ALLOWED_ORIGINS` | the frontend URL, e.g. `https://certify-frontend.vercel.app` |
+| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_ENDPOINT`, `STORAGE_REGION` | an S3-compatible bucket for uploads and generated letters (Supabase Storage, Cloudflare R2, AWS S3). **Required**: Vercel's disk is wiped after every request, so without a bucket letters and attachments would vanish. |
+| `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` | only when using a custom API domain; `*.vercel.app` is always accepted |
+
+After the first deploy, run the migrations and import locations against the production database from your machine:
+
+```bash
+set DATABASE_URL=postgresql://...   # PowerShell: $env:DATABASE_URL="postgresql://..."
+..\venv\Scripts\python manage.py migrate
+..\venv\Scripts\python manage.py createsuperuser
+```
+
+### 2. Frontend project (Root Directory: `frontend`)
+
+`frontend/vercel.json` sets the Vite build and the SPA rewrite so deep links like `/requests/12` load. Set one environment variable:
+
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | the backend project's URL, e.g. `https://certify-backend.vercel.app` (no trailing slash) |
+
+Redeploy the frontend after changing it; Vite bakes the value in at build time. Locally leave it empty (`frontend/.env.example`) and the dev proxy keeps working.
+
+### Notes
+
+- Token auth is sent in the `Authorization` header, so cookies and cross-site rules are not involved between the two domains.
+- Vercel functions have a 10 s execution limit on the free plan; letter generation and PDF conversion take well under a second.
+- `backend/.vercelignore` keeps `media/`, `venv/` and the SQLite file out of the upload.
+
 ## User roles & approval workflow
 
 Public registration always creates a **citizen** (with their village and optional isibo). The **system admin** creates all other users from the "Add User" page: isibo leader, village leader, cell leader, sector leader, security volunteer, cleaning service volunteer, or another system admin.

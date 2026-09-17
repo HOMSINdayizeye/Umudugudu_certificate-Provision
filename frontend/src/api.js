@@ -1,4 +1,5 @@
-const BASE = '/api'
+// Locally the Vite proxy forwards /api to Django; in production VITE_API_URL points at the backend deployment
+const BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api`
 
 export function getToken() {
   return localStorage.getItem('certify_token')

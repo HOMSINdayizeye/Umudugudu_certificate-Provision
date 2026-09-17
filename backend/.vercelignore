@@ -1,0 +1,10 @@
+media/
+staticfiles/
+db.sqlite3
+__pycache__/
+*.pyc
+.env
+node_modules/
+package.json
+package-lock.json
+certificates/templates_docs/

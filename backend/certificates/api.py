@@ -491,7 +491,8 @@ def download_certificate(request, pk):
 
     can_regenerate = is_admin(user) or user.role in LEADER_STAGE
     wants_regenerate = request.GET.get('regenerate') == '1' and can_regenerate
-    missing = not req.generated_document or not os.path.exists(req.generated_document.path)
+    # storage.exists works for the local disk and for cloud buckets alike (.path does not exist on S3)
+    missing = not req.generated_document or not req.generated_document.storage.exists(req.generated_document.name)
     if wants_regenerate or missing:
         generate_letter(req, signing_leader(req, req.approved_by or user))
         req.save()
@@ -701,7 +702,7 @@ def announcement_download(request, pk):
     ann = get_object_or_404(Announcement, pk=pk)
     if not announcements_qs(user).filter(pk=pk).exists():
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if not ann.generated_document or not os.path.exists(ann.generated_document.path):
+    if not ann.generated_document or not ann.generated_document.storage.exists(ann.generated_document.name):
         generate_announcement_file(ann)
         ann.save()
     return send_stored_document(ann.generated_document, request.GET.get('as'))

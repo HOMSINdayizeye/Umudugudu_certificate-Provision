@@ -8,3 +8,6 @@ staticfiles/
 backend/media/
 node_modules/
 frontend/dist/
+.vercel/
+frontend/.env
+frontend/.env.local
