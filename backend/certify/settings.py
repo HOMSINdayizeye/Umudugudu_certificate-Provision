@@ -73,14 +73,15 @@ if os.getenv('DATABASE_URL'):
         'default': dj_database_url.config(conn_max_age=600, ssl_require=not DEBUG),
     }
 else:
+    # Defaults let `collectstatic` run at build time even when no database variables are set
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT'),
+            'NAME': config('DB_NAME', default='certify'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
         }
     }
 
