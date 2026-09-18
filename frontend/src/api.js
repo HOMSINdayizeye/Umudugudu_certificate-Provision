@@ -1,5 +1,11 @@
-// Locally the Vite proxy forwards /api to Django; in production VITE_API_URL points at the backend deployment
-const BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api`
+// Backend address for the deployed site. Change this line if the Render URL changes.
+const PRODUCTION_API = 'https://umudugudu-certificate-provision.onrender.com'
+
+// On localhost the Vite proxy forwards /api to the local Django server; anywhere else the deployed backend is used.
+// VITE_API_URL, when set, overrides both.
+const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+const API_ORIGIN = (import.meta.env.VITE_API_URL || (isLocal ? '' : PRODUCTION_API)).replace(/\/$/, '')
+const BASE = `${API_ORIGIN}/api`
 
 export function getToken() {
   return localStorage.getItem('certify_token')
