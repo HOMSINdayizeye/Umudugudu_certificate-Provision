@@ -16,7 +16,9 @@
   --muted: #6b7280;
   --border: #e0e0e0;
   --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.08);
-  --font: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font: Arial, Helvetica, 'Liberation Sans', sans-serif;
+  /* Heavy display face for headings, buttons and numbers */
+  --font-heavy: 'Arial Black', 'Arial Bold', Arial, Helvetica, sans-serif;
 }
 
 html { -webkit-text-size-adjust: 100%; }
@@ -28,7 +30,10 @@ body {
   line-height: 1.6;
   overflow-x: clip;
 }
-h1, h2, h3 { font-family: var(--font); color: var(--text); }
+h1, h2, h3 { font-family: var(--font-heavy); font-weight: 900; color: var(--text); letter-spacing: 0; }
+.brand, .btn, .stat-value, .code-value, .code-big, .step, .tab, .arrow-link, .site-footer strong { font-family: var(--font-heavy); }
+.brand { font-weight: 900; }
+.page-head h1, .page-title h1 { letter-spacing: 0; }
 a { color: var(--primary); }
 img { max-width: 100%; }
 
@@ -173,8 +178,8 @@ img { max-width: 100%; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   background: var(--primary); color: #fff; border: none; border-radius: 0;
-  padding: 0.9rem 1.5rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
-  font-family: var(--font); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s;
+  padding: 0.9rem 1.5rem; font-size: 0.78rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase;
+  font-family: var(--font-heavy); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s;
   min-height: 44px;
 }
 .btn:hover { background: var(--primary-dark); }
@@ -258,7 +263,7 @@ img { max-width: 100%; }
 
 /* ===== Step bar ===== */
 .steps { display: flex; justify-content: center; gap: clamp(0.75rem, 3vw, 2.5rem); flex-wrap: wrap; margin: 0 0 1.5rem; padding: 0; list-style: none; }
-.step { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #9e9e9e; background: none; border: none; padding: 0.5rem 0; cursor: default; font-family: var(--font); }
+.step { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: #9e9e9e; background: none; border: none; padding: 0.5rem 0; cursor: default; font-family: var(--font-heavy); }
 .step-num { width: 24px; height: 24px; display: grid; place-items: center; border: 1.6px solid #cfd4d9; font-size: 0.72rem; }
 .step-done { color: var(--text); cursor: pointer; }
 .step-done .step-num { background: var(--success); border-color: var(--success); color: #fff; }
@@ -328,7 +333,7 @@ img { max-width: 100%; }
 
 /* ===== Tabs / filters / modal / pagination ===== */
 .tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
-.tab { background: transparent; border: none; border-bottom: 2px solid transparent; padding: 0.7rem 1.1rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); cursor: pointer; font-family: var(--font); }
+.tab { background: transparent; border: none; border-bottom: 2px solid transparent; padding: 0.7rem 1.1rem; font-size: 0.78rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); cursor: pointer; font-family: var(--font-heavy); }
 .tab-active { color: var(--primary); border-bottom-color: var(--primary); }
 .filter-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .filter-row .form-group { min-width: 150px; margin-bottom: 0; }
