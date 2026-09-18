@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Link, NavLink, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { api, getToken, getUser, setSession, clearSession } from './api.js'
 import Login from './pages/Login.jsx'
@@ -26,7 +26,12 @@ function RequireAuth({ children }) {
 
 export default function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [user, setUser] = useState(getUser())
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Close the phone menu whenever the page changes
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
   // Refresh the cached user so new fields (role, location) appear without re-login
   useEffect(() => {
@@ -61,7 +66,24 @@ export default function App() {
           <span className="brand-mark" style={{ display: 'none' }}>CK</span>
           Kigali City <span>Certify</span>
         </Link>
-        <nav>
+
+        {/* Always visible, even on phones: bell and the menu button */}
+        {user && (
+          <div className="topbar-tools">
+            <NotificationBell />
+            <button
+              type="button"
+              className="nav-toggle"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              {menuOpen ? '✕' : '☰'}
+            </button>
+          </div>
+        )}
+
+        <nav className={menuOpen ? 'open' : ''}>
           {user ? (
             <>
               <NavLink to="/" end>Dashboard</NavLink>
@@ -73,7 +95,6 @@ export default function App() {
               {(isAdmin || user.role === 'isibo_leader') && <NavLink to="/citizens">Citizens</NavLink>}
               {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
               {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
-              <NotificationBell />
               <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -81,9 +102,7 @@ export default function App() {
               <button className="btn btn-outline" onClick={handleLogout}>Logout</button>
             </>
           ) : (
-            <>
-              <Link to="/login">Login</Link>
-            </>
+            <Link to="/login">Login</Link>
           )}
         </nav>
       </header>

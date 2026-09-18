@@ -212,6 +212,7 @@ function CitizenPaymentModal({ citizen, service, year, canMark, onClose, onChang
           </div>
         )}
 
+        <div style={{ overflowX: 'auto' }}>
         <table className="table">
           <thead>
             <tr><th>Trimester</th><th>Status</th>{canMark && <th>Action</th>}</tr>
@@ -245,8 +246,9 @@ function CitizenPaymentModal({ citizen, service, year, canMark, onClose, onChang
             ))}
           </tbody>
         </table>
+        </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
           {canMark && unpaid.length > 1 && (
             <button className="btn" disabled={busy} onClick={() => mark(unpaid)}>
               Mark all remaining paid

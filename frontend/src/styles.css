@@ -55,7 +55,27 @@ img { max-width: 100%; }
 .brand img { width: 44px; height: 44px; object-fit: contain; }
 .brand span { color: var(--primary); font-weight: 600; font-size: 0.8rem; letter-spacing: 1px; margin-left: 0.2rem; }
 
-.topbar nav { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+/* Desktop order: brand · links (pushed right) · bell. The ☰ button only exists on small screens. */
+.topbar nav { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; order: 2; margin-left: auto; }
+.topbar-tools { display: flex; align-items: center; gap: 0.5rem; order: 3; }
+.nav-toggle { display: none; width: 40px; height: 40px; border: 1.6px solid var(--border); background: #fff; color: var(--text); font-size: 1.15rem; cursor: pointer; place-items: center; }
+.nav-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Phones and small tablets: the links collapse behind the ☰ button, bell stays visible */
+@media (max-width: 1100px) {
+  .topbar { padding: 0.6rem 1rem; }
+  .topbar-tools { order: 2; margin-left: auto; }
+  .nav-toggle { display: grid; }
+  .topbar nav { order: 3; margin-left: 0; display: none; flex-basis: 100%; flex-direction: column; align-items: stretch; gap: 0; padding: 0.5rem 0 0.25rem; border-top: 1px solid var(--border); margin-top: 0.6rem; }
+  .topbar nav.open { display: flex; }
+  .topbar nav a { padding: 0.8rem 0.25rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .topbar nav a:hover, .topbar nav a.active { border-bottom-color: var(--border); background: var(--primary-tint); padding-left: 0.6rem; }
+  .topbar nav a.user-chip { margin-top: 0.5rem; text-align: center; }
+  .topbar .btn-outline { margin: 0.5rem 0 0.25rem; width: 100%; }
+  .brand { font-size: 1rem; }
+  .brand img, .brand-mark { width: 34px; height: 34px; }
+  .notif-dropdown { position: fixed; left: 0.75rem; right: 0.75rem; top: 64px; width: auto; }
+}
 .topbar nav a {
   color: #555; text-decoration: none; font-weight: 600; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;
   padding: 0.6rem 0; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
@@ -70,6 +90,22 @@ img { max-width: 100%; }
 .topbar .btn-outline:hover { background: var(--primary-dark); }
 
 .content { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 2rem clamp(1rem, 3vw, 1.5rem) 3rem; }
+@media (max-width: 600px) {
+  .content { padding: 1.25rem 0.9rem 2.5rem; }
+  .page-head h1 { font-size: 1.3rem; }
+  .page-title h1 { font-size: 1.6rem; }
+  .card { padding: 1rem; }
+  .btn { padding: 0.8rem 1.1rem; font-size: 0.75rem; }
+  .btn-row .btn, .form-actions .btn { flex: 1 1 auto; }
+  .modal.viewer { width: 100vw; height: 100vh; max-height: none; }
+  .viewer-head { padding: 0.7rem 0.9rem; }
+  .code-big { font-size: 1.25rem; }
+  .steps { gap: 0.6rem 1rem; }
+  .step { font-size: 0.65rem; }
+  .table th, .table td { padding: 0.6rem 0.5rem; font-size: 0.9rem; }
+  .letterhead { flex-direction: column; gap: 0.25rem; }
+  .modal-overlay { padding: 0.5rem; }
+}
 
 .site-footer { background: var(--primary); color: #fff; text-align: center; padding: 1.1rem 1rem; font-size: 0.85rem; }
 .site-footer strong { font-weight: 700; }
