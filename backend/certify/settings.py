@@ -16,10 +16,13 @@ def env_list(name, default=''):
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'change-me')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-# Local defaults plus every Vercel deployment URL; add your custom domain in ALLOWED_HOSTS
-ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1') + ['.vercel.app']
-# True on Vercel (VERCEL=1 is set automatically) — no writable disk, HTTPS behind a proxy
+# Local defaults plus every Vercel / Render deployment URL; add a custom domain in ALLOWED_HOSTS
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1') + ['.vercel.app', '.onrender.com']
+# Hosted platforms set these automatically; both terminate HTTPS at a proxy in front of Django
 ON_VERCEL = os.getenv('VERCEL') == '1'
+ON_RENDER = os.getenv('RENDER') == 'true'
+if os.getenv('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -112,7 +115,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Locally they live in backend/media/. On Vercel the disk is not persistent, so set the STORAGE_*
 # variables to any S3-compatible bucket (Supabase Storage, Cloudflare R2, AWS S3, MinIO…).
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# On Render, point MEDIA_ROOT at an attached disk (e.g. /var/data/media) so files survive deploys
+MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT') or (BASE_DIR / 'media'))
 MAX_ATTACHMENT_MB = 10
 
 STORAGES = {
@@ -134,10 +138,10 @@ if os.getenv('STORAGE_BUCKET'):
         },
     }
 
-# Behind Vercel's proxy the request is HTTPS even though Django sees plain HTTP
-if ON_VERCEL or not DEBUG:
+# Behind the platform proxy the request is HTTPS even though Django sees plain HTTP
+if ON_VERCEL or ON_RENDER or not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app'] + env_list('CSRF_TRUSTED_ORIGINS')
+    CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app', 'https://*.onrender.com'] + env_list('CSRF_TRUSTED_ORIGINS')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
@@ -166,6 +170,6 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5174',
     'http://127.0.0.1:5174',
 ] + env_list('CORS_ALLOWED_ORIGINS')
-CORS_ALLOWED_ORIGIN_REGEXES = [r'^https://[\w-]+\.vercel\.app$']
+CORS_ALLOWED_ORIGIN_REGEXES = [r'^https://[\w-]+\.vercel\.app$', r'^https://[\w-]+\.onrender\.com$']
 
 

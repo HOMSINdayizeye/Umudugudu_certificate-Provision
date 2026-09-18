@@ -63,6 +63,12 @@ set DATABASE_URL=postgresql://...   # PowerShell: $env:DATABASE_URL="postgresql:
 ..\venv\Scripts\python manage.py createsuperuser
 ```
 
+### Alternative: backend on Render
+
+`render.yaml` at the repository root is a Render Blueprint for the backend (Root Directory `backend`, gunicorn, migrations run during build). In Render choose **New → Blueprint**, select the repository, then fill in the two variables marked `sync: false`: `DATABASE_URL` (Neon) and `CORS_ALLOWED_ORIGINS` (the frontend URL). `SECRET_KEY` is generated for you and `*.onrender.com` is already an allowed host.
+
+Files: the free plan has no persistent disk, so set the `STORAGE_*` bucket variables as for Vercel. On a paid plan you can instead attach a Render Disk at `/var/data` and set `MEDIA_ROOT=/var/data/media` (the commented block in `render.yaml`). The free instance sleeps after 15 minutes idle; the first request afterwards takes a few seconds.
+
 ### 2. Frontend project (Root Directory: `frontend`)
 
 `frontend/vercel.json` sets the Vite build and the SPA rewrite so deep links like `/requests/12` load. Set one environment variable:

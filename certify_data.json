@@ -1,5 +1,29 @@
 [
 {
+ "model": "authtoken.token",
+ "pk": "3c4e2f85a07fbde962a858f38ac3317be04e152b",
+ "fields": {
+  "user": 16,
+  "created": "2026-09-16T12:16:17.343Z"
+ }
+},
+{
+ "model": "authtoken.token",
+ "pk": "73ba619330bd253d976959a5f788c8841f338803",
+ "fields": {
+  "user": 17,
+  "created": "2026-09-16T12:16:17.340Z"
+ }
+},
+{
+ "model": "authtoken.token",
+ "pk": "8da2efdd06f176dad3a2fafd9af9e152862c1fda",
+ "fields": {
+  "user": 1,
+  "created": "2026-09-16T21:11:30.391Z"
+ }
+},
+{
  "model": "certificates.customuser",
  "pk": 1,
  "fields": {
@@ -157278,9 +157302,7 @@
  "model": "certificates.certificaterequest",
  "pk": 1,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -157315,9 +157337,7 @@
  "model": "certificates.certificaterequest",
  "pk": 2,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "Stolen Computer",
   "other_description": null,
   "details": {},
@@ -157344,9 +157364,7 @@
  "model": "certificates.certificaterequest",
  "pk": 3,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "Stolen Computer",
   "other_description": null,
   "details": {},
@@ -157381,9 +157399,7 @@
  "model": "certificates.certificaterequest",
  "pk": 4,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "Stolen Computer",
   "other_description": null,
   "details": {},
@@ -157410,9 +157426,7 @@
  "model": "certificates.certificaterequest",
  "pk": 5,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "residence",
   "other_description": null,
   "details": {},
@@ -157439,9 +157453,7 @@
  "model": "certificates.certificaterequest",
  "pk": 6,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "other",
   "other_description": "I need certificate of Admission in university",
   "details": {},
@@ -157468,9 +157480,7 @@
  "model": "certificates.certificaterequest",
  "pk": 7,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "stolen_computer",
   "other_description": null,
   "details": {},
@@ -157497,9 +157507,7 @@
  "model": "certificates.certificaterequest",
  "pk": 8,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "stolen_computer",
   "other_description": "",
   "details": {},
@@ -157526,9 +157534,7 @@
  "model": "certificates.certificaterequest",
  "pk": 9,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "stolen_computer",
   "other_description": "",
   "details": {},
@@ -157555,9 +157561,7 @@
  "model": "certificates.certificaterequest",
  "pk": 10,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "stolen_computer",
   "other_description": "",
   "details": {},
@@ -157584,9 +157588,7 @@
  "model": "certificates.certificaterequest",
  "pk": 11,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "stolen_computer",
   "other_description": "",
   "details": {},
@@ -157621,9 +157623,7 @@
  "model": "certificates.certificaterequest",
  "pk": 12,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "community",
   "other_description": "",
   "details": {},
@@ -157650,9 +157650,7 @@
  "model": "certificates.certificaterequest",
  "pk": 13,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": "",
   "details": {},
@@ -157679,9 +157677,7 @@
  "model": "certificates.certificaterequest",
  "pk": 14,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": "",
   "details": {},
@@ -157716,9 +157712,7 @@
  "model": "certificates.certificaterequest",
  "pk": 15,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": "",
   "details": {},
@@ -157745,9 +157739,7 @@
  "model": "certificates.certificaterequest",
  "pk": 16,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -157782,9 +157774,7 @@
  "model": "certificates.certificaterequest",
  "pk": 17,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -157811,9 +157801,7 @@
  "model": "certificates.certificaterequest",
  "pk": 18,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "residence",
   "other_description": null,
   "details": {},
@@ -157840,9 +157828,7 @@
  "model": "certificates.certificaterequest",
  "pk": 19,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "other",
   "other_description": "No infor",
   "details": {},
@@ -157877,9 +157863,7 @@
  "model": "certificates.certificaterequest",
  "pk": 20,
  "fields": {
-  "user": [
-   "Masengesho"
-  ],
+  "user": 3,
   "cert_type": "other",
   "other_description": "No infor",
   "details": {},
@@ -157914,9 +157898,7 @@
  "model": "certificates.certificaterequest",
  "pk": 21,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -157943,9 +157925,7 @@
  "model": "certificates.certificaterequest",
  "pk": 22,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "other",
   "other_description": "Stolen\r\nDesktop keyboard",
   "details": {},
@@ -157972,9 +157952,7 @@
  "model": "certificates.certificaterequest",
  "pk": 23,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "community",
   "other_description": null,
   "details": {},
@@ -158001,9 +157979,7 @@
  "model": "certificates.certificaterequest",
  "pk": 24,
  "fields": {
-  "user": [
-   "Obed"
-  ],
+  "user": 5,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158030,9 +158006,7 @@
  "model": "certificates.certificaterequest",
  "pk": 25,
  "fields": {
-  "user": [
-   "Obed"
-  ],
+  "user": 5,
   "cert_type": "other",
   "other_description": "I need certificate of Owning Real Estate company",
   "details": {},
@@ -158067,9 +158041,7 @@
  "model": "certificates.certificaterequest",
  "pk": 26,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158096,9 +158068,7 @@
  "model": "certificates.certificaterequest",
  "pk": 27,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158133,9 +158103,7 @@
  "model": "certificates.certificaterequest",
  "pk": 28,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "residence",
   "other_description": null,
   "details": {},
@@ -158170,9 +158138,7 @@
  "model": "certificates.certificaterequest",
  "pk": 29,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "community",
   "other_description": null,
   "details": {},
@@ -158199,9 +158165,7 @@
  "model": "certificates.certificaterequest",
  "pk": 30,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158228,9 +158192,7 @@
  "model": "certificates.certificaterequest",
  "pk": 31,
  "fields": {
-  "user": [
-   "Amza"
-  ],
+  "user": 6,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158265,9 +158227,7 @@
  "model": "certificates.certificaterequest",
  "pk": 32,
  "fields": {
-  "user": [
-   "Amza"
-  ],
+  "user": 6,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158302,9 +158262,7 @@
  "model": "certificates.certificaterequest",
  "pk": 33,
  "fields": {
-  "user": [
-   "Amos"
-  ],
+  "user": 4,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158331,9 +158289,7 @@
  "model": "certificates.certificaterequest",
  "pk": 35,
  "fields": {
-  "user": [
-   "ObedI"
-  ],
+  "user": 17,
   "cert_type": "conduct",
   "other_description": null,
   "details": {},
@@ -158368,9 +158324,7 @@
  "model": "certificates.certificaterequest",
  "pk": 42,
  "fields": {
-  "user": [
-   "obedishimwe@gmail.com"
-  ],
+  "user": 31,
   "cert_type": "conduct",
   "other_description": null,
   "details": {
@@ -158393,9 +158347,7 @@
    "occupation_type": "student",
    "id_issue_district": "Nyarugenge"
   },
-  "approved_by": [
-   "koolasmartrecruiters@"
-  ],
+  "approved_by": 30,
   "approved_at": "2026-09-16T19:03:09.449Z",
   "generated_document": "generated/Certificate_of_Conduct_Obed_ISHIMWE_42.docx",
   "verification_code": "1109030901",
@@ -158464,9 +158416,7 @@
   "year": 2026,
   "amount": "1000.00",
   "paid_at": "2026-09-03T21:11:08.675Z",
-  "recorded_by": [
-   "homsindayizeye@gmail.com"
-  ]
+  "recorded_by": 1
  }
 },
 {
@@ -158479,9 +158429,7 @@
   "year": 2026,
   "amount": "1000.00",
   "paid_at": "2026-09-03T21:27:37.031Z",
-  "recorded_by": [
-   "securityvolunteer"
-  ]
+  "recorded_by": 19
  }
 },
 {
@@ -158494,9 +158442,7 @@
   "year": 2026,
   "amount": "1000.00",
   "paid_at": "2026-09-03T21:27:37.033Z",
-  "recorded_by": [
-   "securityvolunteer"
-  ]
+  "recorded_by": 19
  }
 },
 {
@@ -158509,9 +158455,7 @@
   "year": 2026,
   "amount": "1000.00",
   "paid_at": "2026-09-03T21:27:50.150Z",
-  "recorded_by": [
-   "securityvolunteer"
-  ]
+  "recorded_by": 19
  }
 },
 {
@@ -158542,9 +158486,7 @@
  "model": "certificates.announcement",
  "pk": 7,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 12140801,
   "kind": "umuganda",
   "language": "en",
@@ -158579,9 +158521,7 @@
  "model": "certificates.announcement",
  "pk": 8,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 11090309,
   "kind": "umuganda",
   "language": "en",
@@ -158616,9 +158556,7 @@
  "model": "certificates.announcement",
  "pk": 9,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 11090107,
   "kind": "umuganda",
   "language": "en",
@@ -158653,9 +158591,7 @@
  "model": "certificates.announcement",
  "pk": 12,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 11010103,
   "kind": "umuganda",
   "language": "en",
@@ -158690,9 +158626,7 @@
  "model": "certificates.announcement",
  "pk": 13,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 12020204,
   "kind": "umuganda",
   "language": "rw",
@@ -158727,9 +158661,7 @@
  "model": "certificates.announcement",
  "pk": 14,
  "fields": {
-  "created_by": [
-   "homsindayizeye@gmail.com"
-  ],
+  "created_by": 1,
   "village": 11090106,
   "kind": "umuganda",
   "language": "en",
@@ -158758,9 +158690,7 @@
  "model": "certificates.announcement",
  "pk": 15,
  "fields": {
-  "created_by": [
-   "koolasmartrecruiters@"
-  ],
+  "created_by": 30,
   "village": 11090309,
   "kind": "umuganda",
   "language": "en",
@@ -158783,36 +158713,6 @@
   "generated_at": "2026-09-16T19:07:55.508Z",
   "created_at": "2026-09-16T19:07:55.427Z",
   "updated_at": "2026-09-16T19:07:55.509Z"
- }
-},
-{
- "model": "authtoken.token",
- "pk": "3c4e2f85a07fbde962a858f38ac3317be04e152b",
- "fields": {
-  "user": [
-   "Amza2"
-  ],
-  "created": "2026-09-16T12:16:17.343Z"
- }
-},
-{
- "model": "authtoken.token",
- "pk": "73ba619330bd253d976959a5f788c8841f338803",
- "fields": {
-  "user": [
-   "ObedI"
-  ],
-  "created": "2026-09-16T12:16:17.340Z"
- }
-},
-{
- "model": "authtoken.token",
- "pk": "8da2efdd06f176dad3a2fafd9af9e152862c1fda",
- "fields": {
-  "user": [
-   "homsindayizeye@gmail.com"
-  ],
-  "created": "2026-09-16T21:11:30.391Z"
  }
 }
 ]
