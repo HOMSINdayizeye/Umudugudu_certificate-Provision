@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 const PAGE_SIZE = 12
 
@@ -73,6 +74,12 @@ export default function Codes() {
           <p className="muted">No codes yet. A code is issued every time a letter is approved.</p>
         ) : (
           <>
+            <ExportButtons
+              title="Verification codes"
+              columns={['Code', 'Document', 'Issued to', 'Village', 'Stage', 'Approved', 'Approved by']}
+              rows={visible.map((i) => [i.code, i.cert_type_display, i.applicant || '', i.village_name || '', i.status_display || '',
+                i.approved_at ? new Date(i.approved_at).toLocaleDateString() : '', i.approved_by || ''])}
+            />
             <div className="code-grid">
               {pageItems.map((i) => <CodeCard key={i.code} item={i} onOpen={setSelected} />)}
             </div>

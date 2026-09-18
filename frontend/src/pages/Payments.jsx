@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 const VOLUNTEER_SERVICE = {
   cleaning_volunteer: 'cleaning',
@@ -92,6 +93,12 @@ function CitizensTab({ myService, canRecord }) {
         <p className="muted">No citizens registered in your area yet. The isibo leader adds citizens.</p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
+          <ExportButtons
+            title={`${service === 'cleaning' ? 'Cleaning' : 'Security'} service payments ${year}`}
+            columns={['Citizen', 'Isibo', 'Village', 'Trimester 1', 'Trimester 2', 'Trimester 3']}
+            rows={data.citizens.map((c) => [c.name, c.isibo || '', c.village_name || '',
+              ...[1, 2, 3].map((t) => (c.paid[t] ? `Paid ${Number(c.paid[t].amount).toLocaleString()} RWF` : 'Not paid'))])}
+          />
           <table className="table">
             <thead>
               <tr>
@@ -341,6 +348,12 @@ function HistoryTab({ myService }) {
         <>
           <p className="muted">{payments.length} payment(s) — total {total.toLocaleString()} RWF</p>
           <div style={{ overflowX: 'auto' }}>
+            <ExportButtons
+              title={`Payment records — total ${total.toLocaleString()} RWF`}
+              columns={['Citizen', 'Isibo', 'Service', 'Trimester', 'Year', 'Amount (RWF)', 'Paid on', 'Recorded by']}
+              rows={payments.map((p) => [p.citizen_name, p.citizen_isibo || '', p.service_display, `T${p.trimester}`, p.year,
+                Number(p.amount).toLocaleString(), new Date(p.paid_at).toLocaleDateString(), p.recorded_by_name || ''])}
+            />
             <table className="table">
               <thead>
                 <tr>

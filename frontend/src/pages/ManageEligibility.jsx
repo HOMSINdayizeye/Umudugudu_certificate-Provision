@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 const PAGE_SIZE = 5
 
@@ -67,6 +68,11 @@ export default function ManageEligibility() {
           <p className="muted">No users match.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
+            <ExportButtons
+              title="Users and eligibility"
+              columns={['#', 'Username', 'Name', 'Email', 'Role', 'Village', 'Eligible']}
+              rows={visible.map((u, i) => [i + 1, u.username, `${u.first_name} ${u.last_name}`.trim(), u.email, u.role_display, u.village_name || '', u.is_eligible ? 'Yes' : 'No'])}
+            />
             <table className="table">
               <thead>
                 <tr><th>#</th><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Eligible</th><th></th></tr>

@@ -109,6 +109,7 @@ export const api = {
   downloadCertificate: (id, { regenerate = false, format = 'docx' } = {}) =>
     request(`/requests/${id}/certificate/download/?${new URLSearchParams({ ...(regenerate ? { regenerate: 1 } : {}), as: format })}`, { blob: true }),
   listDocuments: () => request('/documents/'),
+  exportTable: (payload) => request('/export/', { method: 'POST', body: payload, blob: true }),
 
   notifications: () => request('/notifications/'),
   markNotificationRead: (id) => request(`/notifications/${id}/read/`, { method: 'POST' }),

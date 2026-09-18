@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import datetime
 
 from django.conf import settings
@@ -28,7 +29,7 @@ from .serializers import (
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
-    request_location_id, docx_to_pdf,
+    request_location_id, docx_to_pdf, build_table_docx, build_table_pdf,
 )
 
 LEADER_STAGE = {
@@ -532,6 +533,29 @@ def document_list(request):
         })
     items.sort(key=lambda x: x['created_at'] or timezone.now(), reverse=True)
     return Response(items)
+
+
+# ---------- Table export (the list the user is looking at, as PDF or Word) ----------
+
+@api_view(['POST'])
+def export_table(request):
+    """Body: {title, columns: [..], rows: [[..]], format: 'pdf'|'docx'}. Data comes from what the user already sees."""
+    d = request.data
+    title = str(d.get('title') or 'Export').strip()[:120]
+    columns = [str(c)[:60] for c in (d.get('columns') or [])][:20]
+    rows = d.get('rows') or []
+    fmt = 'docx' if d.get('format') == 'docx' else 'pdf'
+    if not columns or not isinstance(rows, list):
+        return Response({'detail': 'Nothing to export.'}, status=status.HTTP_400_BAD_REQUEST)
+    rows = [list(r)[:len(columns)] for r in rows[:5000] if isinstance(r, (list, tuple))]
+    subtitle = f"Generated {timezone.localtime():%d %B %Y, %H:%M} by {request.user.display_name} · Certify, City of Kigali"
+    slug = re.sub(r'[^A-Za-z0-9]+', '_', title).strip('_') or 'export'
+    stamp = timezone.localdate().isoformat()
+    if fmt == 'docx':
+        data = build_table_docx(title, subtitle, columns, rows)
+        return FileResponse(io.BytesIO(data), as_attachment=True, filename=f'{slug}_{stamp}.docx', content_type=DOCX_MIME)
+    data = build_table_pdf(title, subtitle, columns, rows)
+    return FileResponse(io.BytesIO(data), as_attachment=True, filename=f'{slug}_{stamp}.pdf', content_type='application/pdf')
 
 
 # ---------- Notifications ----------

@@ -18,8 +18,9 @@ urlpatterns = [
     path('attachments/<int:pk>/download/', api.attachment_download, name='api_attachment_download'),
     path('attachments/<int:pk>/', api.attachment_delete, name='api_attachment_delete'),
 
-    # Generated documents archive
+    # Generated documents archive & table export
     path('documents/', api.document_list, name='api_document_list'),
+    path('export/', api.export_table, name='api_export_table'),
 
     # Notifications & verification codes
     path('notifications/', api.notification_list, name='api_notification_list'),

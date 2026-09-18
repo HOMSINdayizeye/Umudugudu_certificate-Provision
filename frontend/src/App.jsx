@@ -64,7 +64,7 @@ export default function App() {
           {/* Drop the coat of arms at frontend/public/logo.png and it replaces the blue tile */}
           <img src="/logo.png" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'grid' }} />
           <span className="brand-mark" style={{ display: 'none' }}>CK</span>
-          Kigali City <span>Certify</span>
+          UMUDUGUDU <span>Certify</span>
         </Link>
 
         {/* Always visible, even on phones: bell and the menu button */}
@@ -126,7 +126,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <footer className="site-footer">© {new Date().getFullYear()} <strong>City of Kigali</strong>. All Rights Reserved.</footer>
+      <footer className="site-footer">© {new Date().getFullYear()} <strong>ISIBO Initiative</strong>. All Rights Reserved.</footer>
     </div>
   )
 }

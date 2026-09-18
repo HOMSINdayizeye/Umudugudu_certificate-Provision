@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
 import DocViewer from '../components/DocViewer.jsx'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 const PAGE_SIZE = 5
 
@@ -74,6 +75,11 @@ export default function Documents({ user }) {
           </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
+            <ExportButtons
+              title={isLeader ? 'Issued documents' : 'My documents'}
+              columns={['Created', 'Kind', 'Document', 'For / Subject', 'Issued by']}
+              rows={visible.map((d) => [new Date(d.created_at).toLocaleString(), d.kind === 'request' ? 'Letter' : 'Announcement', d.title, d.subject || '', d.created_by || ''])}
+            />
             <table className="table">
               <thead>
                 <tr>

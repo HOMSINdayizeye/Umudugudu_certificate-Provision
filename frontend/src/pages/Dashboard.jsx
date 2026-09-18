@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
 import CountUp from '../components/CountUp.jsx'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 // Each summary number counts up in turn: Pending, then Approved, then Rejected, then Total
 const COUNT_MS = 550
@@ -123,6 +124,12 @@ export default function Dashboard({ user }) {
           <p className="muted">{isAdmin || isLeader ? 'No document requests yet.' : 'No requests yet. Click "Apply for a Document" to submit one.'}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
+            <ExportButtons
+              title={title}
+              columns={['#', 'Requested by', 'Email', 'Document', 'Applicant', 'Submitted', 'Status', 'Approved by']}
+              rows={requests.map((r, i) => [i + 1, `${r.user.first_name} ${r.user.last_name}`.trim() || r.user.username, r.user.email, r.cert_type_display,
+                r.details?.full_name || '', new Date(r.created_at).toLocaleDateString(), r.status_display, r.approved_by_name || ''])}
+            />
             <table className="table">
               <thead>
                 <tr>

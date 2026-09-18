@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
+import ExportButtons from '../components/ExportButtons.jsx'
 
 const emptyForm = { first_name: '', last_name: '', email: '', phone: '', national_id: '', age: '', isibo: '' }
 
@@ -141,6 +142,11 @@ export default function Citizens({ user }) {
           <p className="muted">No citizens registered yet. Use the form above to add one.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
+            <ExportButtons
+              title="Registered citizens"
+              columns={['Name', 'Isibo', 'Phone', 'Email', 'ID number', 'Age', 'Village']}
+              rows={citizens.map((c) => [c.name, c.isibo || '', c.phone || '', c.email || '', c.national_id, c.age, c.village_name || ''])}
+            />
             <table className="table">
               <thead>
                 <tr>

@@ -608,6 +608,72 @@ def render_request_document(req, leader=None):
     return data, filename
 
 
+# ---------- table exports (lists of requests, codes, citizens, payments…) ----------
+
+def build_table_docx(title, subtitle, columns, rows):
+    doc = _new_document()
+    if len(columns) > 5:
+        for s in doc.sections:
+            s.orientation = WD_ORIENT.LANDSCAPE
+            s.page_width, s.page_height = Cm(29.7), Cm(21)
+    _title(doc, title)
+    p = doc.add_paragraph(subtitle)
+    p.runs[0].font.size = Pt(9)
+    p.runs[0].italic = True
+    table = doc.add_table(rows=1, cols=len(columns))
+    table.style = 'Table Grid'
+    for cell, name in zip(table.rows[0].cells, columns):
+        cell.text = ''
+        run = cell.paragraphs[0].add_run(str(name))
+        run.bold = True
+        run.font.size = Pt(9)
+    for row in rows:
+        cells = table.add_row().cells
+        for cell, value in zip(cells, list(row) + [''] * (len(columns) - len(row))):
+            cell.text = ''
+            cell.paragraphs[0].add_run('' if value is None else str(value)).font.size = Pt(9)
+    doc.add_paragraph()
+    doc.add_paragraph(f'{len(rows)} row(s)').runs[0].font.size = Pt(9)
+    return _save(doc)
+
+
+def build_table_pdf(title, subtitle, columns, rows):
+    from xml.sax.saxutils import escape
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    pagesize = landscape(A4) if len(columns) > 5 else A4
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=pagesize, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+                            topMargin=1.5 * cm, bottomMargin=1.5 * cm, title=title)
+    head = ParagraphStyle('h', fontName='Helvetica-Bold', fontSize=15, leading=19, spaceAfter=2)
+    sub = ParagraphStyle('s', fontName='Helvetica-Oblique', fontSize=8.5, leading=11, textColor=colors.HexColor('#555555'), spaceAfter=10)
+    cell = ParagraphStyle('c', fontName='Helvetica', fontSize=8.5, leading=11, alignment=TA_LEFT)
+    cell_head = ParagraphStyle('ch', parent=cell, fontName='Helvetica-Bold', textColor=colors.white)
+
+    data = [[Paragraph(escape(str(c)), cell_head) for c in columns]]
+    for row in rows:
+        padded = list(row) + [''] * (len(columns) - len(row))
+        data.append([Paragraph(escape('' if v is None else str(v)), cell) for v in padded])
+    table = Table(data, repeatRows=1, colWidths=[pdf.width / len(columns)] * len(columns))
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#056daa')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f7fa')]),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cfd8e3')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    story = [Paragraph(escape(title), head), Paragraph(escape(subtitle), sub), table, Spacer(1, 8),
+             Paragraph(f'{len(rows)} row(s)', sub)]
+    pdf.build(story)
+    return buf.getvalue()
+
+
 # ---------- announcements ----------
 
 def announcement_paragraphs(a, chain, leader_name):
