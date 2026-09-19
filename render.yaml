@@ -7,7 +7,7 @@ services:
     rootDir: backend
     plan: free
     region: frankfurt
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    buildCommand: pip install -r requirements.txt gunicorn==26.2.0 && python manage.py collectstatic --noinput && python manage.py migrate
     startCommand: gunicorn certify.wsgi:application --workers 2 --threads 4 --timeout 120
     healthCheckPath: /api/locations/provinces/
     autoDeploy: true

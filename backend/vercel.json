@@ -3,8 +3,7 @@
   "builds": [
     {
       "src": "certify/wsgi.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "50mb" }
+      "use": "@vercel/python"
     },
     {
       "src": "build_files.sh",
