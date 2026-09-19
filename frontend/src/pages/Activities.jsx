@@ -281,7 +281,7 @@ function AttendanceSummary({ user }) {
                     {pageRows.map((c, idx) => (
                       <tr key={c.id} className={data.top && data.top.id === c.id ? 'row-top' : ''}>
                         <td>{(current - 1) * PAGE_SIZE + idx + 1}</td>
-                        <td>{c.name}{data.top && data.top.id === c.id && <span className="badge badge-approved badge-inline">★ Highest</span>}</td>
+                        <td>{c.name}{data.top && data.top.id === c.id && <span className="badge badge-approved badge-inline">Highest</span>}</td>
                         <td>{c.national_id}</td>
                         <td>{c.isibo || '—'}</td>
                         <td>{c.village_name}</td>

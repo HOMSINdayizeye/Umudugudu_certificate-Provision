@@ -8,8 +8,30 @@ const POLL_MS = 60000
 export default function NotificationBell() {
   const [data, setData] = useState({ unread: 0, items: [] })
   const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState({ top: 64, left: 8, width: 380 })
   const navigate = useNavigate()
   const box = useRef(null)
+
+  // Anchor the panel under the bell but keep it fully inside the viewport, whichever side the bell is on
+  function position() {
+    const rect = box.current?.getBoundingClientRect()
+    if (!rect) return
+    const margin = 8
+    const width = Math.min(380, window.innerWidth - margin * 2)
+    const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin))
+    setPlace({ top: rect.bottom + 6, left, width })
+  }
+
+  useEffect(() => {
+    if (!open) return undefined
+    position()
+    window.addEventListener('resize', position)
+    window.addEventListener('scroll', position, true)
+    return () => {
+      window.removeEventListener('resize', position)
+      window.removeEventListener('scroll', position, true)
+    }
+  }, [open])
 
   async function load() {
     try {
@@ -56,7 +78,7 @@ export default function NotificationBell() {
         {data.unread > 0 && <span className="bell-count">{data.unread > 9 ? '9+' : data.unread}</span>}
       </button>
       {open && (
-        <div className="notif-dropdown">
+        <div className="notif-dropdown" style={{ top: place.top, left: place.left, width: place.width }}>
           <div className="notif-head">
             <strong>Notifications</strong>
             {data.unread > 0 && <button type="button" className="link-btn" onClick={readAll}>Mark all read</button>}

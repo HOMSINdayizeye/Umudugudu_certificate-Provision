@@ -79,7 +79,6 @@ img { max-width: 100%; }
   .topbar .btn-outline { margin: 0.5rem 0 0.25rem; width: 100%; }
   .brand { font-size: 1rem; }
   .brand img, .brand-mark { width: 34px; height: 34px; }
-  .notif-dropdown { position: fixed; left: 0.75rem; right: 0.75rem; top: 64px; width: auto; }
 }
 .topbar nav a {
   color: #555; text-decoration: none; font-weight: 600; font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase;
@@ -403,7 +402,8 @@ img { max-width: 100%; }
 .bell:hover { border-color: var(--primary); color: var(--primary); }
 .bell svg { width: 20px; height: 20px; }
 .bell-count { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; font-size: 0.65rem; font-weight: 700; min-width: 18px; height: 18px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; }
-.notif-dropdown { position: absolute; right: 0; top: 46px; width: min(380px, 92vw); background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-card); z-index: 60; text-align: left; }
+/* Placed by NotificationBell from the bell's on-screen position and clamped to the viewport */
+.notif-dropdown { position: fixed; background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-card); z-index: 60; text-align: left; max-height: calc(100vh - 80px); overflow-y: auto; }
 .notif-head { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .notif-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
 .notif-list li { border-bottom: 1px solid var(--border); }
