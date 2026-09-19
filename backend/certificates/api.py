@@ -1352,13 +1352,19 @@ def activity_detail(request, pk):
     return Response(serializer.data)
 
 
-def attendance_area(user, activity):
-    # Citizens who can be marked: the activity's area, narrowed to the marker's own area when that is smaller
-    code = activity.location_code
-    mine = area_code(user)
-    if mine and len(str(mine)) > len(str(code)) and in_scope(mine, code):
-        code = mine
-    return code
+def attendance_pool(user, activity=None):
+    """Citizens a user may mark or count: admins all; isibo leaders only their own isibo (and citizens they
+    registered); other leaders their area, narrowed to the activity's area when that is smaller."""
+    if is_admin(user):
+        return Citizen.objects.all()
+    if user.role == 'isibo_leader':
+        return visible_citizens_qs(user)
+    code = area_code(user)
+    if activity is not None:
+        act = activity.location_code
+        if not code or (len(str(act)) > len(str(code)) and in_scope(act, code)):
+            code = act
+    return citizens_in_area(code) if code else Citizen.objects.none()
 
 
 @api_view(['GET', 'POST'])
@@ -1368,8 +1374,7 @@ def activity_attendance(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
     if not (has_perm(user, 'mark:attendance') and visible_activities_qs(user).filter(pk=pk).exists()):
         return Response({'detail': 'You are not allowed to mark attendance here.'}, status=status.HTTP_403_FORBIDDEN)
-    code = None if is_admin(user) else attendance_area(user, activity)
-    pool = Citizen.objects.all() if code is None else citizens_in_area(code)
+    pool = attendance_pool(user, activity)
 
     if request.method == 'GET':
         q = (request.GET.get('q') or '').strip()
@@ -1393,11 +1398,15 @@ def activity_attendance(request, pk):
             return Response({'village': 'Choose the village of this citizen.'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = CitizenSerializer(data=new)
         serializer.is_valid(raise_exception=True)
-        citizen = serializer.save(added_by=user, village=int(village), isibo=(new.get('isibo') or '').strip())
+        # An isibo leader's new registrations always join their own isibo
+        isibo = user.isibo if user.role == 'isibo_leader' and user.isibo else (new.get('isibo') or '').strip()
+        citizen = serializer.save(added_by=user, village=int(village), isibo=isibo)
     else:
         citizen = pool.filter(pk=request.data.get('citizen')).first()
         if not citizen:
-            return Response({'detail': 'This citizen is not in the activity’s area.'}, status=status.HTTP_404_NOT_FOUND)
+            detail = ('This citizen is not in your isibo.' if user.role == 'isibo_leader'
+                      else 'This citizen is not in the activity’s area.')
+            return Response({'detail': detail}, status=status.HTTP_404_NOT_FOUND)
 
     att, created = Attendance.objects.get_or_create(activity=activity, citizen=citizen, defaults={'marked_by': user})
     data = AttendanceSerializer(att).data
@@ -1426,9 +1435,7 @@ def attendance_summary(request):
     if not has_perm(user, 'view:activities'):
         return Response({'detail': 'You are not allowed to view attendance.'}, status=status.HTTP_403_FORBIDDEN)
     activities = visible_activities_qs(user)
-    code = None if is_admin(user) else area_code(user)
-    citizens = Citizen.objects.all() if code is None else citizens_in_area(code)
-    citizens = citizens.annotate(
+    citizens = attendance_pool(user).annotate(
         attended=Count('attendances', filter=Q(attendances__activity__in=activities)),
     ).order_by('-attended', 'first_name', 'last_name')
     minimum = SystemSetting.min_attendance()

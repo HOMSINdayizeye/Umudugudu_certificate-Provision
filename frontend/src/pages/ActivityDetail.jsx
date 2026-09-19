@@ -237,6 +237,9 @@ function MarkAttendance({ activityId, user, onMarked }) {
           <div className="form-group">
             <label>Find a citizen</label>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, ID number or phone…" autoFocus />
+            {user?.role === 'isibo_leader' && (
+              <div className="field-hint muted">You can mark citizens of your isibo{user.isibo ? ` (${user.isibo})` : ''}. Register anyone else below.</div>
+            )}
           </div>
           {searching && <Spinner label="Searching…" />}
           {results && !searching && (
@@ -279,7 +282,12 @@ function MarkAttendance({ activityId, user, onMarked }) {
             <div className="form-group"><label>Age</label><input type="number" min="1" max="130" value={form.age} onChange={set('age')} required /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Isibo (optional)</label><input value={form.isibo} onChange={set('isibo')} /></div>
+            <div className="form-group">
+              <label>Isibo{user?.role === 'isibo_leader' ? '' : ' (optional)'}</label>
+              {user?.role === 'isibo_leader' && user?.isibo
+                ? <input value={user.isibo} disabled title="New citizens join your isibo" />
+                : <input value={form.isibo} onChange={set('isibo')} />}
+            </div>
             <div className="form-group"><label>Phone (optional)</label><input value={form.phone} onChange={set('phone')} maxLength={20} /></div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
