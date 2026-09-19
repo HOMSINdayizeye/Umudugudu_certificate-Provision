@@ -161,21 +161,30 @@ class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     is_admin_role = serializers.BooleanField(read_only=True)
     village_name = serializers.SerializerMethodField()
+    location_name = serializers.SerializerMethodField()
     display_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'display_name', 'phone',
-            'is_eligible', 'is_superuser', 'role', 'role_display', 'is_admin_role',
-            'province', 'district', 'sector', 'cell', 'village', 'village_name', 'isibo',
+            'is_eligible', 'is_superuser', 'is_active', 'date_joined', 'last_login', 'role', 'role_display',
+            'is_admin_role', 'province', 'district', 'sector', 'cell', 'village', 'village_name', 'location_name', 'isibo',
         ]
 
     def get_village_name(self, obj):
-        if not obj.village:
-            return ''
-        loc = LocationImport.objects.filter(location_id=obj.village).first()
-        return loc.name if loc else ''
+        return location_name(obj.village)
+
+    def get_location_name(self, obj):
+        # Most specific place the account is attached to, e.g. "Kiyovu (Cell), Nyarugenge" for a cell leader
+        for field, label in (('village', 'Village'), ('cell', 'Cell'), ('sector', 'Sector'), ('district', 'District'),
+                             ('province', 'Province')):
+            code = getattr(obj, field)
+            if code:
+                s = str(code)
+                parent = location_name(int(s[:-2])) if len(s) > 2 else ''
+                return f'{location_name(code)} ({label})' + (f', {parent}' if parent else '')
+        return ''
 
 
 class StolenLaptopCertificateSerializer(serializers.ModelSerializer):

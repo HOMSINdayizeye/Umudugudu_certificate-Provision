@@ -3,12 +3,20 @@ import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import { TransferBadge } from '../components/TransferCitizenModal.jsx'
+import AreaCitizens from './AreaCitizens.jsx'
 
 const emptyForm = { first_name: '', last_name: '', email: '', phone: '', national_id: '', age: '', isibo: '' }
+const AREA_LEADERS = ['village_leader', 'cell_leader', 'sector_leader']
 
 // Isibo leader's citizen registry: add citizens and edit their information.
 // Citizens always land in the leader's own village (shown read-only).
+// Village/cell/sector leaders get a read-only view of every citizen in their area instead.
 export default function Citizens({ user }) {
+  if (AREA_LEADERS.includes(user?.role)) return <AreaCitizens user={user} />
+  return <IsiboCitizens user={user} />
+}
+
+function IsiboCitizens({ user }) {
   const [citizens, setCitizens] = useState([])
   const [form, setForm] = useState({ ...emptyForm, isibo: user?.isibo || '' })
   const [loc, setLoc] = useState({ province: '', district: '', sector: '', cell: '', village: '' })
