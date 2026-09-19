@@ -214,6 +214,24 @@ export function ReportDeathModal({ user, citizen: preselected, onClose, onDone }
         <h2>Report a death</h2>
         {error && <div className="alert alert-error">{error}</div>}
 
+        <form onSubmit={submit}>
+        <div className="section-title" style={{ marginTop: 0 }}>Death details</div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Date of death <span className="req">*</span></label>
+            <input type="date" value={death.date_of_death} onChange={setD('date_of_death')} max={today()} required />
+          </div>
+          <div className="form-group">
+            <label>Place (optional)</label>
+            <input value={death.place} onChange={setD('place')} maxLength={200} placeholder="Hospital, home, village…" />
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Note (optional)</label>
+          <textarea rows={2} value={death.note} onChange={setD('note')} placeholder="Cause, circumstances, who informed you…" />
+        </div>
+
+        <div className="section-title">Who died?</div>
         {!ready && (
           <>
             <div className="form-group">
@@ -232,13 +250,13 @@ export function ReportDeathModal({ user, citizen: preselected, onClose, onDone }
                         <strong>{c.name}</strong>
                         <div className="muted small">ID {c.national_id}{c.isibo ? ` · isibo ${c.isibo}` : ''} · {c.village_name}</div>
                       </div>
-                      <button className="btn btn-small" onClick={() => setChosen(c)}>Select</button>
+                      <button type="button" className="btn btn-small" onClick={() => setChosen(c)}>Select</button>
                     </li>
                   ))}
                 </ul>
               )
             )}
-            <div className="info-strip" style={{ marginTop: '1rem', marginBottom: 0 }}>
+            <div className="info-strip" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
               <span>Person not registered?</span>
               <button type="button" className="link-btn" onClick={() => { setRegistering(true); setForm({ ...emptyNew }) }}>
                 Add their details and report
@@ -248,10 +266,9 @@ export function ReportDeathModal({ user, citizen: preselected, onClose, onDone }
         )}
 
         {ready && (
-          <form onSubmit={submit}>
+          <>
             {registering ? (
               <>
-                <div className="section-title" style={{ marginTop: 0 }}>Deceased person (not yet registered)</div>
                 <p className="muted small" style={{ marginTop: 0 }}>
                   Added to the registry of {user?.village_name ? `${user.village_name} village` : 'your village'} and marked deceased at once.
                 </p>
@@ -274,32 +291,20 @@ export function ReportDeathModal({ user, citizen: preselected, onClose, onDone }
                 {!preselected && <button type="button" className="link-btn" onClick={() => setChosen(null)}>change</button>}
               </div>
             )}
-
-            <div className="section-title">Death details</div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Date of death</label>
-                <input type="date" value={death.date_of_death} onChange={setD('date_of_death')} max={today()} required />
-              </div>
-              <div className="form-group">
-                <label>Place (optional)</label>
-                <input value={death.place} onChange={setD('place')} maxLength={200} placeholder="Hospital, home, village…" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Note (optional)</label>
-              <textarea rows={2} value={death.note} onChange={setD('note')} placeholder="Cause, circumstances, who informed you…" />
-            </div>
             <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
               The citizen will be removed from the living citizens of the village, cell and sector and kept in the deceased register.
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button className="btn btn-danger" disabled={busy}>{busy ? 'Saving…' : 'Report Deceased'}</button>
-              {registering && !preselected && <button type="button" className="btn btn-outline-dark" onClick={() => setRegistering(false)}>Back to search</button>}
-              <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            </div>
-          </form>
+          </>
         )}
+
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-danger" disabled={busy || !ready} title={ready ? '' : 'Select or add the person first'}>
+            {busy ? 'Saving…' : 'Report Deceased'}
+          </button>
+          {registering && !preselected && <button type="button" className="btn btn-outline-dark" onClick={() => setRegistering(false)}>Back to search</button>}
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        </div>
+        </form>
       </div>
     </div>
   )
