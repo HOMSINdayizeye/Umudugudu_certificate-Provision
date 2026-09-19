@@ -17,6 +17,8 @@ import Profile from './pages/Profile.jsx'
 import Transfers from './pages/Transfers.jsx'
 import Users from './pages/Users.jsx'
 import Roles from './pages/Roles.jsx'
+import Activities from './pages/Activities.jsx'
+import ActivityDetail from './pages/ActivityDetail.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
@@ -97,6 +99,7 @@ export default function App() {
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}
               {can(user, 'view:citizens') && <NavLink to="/citizens">Citizens</NavLink>}
               {can(user, 'view:transfers') && <NavLink to="/transfers">Transfers</NavLink>}
+              {can(user, 'view:activities') && <NavLink to="/activities">Activities</NavLink>}
               {can(user, 'view:users') && <NavLink to="/users">Users</NavLink>}
               {can(user, 'permissions:users') && <NavLink to="/roles">Roles</NavLink>}
               {can(user, 'eligibility:users') && <NavLink to="/eligibility">Eligibility</NavLink>}
@@ -130,6 +133,8 @@ export default function App() {
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />
           <Route path="/roles" element={<RequireAuth><Roles /></RequireAuth>} />
+          <Route path="/activities" element={<RequireAuth><Activities user={user} /></RequireAuth>} />
+          <Route path="/activities/:id" element={<RequireAuth><ActivityDetail user={user} /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -216,6 +216,70 @@ class CitizenTransfer(models.Model):
         return f'{self.citizen} : {self.from_village} → {self.to_village}'
 
 
+class Activity(models.Model):
+    """Community activity (Umuganda, meeting, election…) a leader runs and takes attendance for."""
+    KIND_CHOICES = [
+        ('community_work', 'Community Work (Umuganda)'),
+        ('meeting', 'Meeting'),
+        ('election', 'Election'),
+        ('training', 'Training / Sensitisation'),
+        ('other', 'Other'),
+    ]
+
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='community_work')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    date = models.DateField()
+    # Area the activity belongs to: the creator's village, cell or sector code (prefix of citizen village ids)
+    location_code = models.IntegerField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name='activities')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.title} ({self.date})'
+
+
+class Attendance(models.Model):
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='attendances')
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name='attendances')
+    marked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                  related_name='attendance_marked')
+    marked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('activity', 'citizen')
+        ordering = ['-marked_at']
+
+    def __str__(self):
+        return f'{self.citizen} @ {self.activity}'
+
+
+class SystemSetting(models.Model):
+    """Admin-set values such as the attendance count needed for a community engagement letter."""
+    key = models.CharField(max_length=50, unique=True)
+    value = models.JSONField(default=dict, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='settings_updated')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    MIN_ATTENDANCE_DEFAULT = 3
+
+    @classmethod
+    def min_attendance(cls):
+        row = cls.objects.filter(key='min_attendance').first()
+        try:
+            return int(row.value.get('count')) if row else cls.MIN_ATTENDANCE_DEFAULT
+        except (TypeError, ValueError, AttributeError):
+            return cls.MIN_ATTENDANCE_DEFAULT
+
+    def __str__(self):
+        return f'{self.key} = {self.value}'
+
+
 class ServicePayment(models.Model):
     SERVICE_CHOICES = [
         ('cleaning', 'Cleaning Service'),

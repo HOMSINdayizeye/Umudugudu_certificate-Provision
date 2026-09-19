@@ -227,6 +227,16 @@ img { max-width: 100%; }
 .badge-kind { background: var(--primary-tint); color: var(--primary-dark); }
 .badge-moved_on { background: #ede9fe; color: #6d28d9; }
 
+/* Activities & attendance */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.summary-card { display: flex; flex-direction: column; gap: 0.2rem; padding: 1rem 1.25rem; }
+.summary-top { border-left: 4px solid var(--success); }
+.row-top td { background: #f3faf3; }
+.attend-results { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); }
+.attend-results li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.attend-results li:last-child { border-bottom: none; }
+.attend-results li:hover { background: #f8fafc; }
+
 /* Roles & permissions */
 .roles-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.25rem; align-items: start; }
 @media (max-width: 800px) { .roles-layout { grid-template-columns: 1fr; } }

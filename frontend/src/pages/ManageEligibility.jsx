@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import { api, getUser, can } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
@@ -13,9 +13,13 @@ export default function ManageEligibility() {
   const [q, setQ] = useState('')
   const [only, setOnly] = useState('all') // all | eligible | not
   const [page, setPage] = useState(1)
+  const [ruleOpen, setRuleOpen] = useState(false)
+  const [rule, setRule] = useState(null) // {min_attendance, updated_at, updated_by}
+  const canSetRule = can(getUser(), 'settings:attendance')
 
   useEffect(() => {
     api.listUsers().then(setUsers).catch((err) => setError(err.message))
+    if (canSetRule) api.attendanceSetting().then(setRule).catch(() => {})
   }, [])
 
   // Back to the first page whenever the filters change
@@ -43,9 +47,28 @@ export default function ManageEligibility() {
 
   return (
     <div>
-      <div className="page-head"><h1>Manage Eligibility</h1></div>
+      <div className="page-head">
+        <h1>Manage Eligibility</h1>
+        {canSetRule && (
+          <button className="btn btn-small" onClick={() => setRuleOpen(true)}>
+            Community engagement rule{rule ? ` · min ${rule.min_attendance}` : ''}
+          </button>
+        )}
+      </div>
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
+
+      {ruleOpen && (
+        <AttendanceRuleModal
+          rule={rule}
+          onClose={() => setRuleOpen(false)}
+          onSaved={(s) => {
+            setRule(s)
+            setRuleOpen(false)
+            setMessage(`Minimum attendance set to ${s.min_attendance}. Citizens with fewer attendances cannot request the community engagement letter.`)
+          }}
+        />
+      )}
 
       <div className="card">
         <div className="filter-row date-filter">
@@ -101,6 +124,55 @@ export default function ManageEligibility() {
             <Pagination page={current} totalPages={totalPages} total={visible.length} label="user" onChange={setPage} />
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// System admin: the attendance count that makes any citizen eligible for the community engagement letter.
+function AttendanceRuleModal({ rule, onClose, onSaved }) {
+  const [value, setValue] = useState(rule ? String(rule.min_attendance) : '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save(e) {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      onSaved(await api.setAttendanceSetting(Number(value)))
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>Community engagement rule</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          A citizen becomes eligible for the Community Engagement Referral once leaders have marked them present at this many
+          activities. It applies to every village. Citizens below the number are told this minimum when they try to apply.
+        </p>
+        {error && <div className="alert alert-error">{error}</div>}
+        <form onSubmit={save}>
+          <div className="form-group" style={{ maxWidth: 260 }}>
+            <label>Minimum attendances required</label>
+            <input type="number" min="0" max="1000" value={value} onChange={(e) => setValue(e.target.value)} required autoFocus />
+            {rule?.updated_at && (
+              <div className="field-hint muted">
+                Currently {rule.min_attendance}, set {new Date(rule.updated_at).toLocaleDateString()}{rule.updated_by ? ` by ${rule.updated_by}` : ''}.
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="btn" disabled={busy || value === '' || (rule && Number(value) === rule.min_attendance)}>
+              {busy ? 'Saving…' : 'Save Rule'}
+            </button>
+            <button type="button" className="btn btn-outline-dark" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
       </div>
     </div>
   )

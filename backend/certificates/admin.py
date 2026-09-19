@@ -2,10 +2,22 @@ from django.contrib import admin
 
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
-    LocationImport, RolePolicy,
+    LocationImport, RolePolicy, Activity, Attendance, SystemSetting,
 )
 
 admin.site.register(RolePolicy)
+admin.site.register(SystemSetting)
+
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'kind', 'date', 'location_code', 'created_by')
+    list_filter = ('kind',)
+
+
+@admin.register(Attendance)
+class AttendanceAdmin(admin.ModelAdmin):
+    list_display = ('id', 'activity', 'citizen', 'marked_by', 'marked_at')
 
 
 @admin.register(CustomUser)

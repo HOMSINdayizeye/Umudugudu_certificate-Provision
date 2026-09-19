@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
     ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
+    Activity, Attendance,
 )
 from .permissions import effective_permissions, role_permissions
 
@@ -389,6 +390,50 @@ class CitizenTransferSerializer(serializers.ModelSerializer):
         if obj.citizen.village != obj.to_village:
             return 'moved_on'
         return 'placed' if obj.placed_at else 'awaiting_isibo'
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
+    location_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    attendance_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Activity
+        fields = [
+            'id', 'kind', 'kind_display', 'title', 'description', 'date', 'location_code', 'location_name',
+            'created_by_name', 'created_at', 'attendance_count',
+        ]
+        read_only_fields = ['location_code', 'created_at']
+
+    def get_location_name(self, obj):
+        s = str(obj.location_code)
+        level = {8: 'Village', 6: 'Cell', 4: 'Sector'}.get(len(s), 'Area')
+        return f'{location_name(obj.location_code)} ({level})'
+
+    def get_created_by_name(self, obj):
+        return user_name(obj.created_by)
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    citizen_name = serializers.SerializerMethodField()
+    national_id = serializers.CharField(source='citizen.national_id', read_only=True)
+    isibo = serializers.CharField(source='citizen.isibo', read_only=True)
+    village_name = serializers.SerializerMethodField()
+    marked_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendance
+        fields = ['id', 'citizen', 'citizen_name', 'national_id', 'isibo', 'village_name', 'marked_by_name', 'marked_at']
+
+    def get_citizen_name(self, obj):
+        return f'{obj.citizen.first_name} {obj.citizen.last_name}'.strip()
+
+    def get_village_name(self, obj):
+        return location_name(obj.citizen.village)
+
+    def get_marked_by_name(self, obj):
+        return user_name(obj.marked_by)
 
 
 class ServicePaymentSerializer(serializers.ModelSerializer):

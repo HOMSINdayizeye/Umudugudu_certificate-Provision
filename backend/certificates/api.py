@@ -19,7 +19,7 @@ from rest_framework.response import Response
 
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
-    RequestAttachment, Announcement, Notification, RolePolicy,
+    RequestAttachment, Announcement, Notification, RolePolicy, Activity, Attendance, SystemSetting,
 )
 from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
@@ -27,6 +27,7 @@ from .serializers import (
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
     NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
+    ActivitySerializer, AttendanceSerializer,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
@@ -308,6 +309,12 @@ def request_list(request):
         return Response({'details': missing}, status=status.HTTP_400_BAD_REQUEST)
     if cert_type == 'other' and not (serializer.validated_data.get('other_description') or '').strip():
         return Response({'other_description': 'Describe the document you need.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # The community engagement letter needs a minimum number of recorded attendances
+    if cert_type == 'community' and not is_admin(user):
+        check = community_eligibility_for(user, details.get('national_id'))
+        if not check['eligible']:
+            return Response({'detail': check['message'], 'eligibility': check}, status=status.HTTP_400_BAD_REQUEST)
 
     # The letter is issued by the applicant's own village unless a location was chosen explicitly
     location = {}
@@ -1253,6 +1260,252 @@ def payment_detail(request, pk):
 
     payment.delete()
     return Response({'detail': 'Payment unmarked.'}, status=status.HTTP_200_OK)
+
+
+# ---------- Activities & attendance ----------
+
+def location_prefixes(code):
+    # 11090309 -> [1, 11, 1109, 110903, 11090309]: the areas that contain this location
+    s = str(code)
+    return [int(s[:n]) for n in (1, 2, 4, 6, 8) if len(s) >= n]
+
+
+def visible_activities_qs(user):
+    """Activities in the user's area: inside it, or run by a wider area (cell/sector) that contains it."""
+    if is_admin(user):
+        return Activity.objects.all()
+    code = area_code(user)
+    if not code:
+        return Activity.objects.filter(created_by=user)
+    inside = scope_queryset_by_village_prefix(Activity.objects.all(), 'location_code', code)
+    return (inside | Activity.objects.filter(location_code__in=location_prefixes(code))
+            | Activity.objects.filter(created_by=user)).distinct()
+
+
+def can_manage_activity(user, activity):
+    if is_admin(user):
+        return True
+    return has_perm(user, 'create:activities') and (
+        activity.created_by_id == user.id or in_scope(activity.location_code, area_code(user)))
+
+
+def citizens_in_area(code):
+    return scope_queryset_by_village_prefix(Citizen.objects.all(), 'village', code)
+
+
+def with_counts(qs):
+    return qs.annotate(attendance_count=Count('attendances'))
+
+
+@api_view(['GET', 'POST'])
+def activity_list(request):
+    user = request.user
+    if request.method == 'POST':
+        if not has_perm(user, 'create:activities'):
+            return Response({'detail': 'You are not allowed to create activities.'}, status=status.HTTP_403_FORBIDDEN)
+        code = area_code(user) or request.data.get('location_code')
+        if not code:
+            return Response({'detail': 'Your account has no area assigned, so you cannot create activities.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        serializer = ActivitySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        activity = serializer.save(created_by=user, location_code=int(code))
+        return Response(ActivitySerializer(with_counts(Activity.objects.filter(pk=activity.pk)).first()).data,
+                        status=status.HTTP_201_CREATED)
+
+    if not has_perm(user, 'view:activities'):
+        return Response({'detail': 'You are not allowed to view activities.'}, status=status.HTTP_403_FORBIDDEN)
+    qs = with_counts(visible_activities_qs(user).select_related('created_by'))
+    return Response({
+        'can_create': has_perm(user, 'create:activities'),
+        'can_mark': has_perm(user, 'mark:attendance'),
+        'min_attendance': SystemSetting.min_attendance(),
+        'activities': ActivitySerializer(qs, many=True).data,
+    })
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def activity_detail(request, pk):
+    user = request.user
+    activity = get_object_or_404(with_counts(Activity.objects.all()), pk=pk)
+    if not (has_perm(user, 'view:activities') and visible_activities_qs(user).filter(pk=pk).exists()):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        attendances = activity.attendances.select_related('citizen', 'marked_by')
+        return Response({
+            'activity': ActivitySerializer(activity).data,
+            'attendances': AttendanceSerializer(attendances, many=True).data,
+            'can_edit': can_manage_activity(user, activity),
+            'can_mark': has_perm(user, 'mark:attendance') and (is_admin(user) or in_scope(activity.location_code, area_code(user)) or in_scope(area_code(user), activity.location_code)),
+        })
+
+    if not can_manage_activity(user, activity):
+        return Response({'detail': 'You are not allowed to change this activity.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.method == 'DELETE':
+        title = activity.title
+        activity.delete()
+        return Response({'detail': f'Activity "{title}" and its attendance were deleted.'})
+    serializer = ActivitySerializer(activity, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)
+
+
+def attendance_area(user, activity):
+    # Citizens who can be marked: the activity's area, narrowed to the marker's own area when that is smaller
+    code = activity.location_code
+    mine = area_code(user)
+    if mine and len(str(mine)) > len(str(code)) and in_scope(mine, code):
+        code = mine
+    return code
+
+
+@api_view(['GET', 'POST'])
+def activity_attendance(request, pk):
+    """GET ?q= searches citizens who can be marked; POST marks one ({citizen}) or registers and marks ({new: {...}})."""
+    user = request.user
+    activity = get_object_or_404(Activity, pk=pk)
+    if not (has_perm(user, 'mark:attendance') and visible_activities_qs(user).filter(pk=pk).exists()):
+        return Response({'detail': 'You are not allowed to mark attendance here.'}, status=status.HTTP_403_FORBIDDEN)
+    code = None if is_admin(user) else attendance_area(user, activity)
+    pool = Citizen.objects.all() if code is None else citizens_in_area(code)
+
+    if request.method == 'GET':
+        q = (request.GET.get('q') or '').strip()
+        if len(q) < 2:
+            return Response([])
+        marked = set(activity.attendances.values_list('citizen_id', flat=True))
+        qs = pool.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(national_id__icontains=q)
+                         | Q(phone__icontains=q)).order_by('first_name', 'last_name')[:15]
+        rows = []
+        for c in qs:
+            row = CitizenSerializer(c).data
+            row['already_marked'] = c.id in marked
+            rows.append(row)
+        return Response(rows)
+
+    new = request.data.get('new')
+    if new:
+        # Citizen not registered yet: create the record in the leader's village, then mark
+        village = user.village or new.get('village') or (int(activity.location_code) if len(str(activity.location_code)) == 8 else None)
+        if not village:
+            return Response({'village': 'Choose the village of this citizen.'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = CitizenSerializer(data=new)
+        serializer.is_valid(raise_exception=True)
+        citizen = serializer.save(added_by=user, village=int(village), isibo=(new.get('isibo') or '').strip())
+    else:
+        citizen = pool.filter(pk=request.data.get('citizen')).first()
+        if not citizen:
+            return Response({'detail': 'This citizen is not in the activity’s area.'}, status=status.HTTP_404_NOT_FOUND)
+
+    att, created = Attendance.objects.get_or_create(activity=activity, citizen=citizen, defaults={'marked_by': user})
+    data = AttendanceSerializer(att).data
+    data['created'] = created
+    data['total_attendance'] = citizen.attendances.count()
+    data['min_attendance'] = SystemSetting.min_attendance()
+    return Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+def attendance_delete(request, pk, citizen_id):
+    user = request.user
+    activity = get_object_or_404(Activity, pk=pk)
+    if not (has_perm(user, 'mark:attendance') and visible_activities_qs(user).filter(pk=pk).exists()):
+        return Response({'detail': 'You are not allowed to change attendance here.'}, status=status.HTTP_403_FORBIDDEN)
+    deleted, _ = Attendance.objects.filter(activity=activity, citizen_id=citizen_id).delete()
+    if not deleted:
+        return Response({'detail': 'No attendance to remove.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response({'detail': 'Attendance removed.'})
+
+
+@api_view(['GET'])
+def attendance_summary(request):
+    """Every citizen of the area with their attendance total, the top attendee, and who qualifies."""
+    user = request.user
+    if not has_perm(user, 'view:activities'):
+        return Response({'detail': 'You are not allowed to view attendance.'}, status=status.HTTP_403_FORBIDDEN)
+    activities = visible_activities_qs(user)
+    code = None if is_admin(user) else area_code(user)
+    citizens = Citizen.objects.all() if code is None else citizens_in_area(code)
+    citizens = citizens.annotate(
+        attended=Count('attendances', filter=Q(attendances__activity__in=activities)),
+    ).order_by('-attended', 'first_name', 'last_name')
+    minimum = SystemSetting.min_attendance()
+    rows = []
+    for c in citizens:
+        row = CitizenSerializer(c).data
+        row['attended'] = c.attended
+        row['eligible'] = c.attended >= minimum
+        rows.append(row)
+    return Response({
+        'min_attendance': minimum,
+        'activities_count': activities.count(),
+        'top': rows[0] if rows and rows[0]['attended'] > 0 else None,
+        'eligible_count': sum(1 for r in rows if r['eligible']),
+        'citizens': rows,
+    })
+
+
+def community_eligibility_for(user, national_id=None):
+    """Match the account to registry citizens (ID, email or phone) and compare attendance with the minimum."""
+    minimum = SystemSetting.min_attendance()
+    cond = Q()
+    if national_id and str(national_id).strip():
+        cond |= Q(national_id=str(national_id).strip())
+    if user.email:
+        cond |= Q(email__iexact=user.email)
+    if user.phone:
+        cond |= Q(phone=user.phone)
+    matches = list(Citizen.objects.filter(cond)) if cond else []
+    attended = Attendance.objects.filter(citizen__in=matches).values('activity').distinct().count() if matches else 0
+    eligible = attended >= minimum
+    if eligible:
+        message = f'You qualify: {attended} attendance(s) recorded, minimum {minimum}.'
+    elif not matches:
+        message = (f'You are not eligible. No attendance is recorded under your ID, email or phone, and the minimum '
+                   f'attendance for this certificate is {minimum}. Ask your leader to mark you at the next activity.')
+    else:
+        message = (f'You are not eligible. You have {attended} attendance(s) but the minimum attendance for this '
+                   f'certificate is {minimum}.')
+    return {
+        'eligible': eligible, 'attended': attended, 'min_attendance': minimum, 'matched': bool(matches),
+        'citizen_name': f'{matches[0].first_name} {matches[0].last_name}'.strip() if matches else '',
+        'message': message,
+    }
+
+
+@api_view(['GET'])
+def community_eligibility(request):
+    """Whether the signed-in citizen may apply for the community engagement letter (?national_id= optional)."""
+    if is_admin(request.user):
+        return Response({'eligible': True, 'attended': 0, 'min_attendance': SystemSetting.min_attendance(),
+                         'matched': True, 'citizen_name': '', 'message': 'Administrators are not restricted.'})
+    return Response(community_eligibility_for(request.user, request.GET.get('national_id')))
+
+
+@api_view(['GET', 'PUT'])
+def attendance_setting(request):
+    """The attendance count that makes a citizen eligible for the community engagement letter."""
+    if request.method == 'PUT':
+        if not has_perm(request.user, 'settings:attendance'):
+            return Response({'detail': 'You are not allowed to change this setting.'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            count = int(request.data.get('min_attendance'))
+        except (TypeError, ValueError):
+            count = -1
+        if count < 0 or count > 1000:
+            return Response({'min_attendance': 'Enter a whole number of attendances (0 to 1000).'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        SystemSetting.objects.update_or_create(key='min_attendance',
+                                               defaults={'value': {'count': count}, 'updated_by': request.user})
+    row = SystemSetting.objects.filter(key='min_attendance').first()
+    return Response({
+        'min_attendance': SystemSetting.min_attendance(),
+        'updated_at': row.updated_at if row else None,
+        'updated_by': row.updated_by.display_name if row and row.updated_by else '',
+        'can_edit': has_perm(request.user, 'settings:attendance'),
+    })
 
 
 # ---------- Locations (hierarchical filtering) ----------

@@ -149,6 +149,20 @@ export const api = {
     request(`/permissions/roles/${role}/`, { method: 'PUT', body: { permissions } }),
   resetRolePermissions: (role) => request(`/permissions/roles/${role}/`, { method: 'DELETE' }),
   deleteCitizen: (id) => request(`/citizens/${id}/`, { method: 'DELETE' }),
+
+  listActivities: () => request('/activities/'),
+  createActivity: (payload) => request('/activities/', { method: 'POST', body: payload }),
+  getActivity: (id) => request(`/activities/${id}/`),
+  updateActivity: (id, payload) => request(`/activities/${id}/`, { method: 'PATCH', body: payload }),
+  deleteActivity: (id) => request(`/activities/${id}/`, { method: 'DELETE' }),
+  searchAttendees: (id, q) => request(`/activities/${id}/attendance/?q=${encodeURIComponent(q)}`),
+  markAttendance: (id, payload) => request(`/activities/${id}/attendance/`, { method: 'POST', body: payload }),
+  unmarkAttendance: (id, citizenId) => request(`/activities/${id}/attendance/${citizenId}/`, { method: 'DELETE' }),
+  attendanceSummary: () => request('/activities/summary/'),
+  communityEligibility: (nationalId = '') => request(`/community/eligibility/?national_id=${encodeURIComponent(nationalId)}`),
+  attendanceSetting: () => request('/settings/attendance/'),
+  setAttendanceSetting: (minAttendance) =>
+    request('/settings/attendance/', { method: 'PUT', body: { min_attendance: minAttendance } }),
   setEligibility: (id, isEligible) =>
     request(`/users/${id}/eligibility/`, { method: 'POST', body: { is_eligible: isEligible } }),
 

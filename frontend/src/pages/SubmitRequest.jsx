@@ -201,10 +201,28 @@ export default function SubmitRequest() {
     e.target.value = ''
   }
 
-  function choose(value) {
+  const [eligibility, setEligibility] = useState(null) // pop-up when the community letter cannot be requested
+  const [checking, setChecking] = useState(false)
+
+  async function choose(value) {
+    setError('')
+    // The community engagement letter needs a minimum attendance recorded by the leaders
+    if (value === 'community') {
+      setChecking(true)
+      try {
+        const check = await api.communityEligibility()
+        if (!check.eligible) {
+          setEligibility(check)
+          return
+        }
+      } catch {
+        // If the check itself fails the server still enforces the rule on submission
+      } finally {
+        setChecking(false)
+      }
+    }
     setCertType(value)
     setStep(1)
-    setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -298,9 +316,31 @@ export default function SubmitRequest() {
           <h1>What Would You Like To Apply For?</h1>
           <p>Select a document to get started. The letter is issued by the leader of {user?.village_name || 'your village'}.</p>
         </div>
+        {eligibility && (
+          <div className="modal-overlay" onClick={() => setEligibility(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h2>You are not eligible yet</h2>
+              <div className="alert alert-error">
+                You are not eligible for the Community Engagement Referral. You have not reached the minimum attendance
+                required to qualify for this certificate.
+              </div>
+              <dl className="detail-grid">
+                <dt>Minimum attendance</dt><dd><strong>{eligibility.min_attendance}</strong> activities</dd>
+                <dt>Your attendance</dt>
+                <dd>{eligibility.matched ? `${eligibility.attended} recorded` : 'none recorded under your ID, email or phone'}</dd>
+                <dt>Still needed</dt><dd>{Math.max(0, eligibility.min_attendance - eligibility.attended)}</dd>
+              </dl>
+              <p className="muted small">
+                Attendance is marked by your village or isibo leader at community work, meetings and other activities.
+                Take part in the coming activities and ask the leader to mark you present.
+              </p>
+              <button className="btn" onClick={() => setEligibility(null)}>OK</button>
+            </div>
+          </div>
+        )}
         <div className="option-grid">
           {TYPES.map((t) => (
-            <button type="button" className="option-card" key={t.value} onClick={() => choose(t.value)}>
+            <button type="button" className="option-card" key={t.value} disabled={checking} onClick={() => choose(t.value)}>
               <span className={`icon-tile ${t.tile}`}>{t.icon}</span>
               <h2>{t.title}</h2>
               <div className="rw">{t.rw}</div>

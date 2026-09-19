@@ -41,6 +41,15 @@ urlpatterns = [
     path('users/<int:pk>/eligibility/', api.set_eligibility, name='api_set_eligibility'),
     path('users/<int:pk>/permissions/', api.set_user_permissions, name='api_set_user_permissions'),
 
+    # Activities & attendance
+    path('activities/', api.activity_list, name='api_activity_list'),
+    path('activities/summary/', api.attendance_summary, name='api_attendance_summary'),
+    path('activities/<int:pk>/', api.activity_detail, name='api_activity_detail'),
+    path('activities/<int:pk>/attendance/', api.activity_attendance, name='api_activity_attendance'),
+    path('activities/<int:pk>/attendance/<int:citizen_id>/', api.attendance_delete, name='api_attendance_delete'),
+    path('community/eligibility/', api.community_eligibility, name='api_community_eligibility'),
+    path('settings/attendance/', api.attendance_setting, name='api_attendance_setting'),
+
     # Roles & permissions
     path('permissions/', api.permission_catalog, name='api_permission_catalog'),
     path('permissions/roles/<str:role>/', api.set_role_permissions, name='api_set_role_permissions'),

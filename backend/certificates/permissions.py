@@ -15,6 +15,14 @@ CATALOG = [
         ],
     },
     {
+        'resource': 'activities', 'label': 'Activities & attendance',
+        'actions': [
+            ('view:activities', 'View activities and attendance in their area'),
+            ('create:activities', 'Create and edit activities (community work, meetings, elections…)'),
+            ('mark:attendance', 'Mark attendance, registering citizens on the spot when needed'),
+        ],
+    },
+    {
         'resource': 'payments', 'label': 'Service payments',
         'actions': [
             ('view:payments', 'View cleaning and security payments'),
@@ -41,23 +49,26 @@ CATALOG = [
             ('delete:users', 'Delete user accounts'),
             ('eligibility:users', 'Mark users eligible or not eligible'),
             ('permissions:users', 'Manage roles and permissions'),
+            ('settings:attendance', 'Set the attendance count required for a community engagement letter'),
         ],
     },
 ]
 
 ALL_KEYS = [key for group in CATALOG for key, _ in group['actions']]
 
+_ACTIVITIES = ['view:activities', 'create:activities', 'mark:attendance']
 _LEADER = ['view:citizens', 'transfer:citizens', 'place:citizens', 'view:transfers', 'view:payments',
-           'approve:requests', 'create:announcements']
+           'approve:requests', 'create:announcements'] + _ACTIVITIES
 _VOLUNTEER = ['view:citizens', 'view:payments', 'record:payments']
 
 # What each role can do until the admin changes it on the Roles page
 ROLE_DEFAULTS = {
     'citizen': [],
-    'isibo_leader': ['view:citizens', 'add:citizens', 'edit:citizens'],
+    'isibo_leader': ['view:citizens', 'add:citizens', 'edit:citizens'] + _ACTIVITIES,
     'village_leader': list(_LEADER),
     'cell_leader': list(_LEADER),
-    'sector_leader': ['view:citizens', 'view:transfers', 'view:payments', 'approve:requests', 'create:announcements'],
+    'sector_leader': ['view:citizens', 'view:transfers', 'view:payments', 'approve:requests', 'create:announcements']
+                     + _ACTIVITIES,
     'security_volunteer': list(_VOLUNTEER),
     'cleaning_volunteer': list(_VOLUNTEER),
     'system_admin': list(ALL_KEYS),
