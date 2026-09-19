@@ -4,6 +4,7 @@ import { api, saveBlob } from '../api.js'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
 import DocViewer from '../components/DocViewer.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 5
 
@@ -66,7 +67,7 @@ export default function Documents({ user }) {
       <div className="card">
         <DateFilter from={range.from} to={range.to} onChange={setRange} />
         {items === null ? (
-          <p className="muted">Loading…</p>
+          <Spinner label="Loading documents…" />
         ) : visible.length === 0 ? (
           <p className="muted">
             {items.length === 0

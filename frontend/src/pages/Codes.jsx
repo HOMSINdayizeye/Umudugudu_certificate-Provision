@@ -3,6 +3,7 @@ import { api } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 12
 
@@ -69,7 +70,7 @@ export default function Codes() {
 
       <div className="card">
         {items === null ? (
-          <p className="muted">Loading…</p>
+          <Spinner label="Loading codes…" />
         ) : visible.length === 0 ? (
           <p className="muted">No codes yet. A code is issued every time a letter is approved.</p>
         ) : (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { api, getUser } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 // ---------- document types shown as option cards ----------
 const Icon = {
@@ -287,7 +288,7 @@ export default function SubmitRequest() {
       </div>
     )
   }
-  if (editing && step === 0) return <p className="muted">Loading your application…</p>
+  if (editing && step === 0) return <Spinner label="Loading your application…" />
 
   // ---------- Step 0: choose the document ----------
   if (step === 0) {

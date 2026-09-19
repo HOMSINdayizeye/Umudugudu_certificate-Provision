@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, getToken, setSession } from '../api.js'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 // The signed-in user's own account: details they may edit, and a password change
 export default function Profile({ user, onUpdate }) {
@@ -52,7 +53,7 @@ export default function Profile({ user, onUpdate }) {
     }
   }
 
-  if (!user) return <p className="muted">Loading…</p>
+  if (!user) return <Spinner label="Loading profile…" />
 
   return (
     <div>

@@ -14,6 +14,7 @@ import Announcements from './pages/Announcements.jsx'
 import Documents from './pages/Documents.jsx'
 import Codes from './pages/Codes.jsx'
 import Profile from './pages/Profile.jsx'
+import Transfers from './pages/Transfers.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
@@ -93,6 +94,7 @@ export default function App() {
               {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/codes">Codes</NavLink>}
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}
               {(isAdmin || user.role === 'isibo_leader') && <NavLink to="/citizens">Citizens</NavLink>}
+              {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/transfers">Transfers</NavLink>}
               {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
               {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
               <NavLink to="/profile" className="user-chip" title="My profile">
@@ -117,6 +119,7 @@ export default function App() {
           <Route path="/requests/:id/edit" element={<RequireAuth><SubmitRequest /></RequireAuth>} />
           <Route path="/payments" element={<RequireAuth><Payments user={user} /></RequireAuth>} />
           <Route path="/citizens" element={<RequireAuth><Citizens user={user} /></RequireAuth>} />
+          <Route path="/transfers" element={<RequireAuth><Transfers user={user} /></RequireAuth>} />
           <Route path="/announcements" element={<RequireAuth><Announcements user={user} /></RequireAuth>} />
           <Route path="/documents" element={<RequireAuth><Documents user={user} /></RequireAuth>} />
           <Route path="/codes" element={<RequireAuth><Codes /></RequireAuth>} />

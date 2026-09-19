@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
 import { canActOn } from './Dashboard.jsx'
 import DocViewer from '../components/DocViewer.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 // Human labels for the applicant details stored on the request
 const LABELS = {
@@ -150,7 +151,7 @@ export default function RequestDetail({ user }) {
   }
 
   if (error && !req) return <div className="alert alert-error">{error}</div>
-  if (!req) return <p className="muted">Loading…</p>
+  if (!req) return <Spinner label="Loading request…" />
 
   const isOwner = req.user.id === user?.id
   const isAdmin = user?.is_admin_role || user?.is_superuser

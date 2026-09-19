@@ -163,9 +163,42 @@ class Citizen(models.Model):
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                                  null=True, related_name='citizens_added')
     created_at = models.DateTimeField(auto_now_add=True)
+    # Set when a leader moves the citizen here from another village; cleared isibo means "awaiting placement"
+    transferred_from_village = models.IntegerField(blank=True, null=True)
+    transferred_from_isibo = models.CharField(max_length=100, blank=True, default='')
+    transferred_at = models.DateTimeField(null=True, blank=True)
+    # When the destination village leader assigned the transferred citizen to an isibo
+    transfer_placed_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def awaiting_isibo(self):
+        return self.transferred_from_village is not None and self.transfer_placed_at is None
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.national_id})"
+
+
+class CitizenTransfer(models.Model):
+    """One move of a registry citizen from a village to another, recorded by a village/cell leader."""
+    citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name='transfers')
+    from_village = models.IntegerField()
+    from_isibo = models.CharField(max_length=100, blank=True, default='')
+    to_village = models.IntegerField()
+    # Isibo given by the destination village leader once the citizen is placed
+    to_isibo = models.CharField(max_length=100, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    transferred_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                       related_name='citizen_transfers')
+    transferred_at = models.DateTimeField(auto_now_add=True)
+    placed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name='citizen_placements')
+    placed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-transferred_at']
+
+    def __str__(self):
+        return f'{self.citizen} : {self.from_village} → {self.to_village}'
 
 
 class ServicePayment(models.Model):

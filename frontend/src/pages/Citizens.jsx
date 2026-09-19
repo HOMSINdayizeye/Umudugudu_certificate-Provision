@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import { TransferBadge } from '../components/TransferCitizenModal.jsx'
 
 const emptyForm = { first_name: '', last_name: '', email: '', phone: '', national_id: '', age: '', isibo: '' }
 
@@ -144,8 +145,9 @@ export default function Citizens({ user }) {
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
               title="Registered citizens"
-              columns={['Name', 'Isibo', 'Phone', 'Email', 'ID number', 'Age', 'Village']}
-              rows={citizens.map((c) => [c.name, c.isibo || '', c.phone || '', c.email || '', c.national_id, c.age, c.village_name || ''])}
+              columns={['Name', 'Isibo', 'Phone', 'Email', 'ID number', 'Age', 'Village', 'Transferred from']}
+              rows={citizens.map((c) => [c.name, c.isibo || '', c.phone || '', c.email || '', c.national_id, c.age, c.village_name || '',
+                c.transferred_from_village_name || ''])}
             />
             <table className="table">
               <thead>
@@ -163,7 +165,7 @@ export default function Citizens({ user }) {
               <tbody>
                 {citizens.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.name}</td>
+                    <td>{c.name}<TransferBadge citizen={c} /></td>
                     <td>{c.isibo || '—'}</td>
                     <td>{c.phone || '—'}</td>
                     <td>{c.email || '—'}</td>

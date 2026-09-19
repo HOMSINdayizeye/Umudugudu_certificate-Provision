@@ -1,7 +1,8 @@
 from django.contrib import admin
 
 from .models import (
-    CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, ServicePayment, LocationImport,
+    CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
+    LocationImport,
 )
 
 
@@ -32,4 +33,10 @@ class AnnouncementAdmin(admin.ModelAdmin):
 
 admin.site.register(Citizen)
 admin.site.register(ServicePayment)
+
+
+@admin.register(CitizenTransfer)
+class CitizenTransferAdmin(admin.ModelAdmin):
+    list_display = ('id', 'citizen', 'from_village', 'to_village', 'to_isibo', 'transferred_by', 'transferred_at', 'placed_at')
+    list_filter = ('from_village', 'to_village')
 admin.site.register(LocationImport)

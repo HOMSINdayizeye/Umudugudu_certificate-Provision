@@ -4,6 +4,7 @@ import { api } from '../api.js'
 import { CodeCard, CodeModal } from '../components/CodeCards.jsx'
 import CountUp from '../components/CountUp.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 // Each summary number counts up in turn: Pending, then Approved, then Rejected, then Total
 const COUNT_MS = 550
@@ -119,7 +120,7 @@ export default function Dashboard({ user }) {
 
       <div className="card">
         {loading ? (
-          <p className="muted">Loading…</p>
+          <Spinner label="Loading requests…" />
         ) : requests.length === 0 ? (
           <p className="muted">{isAdmin || isLeader ? 'No document requests yet.' : 'No requests yet. Click "Apply for a Document" to submit one.'}</p>
         ) : (

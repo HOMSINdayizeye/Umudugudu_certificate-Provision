@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 5
 
@@ -63,7 +64,7 @@ export default function ManageEligibility() {
         </div>
 
         {users === null ? (
-          <p className="muted">Loading…</p>
+          <Spinner label="Loading users…" />
         ) : visible.length === 0 ? (
           <p className="muted">No users match.</p>
         ) : (

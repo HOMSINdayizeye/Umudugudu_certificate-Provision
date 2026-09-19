@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Spinner from '../components/Spinner.jsx'
+import { TransferCitizenModal, PlaceCitizenModal, TransferBadge } from '../components/TransferCitizenModal.jsx'
 
 const VOLUNTEER_SERVICE = {
   cleaning_volunteer: 'cleaning',
@@ -43,6 +45,7 @@ function CitizensTab({ myService, canRecord }) {
   const [data, setData] = useState(null)
   const [selected, setSelected] = useState(null) // citizen opened in the payment panel
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
   async function load() {
     setError('')
@@ -66,6 +69,7 @@ function CitizensTab({ myService, canRecord }) {
   return (
     <div className="card">
       {error && <div className="alert alert-error">{error}</div>}
+      {message && <div className="alert alert-success">{message}</div>}
 
       <div className="filter-row">
         {!myService && (
@@ -88,7 +92,7 @@ function CitizensTab({ myService, canRecord }) {
       </div>
 
       {!data ? (
-        <p className="muted">Loading…</p>
+        <Spinner label="Loading citizens…" />
       ) : data.citizens.length === 0 ? (
         <p className="muted">No citizens registered in your area yet. The isibo leader adds citizens.</p>
       ) : (
@@ -114,7 +118,7 @@ function CitizensTab({ myService, canRecord }) {
             <tbody>
               {data.citizens.map((c) => (
                 <tr key={c.id} className="row-clickable" onClick={() => setSelected(c)}>
-                  <td>{c.name}</td>
+                  <td>{c.name}<TransferBadge citizen={c} /></td>
                   <td>{c.isibo || '—'}</td>
                   <td>{c.village_name}</td>
                   {[1, 2, 3].map((t) => (
@@ -144,19 +148,22 @@ function CitizensTab({ myService, canRecord }) {
           service={service}
           year={year}
           canMark={canMark}
+          canTransfer={!!data?.can_transfer}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onMoved={async (text) => { setSelected(null); setMessage(text); await load() }}
         />
       )}
     </div>
   )
 }
 
-// Read-only citizen info + per-trimester mark/unmark controls.
-function CitizenPaymentModal({ citizen, service, year, canMark, onClose, onChanged }) {
+// Read-only citizen info + per-trimester mark/unmark controls; leaders can also transfer or place the citizen.
+function CitizenPaymentModal({ citizen, service, year, canMark, canTransfer, onClose, onChanged, onMoved }) {
   const [amount, setAmount] = useState('1000')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [action, setAction] = useState(null) // 'transfer' | 'place' | null
 
   async function mark(trimesters) {
     setError('')
@@ -201,12 +208,53 @@ function CitizenPaymentModal({ citizen, service, year, canMark, onClose, onChang
           <dt>Email</dt><dd>{citizen.email || '—'}</dd>
           <dt>ID number</dt><dd>{citizen.national_id}</dd>
           <dt>Age</dt><dd>{citizen.age || '—'}</dd>
-          <dt>Isibo</dt><dd>{citizen.isibo || '—'}</dd>
+          <dt>Isibo</dt><dd>{citizen.isibo || (citizen.awaiting_isibo ? <em className="muted">not yet placed</em> : '—')}</dd>
           <dt>Village</dt><dd>{citizen.village_name}</dd>
+          {citizen.transferred_from_village && (
+            <>
+              <dt>Transferred from</dt>
+              <dd>
+                {citizen.transferred_from_village_name}{citizen.transferred_from_isibo ? ` · isibo ${citizen.transferred_from_isibo}` : ''}
+                {citizen.transferred_at ? ` (${new Date(citizen.transferred_at).toLocaleDateString()})` : ''}
+              </dd>
+            </>
+          )}
         </dl>
         <p className="muted" style={{ marginTop: 0 }}>
           Citizen information can only be changed by the isibo leader.
         </p>
+
+        {canTransfer && (
+          <>
+            <div className="section-title">Residence</div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {citizen.awaiting_isibo && (
+                <button className="btn btn-small" onClick={() => setAction('place')}>Add to an isibo</button>
+              )}
+              <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>
+                Transfer to another village
+              </button>
+            </div>
+            {citizen.awaiting_isibo && (
+              <div className="field-hint muted">This citizen moved here and has no isibo yet. Place them so the isibo leader can see them.</div>
+            )}
+          </>
+        )}
+
+        {action === 'transfer' && (
+          <TransferCitizenModal
+            citizen={citizen}
+            onClose={() => setAction(null)}
+            onDone={(t) => onMoved(`${citizen.name} transferred to ${t.to_village_name}. They no longer appear among your citizens; see Transfers.`)}
+          />
+        )}
+        {action === 'place' && (
+          <PlaceCitizenModal
+            citizen={citizen}
+            onClose={() => setAction(null)}
+            onDone={(c) => onMoved(`${c.name} placed in isibo ${c.isibo}.`)}
+          />
+        )}
 
         <div className="section-title">
           {service === 'cleaning' ? 'Cleaning' : 'Security'} service — {year}
@@ -341,7 +389,7 @@ function HistoryTab({ myService }) {
       </div>
 
       {loading ? (
-        <p className="muted">Loading…</p>
+        <Spinner label="Loading payments…" />
       ) : payments.length === 0 ? (
         <p className="muted">No payments match these filters.</p>
       ) : (

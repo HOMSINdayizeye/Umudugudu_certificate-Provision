@@ -3,6 +3,7 @@ import { api, saveBlob } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
 import DocViewer from '../components/DocViewer.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 5
 
@@ -44,6 +45,7 @@ const EMPTY = {
 
 export default function Announcements({ user }) {
   const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
   const [canCreate, setCanCreate] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
@@ -67,12 +69,15 @@ export default function Announcements({ user }) {
   const [busy, setBusy] = useState('')
 
   async function load() {
+    setLoading(true)
     try {
       const data = await api.listAnnouncements()
       setItems(data.announcements)
       setCanCreate(data.can_create)
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -401,7 +406,9 @@ export default function Announcements({ user }) {
       <div className="card">
         <h2 className="card-title">{canCreate ? 'Saved announcements' : 'Announcements from your village'}</h2>
         {items.length > 0 && <DateFilter from={range.from} to={range.to} onChange={setRange} />}
-        {items.length === 0 ? (
+        {loading ? (
+          <Spinner label="Loading announcements…" />
+        ) : items.length === 0 ? (
           <p className="muted">No announcements yet.</p>
         ) : filtered.length === 0 ? (
           <p className="muted">No announcements match these dates.</p>

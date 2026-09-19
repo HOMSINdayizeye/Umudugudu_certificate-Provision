@@ -18,14 +18,14 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import (
-    CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen,
+    CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
     RequestAttachment, Announcement, Notification,
 )
 from .serializers import (
     RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
-    LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, NotificationSerializer,
-    ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes,
+    LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
+    NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
@@ -56,6 +56,8 @@ REQUIRED_DETAILS = {
 ALLOWED_ATTACHMENT_EXT = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'}
 MAX_ATTACHMENTS = 10
 ANNOUNCER_ROLES = ('village_leader', 'cell_leader', 'sector_leader')
+# Leaders who may move a citizen to another village and place a transferred citizen into an isibo
+TRANSFER_ROLES = ('village_leader', 'cell_leader')
 DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 VOLUNTEER_SERVICE = {
@@ -161,6 +163,11 @@ def leaders_for(req, role, digits):
 def notify(users, req, title, message):
     for u in users:
         Notification.objects.create(user=u, request=req, link=f'/requests/{req.id}', title=title, message=message)
+
+
+def notify_users(users, title, message, link=''):
+    for u in users:
+        Notification.objects.create(user=u, link=link, title=title, message=message)
 
 
 def notify_stage(req, approver, level, prev_code):
@@ -813,6 +820,21 @@ def can_edit_citizen(user, citizen):
     return user.role == 'isibo_leader' and can_see_citizen(user, citizen)
 
 
+def can_transfer_citizens(user):
+    return is_admin(user) or user.role in TRANSFER_ROLES
+
+
+def can_move_citizen(user, citizen):
+    # A village/cell leader may transfer or place a citizen who currently lives inside their area
+    if is_admin(user):
+        return True
+    return user.role in TRANSFER_ROLES and in_scope(citizen.village, user.scope_code)
+
+
+def is_village_id(value):
+    return LocationImport.objects.filter(location_id=value, type='VILLAGE').exists()
+
+
 @api_view(['GET', 'POST'])
 def citizen_list(request):
     """Citizen registry: isibo leaders add citizens; volunteers/leaders view with payment status."""
@@ -866,6 +888,7 @@ def citizen_list(request):
         'year': year,
         'can_edit': user.role == 'isibo_leader' or is_admin(user),
         'can_mark': user.role in VOLUNTEER_SERVICE or is_admin(user),
+        'can_transfer': can_transfer_citizens(user),
         'citizens': data,
     })
 
@@ -888,6 +911,143 @@ def citizen_detail(request, pk):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
+
+
+# ---------- Citizen transfers between villages ----------
+
+@api_view(['POST'])
+def citizen_transfer(request, pk):
+    """Move a citizen to the village they now live in. Body: {village, note?}."""
+    user = request.user
+    citizen = get_object_or_404(Citizen, pk=pk)
+    if not can_see_citizen(user, citizen):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if not can_move_citizen(user, citizen):
+        return Response({'detail': 'Only the village or cell leader of this citizen’s area can transfer them.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        to_village = int(request.data.get('village'))
+    except (TypeError, ValueError):
+        return Response({'village': 'Choose the village the citizen is moving to.'}, status=status.HTTP_400_BAD_REQUEST)
+    if to_village == citizen.village:
+        return Response({'village': 'The citizen already lives in this village.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not is_village_id(to_village):
+        return Response({'village': 'Select the full location down to the village.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    now = timezone.now()
+    transfer = CitizenTransfer.objects.create(
+        citizen=citizen, from_village=citizen.village, from_isibo=citizen.isibo, to_village=to_village,
+        note=(request.data.get('note') or '').strip(), transferred_by=user,
+    )
+    citizen.transferred_from_village = citizen.village
+    citizen.transferred_from_isibo = citizen.isibo
+    citizen.transferred_at = now
+    citizen.transfer_placed_at = None
+    citizen.village = to_village
+    citizen.isibo = ''
+    citizen.save()
+
+    name = f'{citizen.first_name} {citizen.last_name}'.strip()
+    notify_users(
+        CustomUser.objects.filter(role='village_leader', village=to_village),
+        'Citizen transferred into your village',
+        f'{name} (ID {citizen.national_id}) moved here from {location_path(transfer.from_village)}, '
+        f'transferred by {user.display_name}. Open Transfers to place them in an isibo.',
+        link='/transfers',
+    )
+    return Response(CitizenTransferSerializer(transfer).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def citizen_place(request, pk):
+    """Destination village leader assigns a transferred citizen to an isibo. Body: {isibo}."""
+    user = request.user
+    citizen = get_object_or_404(Citizen, pk=pk)
+    if not can_see_citizen(user, citizen):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if not can_move_citizen(user, citizen):
+        return Response({'detail': 'Only the village or cell leader of the new village can place this citizen.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    if citizen.transferred_from_village is None:
+        return Response({'detail': 'This citizen was not transferred; the isibo leader manages their isibo.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    isibo = (request.data.get('isibo') or '').strip()
+    if not isibo:
+        return Response({'isibo': 'Enter the isibo name.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    now = timezone.now()
+    citizen.isibo = isibo
+    citizen.transfer_placed_at = now
+    citizen.save()
+    transfer = citizen.transfers.filter(to_village=citizen.village).first()
+    if transfer:
+        transfer.to_isibo = isibo
+        transfer.placed_by = user
+        transfer.placed_at = now
+        transfer.save()
+
+    name = f'{citizen.first_name} {citizen.last_name}'.strip()
+    notify_users(
+        CustomUser.objects.filter(role='isibo_leader', village=citizen.village, isibo__iexact=isibo),
+        'Transferred citizen added to your isibo',
+        f'{name} (ID {citizen.national_id}) was transferred from {location_path(citizen.transferred_from_village)} '
+        f'and placed in isibo {isibo} by {user.display_name}.',
+        link='/citizens',
+    )
+    return Response(CitizenSerializer(citizen).data)
+
+
+@api_view(['GET'])
+def citizen_transfer_list(request):
+    """Leaders: citizens transferred into their area (to place) and out of it (with where they are now)."""
+    user = request.user
+    if not (is_admin(user) or user.role in ANNOUNCER_ROLES):
+        return Response({'detail': 'Only leaders can view citizen transfers.'}, status=status.HTTP_403_FORBIDDEN)
+    scope = None if is_admin(user) else user.scope_code
+    if scope is None and not is_admin(user):
+        return Response({'incoming': [], 'outgoing': [], 'can_place': False})
+
+    incoming = Citizen.objects.filter(transferred_from_village__isnull=False)
+    outgoing = CitizenTransfer.objects.select_related('citizen', 'transferred_by', 'placed_by')
+    if scope is not None:
+        incoming = scope_queryset_by_village_prefix(incoming, 'village', scope)
+        outgoing = scope_queryset_by_village_prefix(outgoing, 'from_village', scope)
+
+    # Latest move per citizen only, and drop citizens who have since come back to the village they left
+    seen = set()
+    out_rows = []
+    for t in outgoing:
+        if t.citizen_id in seen or t.citizen.village == t.from_village:
+            continue
+        seen.add(t.citizen_id)
+        out_rows.append(t)
+
+    incoming = incoming.order_by('transfer_placed_at', '-transferred_at')
+    return Response({
+        'incoming': CitizenSerializer(incoming, many=True).data,
+        'outgoing': CitizenTransferSerializer(out_rows, many=True).data,
+        'can_place': can_transfer_citizens(user),
+    })
+
+
+@api_view(['GET'])
+def village_isibos(request):
+    """Known isibo names in a village (from its citizens and isibo leaders) to help placement."""
+    user = request.user
+    try:
+        village = int(request.GET.get('village') or user.village or 0)
+    except ValueError:
+        village = 0
+    if not village:
+        return Response([])
+    if not (is_admin(user) or (user.role in ANNOUNCER_ROLES and in_scope(village, user.scope_code))):
+        return Response({'detail': 'This village is outside your area.'}, status=status.HTTP_403_FORBIDDEN)
+    names = set(Citizen.objects.filter(village=village).exclude(isibo='').values_list('isibo', flat=True))
+    names |= set(CustomUser.objects.filter(role='isibo_leader', village=village).exclude(isibo='')
+                 .values_list('isibo', flat=True))
+    return Response(sorted(names, key=str.lower))
 
 
 @api_view(['GET', 'POST'])

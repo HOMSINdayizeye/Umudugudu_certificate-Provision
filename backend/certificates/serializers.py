@@ -4,8 +4,26 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
-    ServicePayment, Citizen, RequestAttachment, Announcement, Notification,
+    ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
 )
+
+
+def location_name(code):
+    loc = LocationImport.objects.filter(location_id=code).first() if code else None
+    return loc.name if loc else ''
+
+
+def location_path(village_id):
+    """'Village, Cell, Sector' for an 8-digit village id so a place in another sector is unambiguous."""
+    s = str(village_id or '')
+    parts = [location_name(int(s[:n])) for n in (8, 6, 4) if len(s) >= n]
+    return ', '.join(p for p in parts if p)
+
+
+def user_name(user):
+    if not user:
+        return ''
+    return f'{user.first_name} {user.last_name}'.strip() or user.username
 
 # Roles allowed to see verification codes
 CODE_ROLES = ('village_leader', 'cell_leader', 'sector_leader', 'system_admin')
@@ -265,26 +283,31 @@ class CitizenSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     village_name = serializers.SerializerMethodField()
     added_by_name = serializers.SerializerMethodField()
+    transferred_from_village_name = serializers.SerializerMethodField()
+    awaiting_isibo = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Citizen
         fields = [
             'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'national_id',
             'age', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
+            'transferred_from_village', 'transferred_from_village_name', 'transferred_from_isibo',
+            'transferred_at', 'transfer_placed_at', 'awaiting_isibo',
         ]
-        read_only_fields = ['village', 'created_at']
+        read_only_fields = ['village', 'created_at', 'transferred_from_village', 'transferred_from_isibo',
+                            'transferred_at', 'transfer_placed_at']
 
     def get_name(self, obj):
         return f'{obj.first_name} {obj.last_name}'.strip()
 
     def get_village_name(self, obj):
-        loc = LocationImport.objects.filter(location_id=obj.village).first()
-        return loc.name if loc else ''
+        return location_name(obj.village)
 
     def get_added_by_name(self, obj):
-        if not obj.added_by:
-            return ''
-        return f'{obj.added_by.first_name} {obj.added_by.last_name}'.strip() or obj.added_by.username
+        return user_name(obj.added_by)
+
+    def get_transferred_from_village_name(self, obj):
+        return location_path(obj.transferred_from_village)
 
     def validate_national_id(self, value):
         qs = Citizen.objects.filter(national_id=value)
@@ -298,6 +321,54 @@ class CitizenSerializer(serializers.ModelSerializer):
         if value < 1 or value > 130:
             raise serializers.ValidationError('Enter a valid age.')
         return value
+
+
+class CitizenTransferSerializer(serializers.ModelSerializer):
+    citizen_name = serializers.SerializerMethodField()
+    national_id = serializers.CharField(source='citizen.national_id', read_only=True)
+    phone = serializers.CharField(source='citizen.phone', read_only=True)
+    from_village_name = serializers.SerializerMethodField()
+    to_village_name = serializers.SerializerMethodField()
+    # Where the citizen lives now (may differ from to_village after a later transfer)
+    current_village = serializers.IntegerField(source='citizen.village', read_only=True)
+    current_village_name = serializers.SerializerMethodField()
+    current_isibo = serializers.CharField(source='citizen.isibo', read_only=True)
+    transferred_by_name = serializers.SerializerMethodField()
+    placed_by_name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CitizenTransfer
+        fields = [
+            'id', 'citizen', 'citizen_name', 'national_id', 'phone',
+            'from_village', 'from_village_name', 'from_isibo', 'to_village', 'to_village_name', 'to_isibo',
+            'current_village', 'current_village_name', 'current_isibo', 'note',
+            'transferred_by_name', 'transferred_at', 'placed_by_name', 'placed_at', 'status',
+        ]
+
+    def get_citizen_name(self, obj):
+        return f'{obj.citizen.first_name} {obj.citizen.last_name}'.strip()
+
+    def get_from_village_name(self, obj):
+        return location_path(obj.from_village)
+
+    def get_to_village_name(self, obj):
+        return location_path(obj.to_village)
+
+    def get_current_village_name(self, obj):
+        return location_path(obj.citizen.village)
+
+    def get_transferred_by_name(self, obj):
+        return user_name(obj.transferred_by)
+
+    def get_placed_by_name(self, obj):
+        return user_name(obj.placed_by)
+
+    def get_status(self, obj):
+        # moved_on: transferred again from the destination before/after being placed there
+        if obj.citizen.village != obj.to_village:
+            return 'moved_on'
+        return 'placed' if obj.placed_at else 'awaiting_isibo'
 
 
 class ServicePaymentSerializer(serializers.ModelSerializer):
