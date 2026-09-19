@@ -150,6 +150,11 @@ export const api = {
   resetRolePermissions: (role) => request(`/permissions/roles/${role}/`, { method: 'DELETE' }),
   deleteCitizen: (id) => request(`/citizens/${id}/`, { method: 'DELETE' }),
 
+  listDeaths: () => request('/citizens/deaths/'),
+  searchForDeath: (q) => request(`/citizens/deaths/search/?q=${encodeURIComponent(q)}`),
+  reportDeath: (payload) => request('/citizens/deaths/', { method: 'POST', body: payload }),
+  undoDeath: (id) => request(`/citizens/deaths/${id}/`, { method: 'DELETE' }),
+
   listActivities: () => request('/activities/'),
   createActivity: (payload) => request('/activities/', { method: 'POST', body: payload }),
   getActivity: (id) => request(`/activities/${id}/`),

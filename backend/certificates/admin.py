@@ -2,8 +2,13 @@ from django.contrib import admin
 
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
-    LocationImport, RolePolicy, Activity, Attendance, SystemSetting,
+    LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport,
 )
+
+
+@admin.register(DeathReport)
+class DeathReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'citizen', 'date_of_death', 'village', 'reported_by', 'reported_at')
 
 admin.site.register(RolePolicy)
 admin.site.register(SystemSetting)

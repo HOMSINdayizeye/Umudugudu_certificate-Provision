@@ -19,7 +19,7 @@ from rest_framework.response import Response
 
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
-    RequestAttachment, Announcement, Notification, RolePolicy, Activity, Attendance, SystemSetting,
+    RequestAttachment, Announcement, Notification, RolePolicy, Activity, Attendance, SystemSetting, DeathReport,
 )
 from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
@@ -27,7 +27,7 @@ from .serializers import (
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
     NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
-    ActivitySerializer, AttendanceSerializer,
+    ActivitySerializer, AttendanceSerializer, DeathReportSerializer,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
@@ -906,22 +906,26 @@ def can_see_citizen(user, citizen):
     return allowed and (scope_code is None or in_scope(citizen.village, scope_code))
 
 
+def living():
+    # Every citizen list and count in the system is of living citizens; the deceased stay in the death register
+    return Citizen.objects.filter(status='alive')
+
+
 def visible_citizens_qs(user):
-    """Queryset of registry citizens the user may view, or None if not allowed."""
-    from django.db.models import Q
+    """Queryset of living registry citizens the user may view, or None if not allowed."""
     if is_admin(user):
-        return Citizen.objects.all()
+        return living()
     if user.role == 'isibo_leader':
         if not user.village:
             return Citizen.objects.none()
         cond = Q(added_by=user)
         if user.isibo:
             cond = cond | Q(isibo__iexact=user.isibo)
-        return Citizen.objects.filter(village=user.village).filter(cond)
+        return living().filter(village=user.village).filter(cond)
     allowed, _, scope_code = payment_scope(user)
     if not allowed:
         return None
-    qs = Citizen.objects.all()
+    qs = living()
     if scope_code is not None:
         qs = scope_queryset_by_village_prefix(qs, 'village', scope_code)
     return qs
@@ -1127,7 +1131,7 @@ def citizen_transfer_list(request):
     if scope is None and not is_admin(user):
         return Response({'incoming': [], 'outgoing': [], 'can_place': False})
 
-    incoming = Citizen.objects.filter(transferred_from_village__isnull=False)
+    incoming = living().filter(transferred_from_village__isnull=False)
     outgoing = CitizenTransfer.objects.select_related('citizen', 'transferred_by', 'placed_by')
     if scope is not None:
         incoming = scope_queryset_by_village_prefix(incoming, 'village', scope)
@@ -1262,6 +1266,91 @@ def payment_detail(request, pk):
     return Response({'detail': 'Payment unmarked.'}, status=status.HTTP_200_OK)
 
 
+# ---------- Deceased register ----------
+
+def deaths_scope_qs(user):
+    """Death reports of the user's area (village leader: village; cell/sector leader: their whole area)."""
+    qs = DeathReport.objects.select_related('citizen', 'reported_by')
+    if is_admin(user):
+        return qs
+    code = area_code(user)
+    if not code:
+        return qs.none()
+    return scope_queryset_by_village_prefix(qs, 'village', code)
+
+
+@api_view(['GET', 'POST'])
+def death_list(request):
+    """GET: the deceased register of the area. POST: report a death ({citizen} or {new: {...}}, date_of_death…)."""
+    user = request.user
+    if request.method == 'GET':
+        if not has_perm(user, 'view:deaths'):
+            return Response({'detail': 'You are not allowed to view the deceased register.'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({
+            'can_report': has_perm(user, 'report:deaths'),
+            'reports': DeathReportSerializer(deaths_scope_qs(user), many=True).data,
+        })
+
+    if not has_perm(user, 'report:deaths'):
+        return Response({'detail': 'Only the village leader can report a death.'}, status=status.HTTP_403_FORBIDDEN)
+    serializer = DeathReportSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    new = request.data.get('new')
+    if new:
+        # Person never registered: create the record in the leader's village, then mark deceased
+        village = user.village or new.get('village')
+        if not village:
+            return Response({'village': 'Your account has no village; choose the citizen’s village.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        cs = CitizenSerializer(data=new)
+        cs.is_valid(raise_exception=True)
+        citizen = cs.save(added_by=user, village=int(village), isibo=(new.get('isibo') or '').strip())
+    else:
+        pool = living() if is_admin(user) else citizens_in_area(area_code(user))
+        citizen = pool.filter(pk=request.data.get('citizen')).first()
+        if not citizen:
+            return Response({'detail': 'This citizen is not in your area, or is already reported.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+    citizen.status = 'deceased'
+    citizen.save()
+    report = serializer.save(citizen=citizen, village=citizen.village, reported_by=user)
+    return Response(DeathReportSerializer(report).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def death_search(request):
+    """Living citizens of the reporter's area matching ?q= (name, ID or phone), to pick who to report."""
+    user = request.user
+    if not has_perm(user, 'report:deaths'):
+        return Response({'detail': 'Only the village leader can report a death.'}, status=status.HTTP_403_FORBIDDEN)
+    q = (request.GET.get('q') or '').strip()
+    if len(q) < 2:
+        return Response([])
+    pool = living() if is_admin(user) else citizens_in_area(area_code(user))
+    qs = pool.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(national_id__icontains=q)
+                     | Q(phone__icontains=q)).order_by('first_name', 'last_name')[:15]
+    return Response(CitizenSerializer(qs, many=True).data)
+
+
+@api_view(['DELETE'])
+def death_detail(request, pk):
+    """Undo a death report made by mistake: the citizen returns to the living register."""
+    user = request.user
+    report = deaths_scope_qs(user).filter(pk=pk).first()
+    if not report:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if not has_perm(user, 'report:deaths'):
+        return Response({'detail': 'Only the village leader can undo a death report.'}, status=status.HTTP_403_FORBIDDEN)
+    citizen = report.citizen
+    name = f'{citizen.first_name} {citizen.last_name}'.strip()
+    report.delete()
+    citizen.status = 'alive'
+    citizen.save()
+    return Response({'detail': f'{name} is back in the living register.'})
+
+
 # ---------- Activities & attendance ----------
 
 def location_prefixes(code):
@@ -1290,7 +1379,7 @@ def can_manage_activity(user, activity):
 
 
 def citizens_in_area(code):
-    return scope_queryset_by_village_prefix(Citizen.objects.all(), 'village', code)
+    return scope_queryset_by_village_prefix(living(), 'village', code)
 
 
 def with_counts(qs):
@@ -1356,7 +1445,7 @@ def attendance_pool(user, activity=None):
     """Citizens a user may mark or count: admins all; isibo leaders only their own isibo (and citizens they
     registered); other leaders their area, narrowed to the activity's area when that is smaller."""
     if is_admin(user):
-        return Citizen.objects.all()
+        return living()
     if user.role == 'isibo_leader':
         return visible_citizens_qs(user)
     code = area_code(user)

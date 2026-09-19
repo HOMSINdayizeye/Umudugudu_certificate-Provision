@@ -184,6 +184,9 @@ class Citizen(models.Model):
     transferred_at = models.DateTimeField(null=True, blank=True)
     # When the destination village leader assigned the transferred citizen to an isibo
     transfer_placed_at = models.DateTimeField(null=True, blank=True)
+    # Deceased citizens keep their record (see DeathReport) but leave every living-citizen list and count
+    STATUS_CHOICES = [('alive', 'Alive'), ('deceased', 'Deceased')]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='alive')
 
     @property
     def awaiting_isibo(self):
@@ -191,6 +194,25 @@ class Citizen(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.national_id})"
+
+
+class DeathReport(models.Model):
+    """Village leader's record that a registry citizen has died."""
+    citizen = models.OneToOneField(Citizen, on_delete=models.CASCADE, related_name='death_report')
+    date_of_death = models.DateField()
+    place = models.CharField(max_length=200, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    # Village the citizen belonged to when reported (kept even if records move later)
+    village = models.IntegerField()
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                    related_name='death_reports')
+    reported_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_of_death', '-reported_at']
+
+    def __str__(self):
+        return f'{self.citizen} † {self.date_of_death}'
 
 
 class CitizenTransfer(models.Model):

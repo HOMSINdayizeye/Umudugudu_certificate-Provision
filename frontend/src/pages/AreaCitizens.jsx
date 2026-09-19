@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import { api, can } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Pagination from '../components/Pagination.jsx'
 import Spinner from '../components/Spinner.jsx'
 import { TransferCitizenModal, PlaceCitizenModal, TransferBadge } from '../components/TransferCitizenModal.jsx'
+import Deaths, { ReportDeathModal } from './Deaths.jsx'
 
 const PAGE_SIZE = 10
 const AREA = { village_leader: 'village', cell_leader: 'cell', sector_leader: 'sector' }
@@ -18,6 +19,10 @@ export default function AreaCitizens({ user }) {
   const [isibo, setIsibo] = useState('all')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
+  const [tab, setTab] = useState('living') // living | deceased
+  const [reporting, setReporting] = useState(false)
+  const seesDeaths = can(user, 'view:deaths')
+  const reportsDeaths = can(user, 'report:deaths')
 
   async function load() {
     setError('')
@@ -51,10 +56,32 @@ export default function AreaCitizens({ user }) {
     <div>
       <div className="page-head">
         <h1>Citizens in your {area}{data ? ` (${citizens.length})` : ''}</h1>
+        {reportsDeaths && <button className="btn btn-small btn-danger" onClick={() => setReporting(true)}>Report a death</button>}
       </div>
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
 
+      {seesDeaths && (
+        <div className="tabs">
+          <button className={tab === 'living' ? 'tab tab-active' : 'tab'} onClick={() => setTab('living')}>Citizens</button>
+          <button className={tab === 'deceased' ? 'tab tab-active' : 'tab'} onClick={() => setTab('deceased')}>Deceased register</button>
+        </div>
+      )}
+
+      {reporting && (
+        <ReportDeathModal
+          user={user}
+          onClose={() => setReporting(false)}
+          onDone={async (r) => {
+            setReporting(false)
+            setMessage(`${r.citizen_name} reported deceased. They no longer count among the citizens of the ${area}, cell or sector.`)
+            setTab('deceased')
+            await load()
+          }}
+        />
+      )}
+
+      {tab === 'deceased' ? <Deaths user={user} refreshKey={citizens.length} /> : (
       <div className="card">
         <div className="filter-row date-filter">
           <div className="form-group" style={{ flex: '2 1 240px', maxWidth: 'none' }}>
@@ -127,23 +154,32 @@ export default function AreaCitizens({ user }) {
           </div>
         )}
       </div>
+      )}
 
       {selected && (
         <CitizenDetailModal
           citizen={selected}
+          user={user}
           canTransfer={!!data?.can_transfer}
           canPlace={!!data?.can_place}
           canDelete={!!data?.can_delete}
+          canReportDeath={reportsDeaths}
           onClose={() => setSelected(null)}
           onMoved={async (text) => { setSelected(null); setMessage(text); await load() }}
+          onDeath={async (r) => {
+            setSelected(null)
+            setMessage(`${r.citizen_name} reported deceased. They no longer count among the citizens of the ${area}, cell or sector.`)
+            setTab('deceased')
+            await load()
+          }}
         />
       )}
     </div>
   )
 }
 
-function CitizenDetailModal({ citizen, canTransfer, canPlace, canDelete, onClose, onMoved }) {
-  const [action, setAction] = useState(null) // 'transfer' | 'place' | 'delete' | null
+function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, canReportDeath, onClose, onMoved, onDeath }) {
+  const [action, setAction] = useState(null) // 'transfer' | 'place' | 'delete' | 'death' | null
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -209,9 +245,14 @@ function CitizenDetailModal({ citizen, canTransfer, canPlace, canDelete, onClose
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+            {canReportDeath && <button className="btn btn-small btn-danger" onClick={() => setAction('death')}>Report death</button>}
             {canDelete && <button className="btn btn-small btn-danger" onClick={() => setAction('delete')}>Delete citizen</button>}
             <button className="btn btn-small btn-ghost" onClick={onClose}>Close</button>
           </div>
+        )}
+
+        {action === 'death' && (
+          <ReportDeathModal user={user} citizen={citizen} onClose={() => setAction(null)} onDone={onDeath} />
         )}
 
         {action === 'transfer' && (

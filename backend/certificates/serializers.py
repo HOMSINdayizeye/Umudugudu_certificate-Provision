@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
     ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
-    Activity, Attendance,
+    Activity, Attendance, DeathReport,
 )
 from .permissions import effective_permissions, role_permissions
 
@@ -313,10 +313,10 @@ class CitizenSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'national_id',
             'age', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
             'transferred_from_village', 'transferred_from_village_name', 'transferred_from_isibo',
-            'transferred_at', 'transfer_placed_at', 'awaiting_isibo',
+            'transferred_at', 'transfer_placed_at', 'awaiting_isibo', 'status',
         ]
         read_only_fields = ['village', 'created_at', 'transferred_from_village', 'transferred_from_isibo',
-                            'transferred_at', 'transfer_placed_at']
+                            'transferred_at', 'transfer_placed_at', 'status']
 
     def get_name(self, obj):
         return f'{obj.first_name} {obj.last_name}'.strip()
@@ -390,6 +390,33 @@ class CitizenTransferSerializer(serializers.ModelSerializer):
         if obj.citizen.village != obj.to_village:
             return 'moved_on'
         return 'placed' if obj.placed_at else 'awaiting_isibo'
+
+
+class DeathReportSerializer(serializers.ModelSerializer):
+    citizen_name = serializers.SerializerMethodField()
+    national_id = serializers.CharField(source='citizen.national_id', read_only=True)
+    phone = serializers.CharField(source='citizen.phone', read_only=True)
+    age = serializers.IntegerField(source='citizen.age', read_only=True)
+    isibo = serializers.CharField(source='citizen.isibo', read_only=True)
+    village_name = serializers.SerializerMethodField()
+    reported_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DeathReport
+        fields = [
+            'id', 'citizen', 'citizen_name', 'national_id', 'phone', 'age', 'isibo', 'village', 'village_name',
+            'date_of_death', 'place', 'note', 'reported_by_name', 'reported_at',
+        ]
+        read_only_fields = ['citizen', 'village', 'reported_at']
+
+    def get_citizen_name(self, obj):
+        return f'{obj.citizen.first_name} {obj.citizen.last_name}'.strip()
+
+    def get_village_name(self, obj):
+        return location_path(obj.village)
+
+    def get_reported_by_name(self, obj):
+        return user_name(obj.reported_by)
 
 
 class ActivitySerializer(serializers.ModelSerializer):
