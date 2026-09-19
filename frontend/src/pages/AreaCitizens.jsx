@@ -132,6 +132,8 @@ export default function AreaCitizens({ user }) {
         <CitizenDetailModal
           citizen={selected}
           canTransfer={!!data?.can_transfer}
+          canPlace={!!data?.can_place}
+          canDelete={!!data?.can_delete}
           onClose={() => setSelected(null)}
           onMoved={async (text) => { setSelected(null); setMessage(text); await load() }}
         />
@@ -140,8 +142,22 @@ export default function AreaCitizens({ user }) {
   )
 }
 
-function CitizenDetailModal({ citizen, canTransfer, onClose, onMoved }) {
-  const [action, setAction] = useState(null) // 'transfer' | 'place' | null
+function CitizenDetailModal({ citizen, canTransfer, canPlace, canDelete, onClose, onMoved }) {
+  const [action, setAction] = useState(null) // 'transfer' | 'place' | 'delete' | null
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function remove() {
+    setError('')
+    setBusy(true)
+    try {
+      const res = await api.deleteCitizen(citizen.id)
+      onMoved(res.detail)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -167,22 +183,36 @@ function CitizenDetailModal({ citizen, canTransfer, onClose, onMoved }) {
           )}
         </dl>
         <p className="muted small">Citizen information can only be changed by the isibo leader.</p>
+        {error && <div className="alert alert-error">{error}</div>}
 
-        {canTransfer && (
+        {(canTransfer || (canPlace && citizen.awaiting_isibo)) && (
           <>
             <div className="section-title">Residence</div>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              {citizen.awaiting_isibo && (
+              {canPlace && citizen.awaiting_isibo && (
                 <button className="btn btn-small" onClick={() => setAction('place')}>Add to an isibo</button>
               )}
-              <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>Transfer to another village</button>
+              {canTransfer && (
+                <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>Transfer to another village</button>
+              )}
             </div>
           </>
         )}
 
-        <div style={{ marginTop: '1.25rem' }}>
-          <button className="btn btn-small btn-ghost" onClick={onClose}>Close</button>
-        </div>
+        {action === 'delete' ? (
+          <div className="alert alert-error" style={{ marginTop: '1.25rem' }}>
+            <strong>Delete {citizen.name}?</strong> The record and their payment history are removed permanently.
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-small btn-danger" disabled={busy} onClick={remove}>{busy ? 'Deleting…' : 'Yes, delete'}</button>
+              <button className="btn btn-small btn-ghost" disabled={busy} onClick={() => setAction(null)}>Keep</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+            {canDelete && <button className="btn btn-small btn-danger" onClick={() => setAction('delete')}>Delete citizen</button>}
+            <button className="btn btn-small btn-ghost" onClick={onClose}>Close</button>
+          </div>
+        )}
 
         {action === 'transfer' && (
           <TransferCitizenModal

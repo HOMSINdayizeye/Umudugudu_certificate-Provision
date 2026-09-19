@@ -5,7 +5,7 @@ import datetime
 
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.db.models import Q, TextField
+from django.db.models import Q, TextField, Count
 from django.db.models.functions import Cast, Length
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -19,8 +19,9 @@ from rest_framework.response import Response
 
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
-    RequestAttachment, Announcement, Notification,
+    RequestAttachment, Announcement, Notification, RolePolicy,
 )
+from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
     RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
@@ -56,8 +57,6 @@ REQUIRED_DETAILS = {
 ALLOWED_ATTACHMENT_EXT = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'}
 MAX_ATTACHMENTS = 10
 ANNOUNCER_ROLES = ('village_leader', 'cell_leader', 'sector_leader')
-# Leaders who may move a citizen to another village and place a transferred citizen into an isibo
-TRANSFER_ROLES = ('village_leader', 'cell_leader')
 DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 VOLUNTEER_SERVICE = {
@@ -447,7 +446,7 @@ def update_request_status(request, pk, action):
         return Response(req_data(req, user))
 
     stage = LEADER_STAGE.get(user.role)
-    if not stage:
+    if not stage or not has_perm(user, 'approve:requests'):
         return Response({'detail': 'You are not allowed to approve requests.'}, status=status.HTTP_403_FORBIDDEN)
     if not in_scope(request_location_code(req), user.scope_code):
         return Response({'detail': 'This request is outside your jurisdiction.'}, status=status.HTTP_403_FORBIDDEN)
@@ -655,7 +654,7 @@ def announcements_qs(user):
 
 
 def can_announce(user):
-    return is_admin(user) or user.role in ANNOUNCER_ROLES
+    return has_perm(user, 'create:announcements')
 
 
 def can_edit_announcement(user, ann):
@@ -743,8 +742,9 @@ def announcement_download(request, pk):
 
 @api_view(['GET', 'POST'])
 def user_list(request):
-    if not is_admin(request.user):
-        return Response({'detail': 'Only the system admin can manage users.'}, status=status.HTTP_403_FORBIDDEN)
+    needed = 'view:users' if request.method == 'GET' else 'add:users'
+    if not has_perm(request.user, needed):
+        return Response({'detail': 'You are not allowed to manage users.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
         users = CustomUser.objects.all().order_by('username')
@@ -758,14 +758,17 @@ def user_list(request):
 
 @api_view(['DELETE'])
 def user_delete(request, pk):
-    """Admin removes an account. Not yourself, and only a superuser may remove another superuser."""
-    if not is_admin(request.user):
-        return Response({'detail': 'Only the system admin can delete users.'}, status=status.HTTP_403_FORBIDDEN)
+    """Remove an account. Not yourself; admins only by admins; superusers only by superusers."""
+    if not has_perm(request.user, 'delete:users'):
+        return Response({'detail': 'You are not allowed to delete users.'}, status=status.HTTP_403_FORBIDDEN)
     target = get_object_or_404(CustomUser, pk=pk)
     if target.id == request.user.id:
         return Response({'detail': 'You cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
     if target.is_superuser and not request.user.is_superuser:
         return Response({'detail': 'Only a superuser can delete another superuser.'}, status=status.HTTP_403_FORBIDDEN)
+    if is_full_admin(target) and not is_full_admin(request.user):
+        return Response({'detail': 'Only an administrator can delete another administrator.'},
+                        status=status.HTTP_403_FORBIDDEN)
     name = target.display_name
     target.delete()
     return Response({'detail': f'{name} was deleted.'})
@@ -773,15 +776,101 @@ def user_delete(request, pk):
 
 @api_view(['POST'])
 def set_eligibility(request, pk):
-    if not is_admin(request.user):
-        return Response({'detail': 'Only the system admin can manage users.'}, status=status.HTTP_403_FORBIDDEN)
+    if not has_perm(request.user, 'eligibility:users'):
+        return Response({'detail': 'You are not allowed to change eligibility.'}, status=status.HTTP_403_FORBIDDEN)
     user = get_object_or_404(CustomUser, pk=pk)
     user.is_eligible = bool(request.data.get('is_eligible'))
     user.save()
     return Response(UserSerializer(user).data)
 
 
+# ---------- Roles & permissions ----------
+
+def catalog_data():
+    return [
+        {'resource': g['resource'], 'label': g['label'],
+         'actions': [{'key': k, 'description': d} for k, d in g['actions']]}
+        for g in CATALOG
+    ]
+
+
+def roles_data():
+    counts = {r['role']: r['n'] for r in CustomUser.objects.values('role').annotate(n=Count('id'))}
+    saved = {p.role: p for p in RolePolicy.objects.all()}
+    rows = []
+    for role, label in CustomUser.ROLE_CHOICES:
+        policy = saved.get(role)
+        rows.append({
+            'role': role,
+            'label': label,
+            'permissions': role_permissions(role),
+            'defaults': ROLE_DEFAULTS.get(role, []),
+            'customized': policy is not None,
+            'updated_at': policy.updated_at if policy else None,
+            'updated_by': policy.updated_by.display_name if policy and policy.updated_by else '',
+            'users': counts.get(role, 0),
+            # Administrators always hold every permission; their row cannot be edited
+            'locked': role == 'system_admin',
+        })
+    return rows
+
+
+@api_view(['GET'])
+def permission_catalog(request):
+    """Every grantable action plus the current permission set of each role."""
+    if not has_perm(request.user, 'permissions:users'):
+        return Response({'detail': 'You are not allowed to manage permissions.'}, status=status.HTTP_403_FORBIDDEN)
+    return Response({'catalog': catalog_data(), 'roles': roles_data()})
+
+
+@api_view(['PUT', 'DELETE'])
+def set_role_permissions(request, role):
+    """PUT {permissions: [...]} replaces what a role can do; DELETE returns the role to its defaults."""
+    if not has_perm(request.user, 'permissions:users'):
+        return Response({'detail': 'You are not allowed to manage permissions.'}, status=status.HTTP_403_FORBIDDEN)
+    if role not in dict(CustomUser.ROLE_CHOICES):
+        return Response({'detail': 'Unknown role.'}, status=status.HTTP_404_NOT_FOUND)
+    if role == 'system_admin':
+        return Response({'detail': 'The system admin always holds every permission.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        RolePolicy.objects.filter(role=role).delete()
+    else:
+        keys = request.data.get('permissions')
+        if not isinstance(keys, list):
+            return Response({'permissions': 'Send the list of permission keys.'}, status=status.HTTP_400_BAD_REQUEST)
+        RolePolicy.objects.update_or_create(role=role, defaults={'permissions': clean_keys(keys),
+                                                                  'updated_by': request.user})
+    return Response({'roles': roles_data()})
+
+
+@api_view(['PUT'])
+def set_user_permissions(request, pk):
+    """PUT {grants: [...], denies: [...]}: extra permissions for one user, and role permissions taken from them."""
+    if not has_perm(request.user, 'permissions:users'):
+        return Response({'detail': 'You are not allowed to manage permissions.'}, status=status.HTTP_403_FORBIDDEN)
+    target = get_object_or_404(CustomUser, pk=pk)
+    if is_full_admin(target):
+        return Response({'detail': 'Administrators always hold every permission.'}, status=status.HTTP_400_BAD_REQUEST)
+    grants = request.data.get('grants', [])
+    denies = request.data.get('denies', [])
+    if not isinstance(grants, list) or not isinstance(denies, list):
+        return Response({'detail': 'grants and denies must be lists of permission keys.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    base = set(role_permissions(target.role))
+    # Only keep overrides that change something: grants outside the role, denies inside it
+    target.permission_grants = [k for k in clean_keys(grants) if k not in base]
+    target.permission_denies = [k for k in clean_keys(denies) if k in base]
+    target.save()
+    return Response(UserSerializer(target).data)
+
+
 # ---------- Citizens & service payments ----------
+
+def area_code(user):
+    # Location prefix a user's granted permissions apply to: their jurisdiction, else their own village
+    return user.scope_code or user.village
+
 
 def payment_scope(user):
     """Return (allowed, service_lock, scope_code). service_lock limits a volunteer to their own service."""
@@ -791,6 +880,9 @@ def payment_scope(user):
         return True, VOLUNTEER_SERVICE[user.role], user.village
     if user.role in ('village_leader', 'cell_leader', 'sector_leader'):
         return True, None, user.scope_code
+    # Any other account the admin granted a permission to acts within its own village
+    if user.village:
+        return True, None, user.village
     return False, None, None
 
 
@@ -829,21 +921,15 @@ def visible_citizens_qs(user):
 
 
 def can_edit_citizen(user, citizen):
-    # Only the isibo leader of that citizen (or an admin) may edit the record
+    # Editing needs the permission (isibo leaders by default) and the citizen must be in the user's view
+    return has_perm(user, 'edit:citizens') and can_see_citizen(user, citizen)
+
+
+def can_move_citizen(user, citizen, key):
+    # transfer:citizens / place:citizens apply to citizens currently living inside the user's area
     if is_admin(user):
         return True
-    return user.role == 'isibo_leader' and can_see_citizen(user, citizen)
-
-
-def can_transfer_citizens(user):
-    return is_admin(user) or user.role in TRANSFER_ROLES
-
-
-def can_move_citizen(user, citizen):
-    # A village/cell leader may transfer or place a citizen who currently lives inside their area
-    if is_admin(user):
-        return True
-    return user.role in TRANSFER_ROLES and in_scope(citizen.village, user.scope_code)
+    return has_perm(user, key) and in_scope(citizen.village, area_code(user))
 
 
 def is_village_id(value):
@@ -856,8 +942,8 @@ def citizen_list(request):
     user = request.user
 
     if request.method == 'POST':
-        if not (user.role == 'isibo_leader' or is_admin(user)):
-            return Response({'detail': 'Only the isibo leader can add citizens.'}, status=status.HTTP_403_FORBIDDEN)
+        if not has_perm(user, 'add:citizens'):
+            return Response({'detail': 'You are not allowed to add citizens.'}, status=status.HTTP_403_FORBIDDEN)
 
         # The citizen always lands in the creator's own village — no village picker.
         # Admins without an assigned village may pass one explicitly.
@@ -875,7 +961,7 @@ def citizen_list(request):
         citizen = serializer.save(added_by=user, village=village, isibo=isibo)
         return Response(CitizenSerializer(citizen).data, status=status.HTTP_201_CREATED)
 
-    qs = visible_citizens_qs(user)
+    qs = visible_citizens_qs(user) if has_perm(user, 'view:citizens') else None
     if qs is None:
         return Response({'detail': 'You are not allowed to view citizens.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -901,26 +987,36 @@ def citizen_list(request):
     return Response({
         'service': service,
         'year': year,
-        'can_edit': user.role == 'isibo_leader' or is_admin(user),
-        'can_mark': user.role in VOLUNTEER_SERVICE or is_admin(user),
-        'can_transfer': can_transfer_citizens(user),
+        'can_add': has_perm(user, 'add:citizens'),
+        'can_edit': has_perm(user, 'edit:citizens'),
+        'can_delete': has_perm(user, 'delete:citizens'),
+        'can_mark': has_perm(user, 'record:payments'),
+        'can_transfer': has_perm(user, 'transfer:citizens'),
+        'can_place': has_perm(user, 'place:citizens'),
         'citizens': data,
     })
 
 
-@api_view(['GET', 'PATCH', 'PUT'])
+@api_view(['GET', 'PATCH', 'PUT', 'DELETE'])
 def citizen_detail(request, pk):
     user = request.user
     citizen = get_object_or_404(Citizen, pk=pk)
 
-    if not can_see_citizen(user, citizen):
+    if not (has_perm(user, 'view:citizens') and can_see_citizen(user, citizen)):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
         return Response(CitizenSerializer(citizen).data)
 
+    if request.method == 'DELETE':
+        if not has_perm(user, 'delete:citizens'):
+            return Response({'detail': 'You are not allowed to delete citizens.'}, status=status.HTTP_403_FORBIDDEN)
+        name = f'{citizen.first_name} {citizen.last_name}'.strip()
+        citizen.delete()
+        return Response({'detail': f'{name} was deleted.'})
+
     if not can_edit_citizen(user, citizen):
-        return Response({'detail': 'Only the isibo leader can edit citizen information.'},
+        return Response({'detail': 'You are not allowed to edit citizen information.'},
                         status=status.HTTP_403_FORBIDDEN)
     serializer = CitizenSerializer(citizen, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
@@ -937,8 +1033,8 @@ def citizen_transfer(request, pk):
     citizen = get_object_or_404(Citizen, pk=pk)
     if not can_see_citizen(user, citizen):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if not can_move_citizen(user, citizen):
-        return Response({'detail': 'Only the village or cell leader of this citizen’s area can transfer them.'},
+    if not can_move_citizen(user, citizen, 'transfer:citizens'):
+        return Response({'detail': 'You are not allowed to transfer citizens of this area.'},
                         status=status.HTTP_403_FORBIDDEN)
 
     try:
@@ -981,8 +1077,8 @@ def citizen_place(request, pk):
     citizen = get_object_or_404(Citizen, pk=pk)
     if not can_see_citizen(user, citizen):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-    if not can_move_citizen(user, citizen):
-        return Response({'detail': 'Only the village or cell leader of the new village can place this citizen.'},
+    if not can_move_citizen(user, citizen, 'place:citizens'):
+        return Response({'detail': 'You are not allowed to place citizens in this area.'},
                         status=status.HTTP_403_FORBIDDEN)
     if citizen.transferred_from_village is None:
         return Response({'detail': 'This citizen was not transferred; the isibo leader manages their isibo.'},
@@ -1018,9 +1114,9 @@ def citizen_place(request, pk):
 def citizen_transfer_list(request):
     """Leaders: citizens transferred into their area (to place) and out of it (with where they are now)."""
     user = request.user
-    if not (is_admin(user) or user.role in ANNOUNCER_ROLES):
-        return Response({'detail': 'Only leaders can view citizen transfers.'}, status=status.HTTP_403_FORBIDDEN)
-    scope = None if is_admin(user) else user.scope_code
+    if not has_perm(user, 'view:transfers'):
+        return Response({'detail': 'You are not allowed to view citizen transfers.'}, status=status.HTTP_403_FORBIDDEN)
+    scope = None if is_admin(user) else area_code(user)
     if scope is None and not is_admin(user):
         return Response({'incoming': [], 'outgoing': [], 'can_place': False})
 
@@ -1043,7 +1139,7 @@ def citizen_transfer_list(request):
     return Response({
         'incoming': CitizenSerializer(incoming, many=True).data,
         'outgoing': CitizenTransferSerializer(out_rows, many=True).data,
-        'can_place': can_transfer_citizens(user),
+        'can_place': has_perm(user, 'place:citizens'),
     })
 
 
@@ -1057,7 +1153,8 @@ def village_isibos(request):
         village = 0
     if not village:
         return Response([])
-    if not (is_admin(user) or (user.role in ANNOUNCER_ROLES and in_scope(village, user.scope_code))):
+    allowed = has_perm(user, 'place:citizens') or has_perm(user, 'transfer:citizens')
+    if not (is_admin(user) or (allowed and in_scope(village, area_code(user)))):
         return Response({'detail': 'This village is outside your area.'}, status=status.HTTP_403_FORBIDDEN)
     names = set(Citizen.objects.filter(village=village).exclude(isibo='').values_list('isibo', flat=True))
     names |= set(CustomUser.objects.filter(role='isibo_leader', village=village).exclude(isibo='')
@@ -1071,9 +1168,9 @@ def payment_list(request):
     allowed, service_lock, scope_code = payment_scope(user)
 
     if request.method == 'POST':
-        # Only volunteers (their own service) and admins can record payments
-        if not (is_admin(user) or user.role in VOLUNTEER_SERVICE):
-            return Response({'detail': 'Only service volunteers can record payments.'}, status=status.HTTP_403_FORBIDDEN)
+        # Volunteers (their own service) by default; the admin may grant others
+        if not (allowed and has_perm(user, 'record:payments')):
+            return Response({'detail': 'You are not allowed to record payments.'}, status=status.HTTP_403_FORBIDDEN)
 
         service = service_lock or request.data.get('service')
         if service not in ('cleaning', 'security'):
@@ -1108,7 +1205,7 @@ def payment_list(request):
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     # GET — list payments with filters
-    if not allowed:
+    if not (allowed and has_perm(user, 'view:payments')):
         return Response({'detail': 'You are not allowed to view payments.'}, status=status.HTTP_403_FORBIDDEN)
     qs = ServicePayment.objects.all()
     if scope_code is not None:
@@ -1145,15 +1242,14 @@ def payment_detail(request, pk):
     payment = get_object_or_404(ServicePayment, pk=pk)
 
     if not is_admin(user):
-        service = VOLUNTEER_SERVICE.get(user.role)
-        if not service:
-            return Response({'detail': 'Only service volunteers can unmark payments.'},
-                            status=status.HTTP_403_FORBIDDEN)
-        if payment.service != service:
+        allowed, service_lock, scope_code = payment_scope(user)
+        if not (allowed and has_perm(user, 'record:payments')):
+            return Response({'detail': 'You are not allowed to unmark payments.'}, status=status.HTTP_403_FORBIDDEN)
+        if service_lock and payment.service != service_lock:
             return Response({'detail': 'This payment belongs to a different service.'},
                             status=status.HTTP_403_FORBIDDEN)
-        if not in_scope(payment.citizen.village, user.village):
-            return Response({'detail': 'This citizen is not in your village.'}, status=status.HTTP_403_FORBIDDEN)
+        if scope_code is not None and not in_scope(payment.citizen.village, scope_code):
+            return Response({'detail': 'This citizen is not in your area.'}, status=status.HTTP_403_FORBIDDEN)
 
     payment.delete()
     return Response({'detail': 'Payment unmarked.'}, status=status.HTTP_200_OK)

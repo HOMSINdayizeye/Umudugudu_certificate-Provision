@@ -226,6 +226,28 @@ img { max-width: 100%; }
 .badge-denied { background: #fdecea; color: #a93226; }
 .badge-kind { background: var(--primary-tint); color: var(--primary-dark); }
 .badge-moved_on { background: #ede9fe; color: #6d28d9; }
+
+/* Roles & permissions */
+.roles-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.25rem; align-items: start; }
+@media (max-width: 800px) { .roles-layout { grid-template-columns: 1fr; } }
+.role-list { padding: 1rem; }
+.role-item { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; background: none; border: none; border-left: 3px solid transparent; padding: 0.65rem 0.75rem; cursor: pointer; font-family: var(--font); color: var(--text); }
+.role-item:hover { background: #f8fafc; }
+.role-item-active { border-left-color: var(--primary); background: var(--primary-tint); }
+.role-name { font-weight: 700; font-size: 0.92rem; }
+.perm-group { margin-top: 1.25rem; }
+.perm-group-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); margin-bottom: 0.4rem; }
+.perm-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.55rem 0.5rem; border-bottom: 1px solid #f0f2f4; cursor: pointer; }
+.perm-row:hover { background: #f8fafc; }
+.perm-row input { width: 18px; height: 18px; margin-top: 0.15rem; accent-color: var(--primary); flex-shrink: 0; }
+.perm-text { display: flex; flex-direction: column; gap: 0.05rem; }
+.perm-desc { font-size: 0.92rem; font-weight: 500; }
+.perm-on .perm-desc { color: var(--primary-dark); }
+.perm-key { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.75rem; }
+.perm-state { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 0.1rem 0.45rem; margin-left: auto; align-self: center; white-space: nowrap; }
+.perm-state-role { background: #f0f2f4; color: var(--muted); }
+.perm-state-granted { background: #e8f5e9; color: #2e7d32; }
+.perm-state-revoked { background: #fdecea; color: #a93226; }
 .badge-inline { margin-left: 0.45rem; text-transform: none; letter-spacing: 0; font-weight: 600; }
 
 .muted { color: var(--muted); }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, getUser } from '../api.js'
+import { api, getUser, can } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
@@ -19,9 +19,13 @@ export default function Users() {
   const [role, setRole] = useState('all')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
+  const [catalog, setCatalog] = useState(null) // permission catalog, loaded once for the pop-up
 
   useEffect(() => {
     api.listUsers().then(setUsers).catch((err) => setError(err.message))
+    if (can(getUser(), 'permissions:users')) {
+      api.permissionCatalog().then((d) => setCatalog(d.catalog)).catch(() => {})
+    }
   }, [])
 
   useEffect(() => { setPage(1) }, [q, role])
@@ -41,7 +45,7 @@ export default function Users() {
     <div>
       <div className="page-head">
         <h1>All Users{users ? ` (${users.length})` : ''}</h1>
-        <Link to="/add-user" className="btn btn-small">+ Add User</Link>
+        {can(getUser(), 'add:users') && <Link to="/add-user" className="btn btn-small">+ Add User</Link>}
       </div>
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
@@ -107,7 +111,12 @@ export default function Users() {
       {selected && (
         <UserModal
           user={selected}
+          catalog={catalog}
           onClose={() => setSelected(null)}
+          onUpdated={(u) => {
+            setSelected(u)
+            setUsers((list) => list.map((x) => (x.id === u.id ? u : x)))
+          }}
           onDeleted={(u, text) => {
             setSelected(null)
             setUsers((list) => list.filter((x) => x.id !== u.id))
@@ -119,14 +128,53 @@ export default function Users() {
   )
 }
 
-function UserModal({ user, onClose, onDeleted }) {
+function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
   const me = getUser()
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState('')
 
-  // Same rules as the server: never yourself, and a superuser only by another superuser
-  const canDelete = me && user.id !== me.id && (!user.is_superuser || me.is_superuser)
+  // Same rules as the server: the permission, never yourself, admins only by admins, superusers only by superusers
+  const meAdmin = me?.is_superuser || me?.is_admin_role
+  const canDelete = me && can(me, 'delete:users') && user.id !== me.id
+    && (!user.is_superuser || me.is_superuser) && (!(user.is_superuser || user.is_admin_role) || meAdmin)
+  const canManagePerms = can(me, 'permissions:users') && !!catalog
+
+  // Tick or untick one permission for this user: stored as a grant (outside the role) or a deny (inside it)
+  async function togglePerm(key) {
+    const inRole = user.role_permissions.includes(key)
+    const has = user.permissions.includes(key)
+    let grants = user.permission_grants.filter((k) => k !== key)
+    let denies = user.permission_denies.filter((k) => k !== key)
+    if (has && inRole) denies = [...denies, key]
+    if (!has && !inRole) grants = [...grants, key]
+    setError('')
+    setSaved('')
+    setBusy(true)
+    try {
+      const updated = await api.setUserPermissions(user.id, grants, denies)
+      onUpdated(updated)
+      setSaved(`${has ? 'Revoked' : 'Granted'} ${key}.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function resetPerms() {
+    setError('')
+    setBusy(true)
+    try {
+      onUpdated(await api.setUserPermissions(user.id, [], []))
+      setSaved('Back to the role’s permissions.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function remove() {
     setError('')
@@ -158,6 +206,49 @@ function UserModal({ user, onClose, onDeleted }) {
           <dt>Last login</dt><dd>{fmt(user.last_login)}</dd>
         </dl>
 
+        {canManagePerms && (
+          <>
+            <div className="section-title">Permissions</div>
+            {user.is_superuser || user.is_admin_role ? (
+              <p className="muted small" style={{ margin: 0 }}>Administrators always hold every permission.</p>
+            ) : (
+              <>
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  Ticked = allowed. Grey ones come from the {user.role_display} role; tick to give this user more, untick to take a role permission away.
+                </p>
+                {saved && <div className="field-hint field-hint-ok">{saved}</div>}
+                {catalog.map((group) => (
+                  <div key={group.resource} className="perm-group" style={{ marginTop: '0.75rem' }}>
+                    <div className="perm-group-head"><strong className="small">{group.label}</strong></div>
+                    {group.actions.map((a) => {
+                      const has = user.permissions.includes(a.key)
+                      const granted = user.permission_grants.includes(a.key)
+                      const revoked = user.permission_denies.includes(a.key)
+                      return (
+                        <label key={a.key} className={`perm-row ${has ? 'perm-on' : ''}`}>
+                          <input type="checkbox" checked={has} disabled={busy} onChange={() => togglePerm(a.key)} />
+                          <span className="perm-text">
+                            <span className="perm-desc">{a.description}</span>
+                            <span className="muted small perm-key">{a.key}</span>
+                          </span>
+                          {granted ? <span className="perm-state perm-state-granted">granted</span>
+                            : revoked ? <span className="perm-state perm-state-revoked">revoked</span>
+                            : has ? <span className="perm-state perm-state-role">from role</span> : null}
+                        </label>
+                      )
+                    })}
+                  </div>
+                ))}
+                {(user.permission_grants.length > 0 || user.permission_denies.length > 0) && (
+                  <button type="button" className="link-btn small" style={{ marginTop: '0.5rem' }} disabled={busy} onClick={resetPerms}>
+                    Remove all overrides for this user
+                  </button>
+                )}
+              </>
+            )}
+          </>
+        )}
+
         {confirming ? (
           <div className="alert alert-error" style={{ marginTop: '1rem' }}>
             <strong>Delete {user.username}?</strong> Their account, certificate requests and notifications will be removed
@@ -171,7 +262,7 @@ function UserModal({ user, onClose, onDeleted }) {
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-            <Link to="/eligibility" className="btn btn-small btn-outline-dark">Manage eligibility</Link>
+            {can(me, 'eligibility:users') && <Link to="/eligibility" className="btn btn-small btn-outline-dark">Manage eligibility</Link>}
             {canDelete && (
               <button className="btn btn-small btn-danger" onClick={() => setConfirming(true)}>Delete user</button>
             )}

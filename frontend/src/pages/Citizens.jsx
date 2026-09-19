@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import { api, can } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import { TransferBadge } from '../components/TransferCitizenModal.jsx'
@@ -66,6 +66,23 @@ function IsiboCitizens({ user }) {
     }
   }
 
+  const canAdd = can(user, 'add:citizens')
+  const canEdit = can(user, 'edit:citizens')
+  const canDelete = can(user, 'delete:citizens')
+
+  async function handleDelete(c) {
+    if (!window.confirm(`Delete ${c.name} (ID ${c.national_id})? Their payment records go with them. This cannot be undone.`)) return
+    setError('')
+    setMessage('')
+    try {
+      const res = await api.deleteCitizen(c.id)
+      setMessage(res.detail)
+      await load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   async function handleEditSave(e) {
     e.preventDefault()
     setError('')
@@ -92,7 +109,7 @@ function IsiboCitizens({ user }) {
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
 
-      <form className="card" onSubmit={handleAdd} style={{ marginBottom: '1.5rem' }}>
+      {canAdd && <form className="card" onSubmit={handleAdd} style={{ marginBottom: '1.5rem' }}>
         <div className="section-title">Add a citizen</div>
 
         {user?.village ? (
@@ -143,12 +160,12 @@ function IsiboCitizens({ user }) {
           <input type="email" value={form.email} onChange={set('email')} />
         </div>
         <button className="btn" disabled={busy}>{busy ? 'Adding…' : 'Add Citizen'}</button>
-      </form>
+      </form>}
 
       <div className="card">
         <div className="section-title" style={{ marginTop: 0 }}>Registered citizens ({citizens.length})</div>
         {citizens.length === 0 ? (
-          <p className="muted">No citizens registered yet. Use the form above to add one.</p>
+          <p className="muted">No citizens registered yet.{canAdd ? ' Use the form above to add one.' : ''}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
@@ -180,8 +197,9 @@ function IsiboCitizens({ user }) {
                     <td>{c.national_id}</td>
                     <td>{c.age || '—'}</td>
                     <td>{c.village_name}</td>
-                    <td>
-                      <button className="btn btn-small" onClick={() => setEditing({ ...c })}>Edit</button>
+                    <td className="actions-cell">
+                      {canEdit && <button className="btn btn-small" onClick={() => setEditing({ ...c })}>Edit</button>}
+                      {canDelete && <button className="btn btn-small btn-danger" onClick={() => handleDelete(c)}>Delete</button>}
                     </td>
                   </tr>
                 ))}

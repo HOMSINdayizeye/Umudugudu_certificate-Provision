@@ -6,6 +6,7 @@ from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
     ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
 )
+from .permissions import effective_permissions, role_permissions
 
 
 def location_name(code):
@@ -163,6 +164,8 @@ class UserSerializer(serializers.ModelSerializer):
     village_name = serializers.SerializerMethodField()
     location_name = serializers.SerializerMethodField()
     display_name = serializers.CharField(read_only=True)
+    permissions = serializers.SerializerMethodField()
+    role_permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -170,7 +173,15 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'display_name', 'phone',
             'is_eligible', 'is_superuser', 'is_active', 'date_joined', 'last_login', 'role', 'role_display',
             'is_admin_role', 'province', 'district', 'sector', 'cell', 'village', 'village_name', 'location_name', 'isibo',
+            'permissions', 'role_permissions', 'permission_grants', 'permission_denies',
         ]
+        read_only_fields = ['permission_grants', 'permission_denies']
+
+    def get_permissions(self, obj):
+        return effective_permissions(obj)
+
+    def get_role_permissions(self, obj):
+        return role_permissions(obj.role)
 
     def get_village_name(self, obj):
         return location_name(obj.village)

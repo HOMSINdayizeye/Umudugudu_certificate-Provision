@@ -29,6 +29,9 @@ class CustomUser(AbstractUser):
     village = models.IntegerField(blank=True, null=True)
     isibo = models.CharField(max_length=100, blank=True, default='')
     phone = models.CharField(max_length=20, blank=True, default='')
+    # Admin overrides on top of the role's permissions: extra keys given, and role keys taken away
+    permission_grants = models.JSONField(default=list, blank=True)
+    permission_denies = models.JSONField(default=list, blank=True)
 
     @property
     def display_name(self):
@@ -51,6 +54,18 @@ class CustomUser(AbstractUser):
         if self.role in ('village_leader', 'isibo_leader', 'security_volunteer', 'cleaning_volunteer'):
             return self.village
         return None
+
+class RolePolicy(models.Model):
+    """Admin-edited permission set for one role; absent rows fall back to permissions.ROLE_DEFAULTS."""
+    role = models.CharField(max_length=30, unique=True)
+    permissions = models.JSONField(default=list, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='role_policies_updated')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.role}: {len(self.permissions)} permissions'
+
 
 # Profile model linked to custom user
 class UserProfile(models.Model):

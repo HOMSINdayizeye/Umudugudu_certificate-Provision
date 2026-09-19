@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import { api, can } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
 import { TransferCitizenModal, PlaceCitizenModal, TransferBadge } from '../components/TransferCitizenModal.jsx'
@@ -11,7 +11,7 @@ const VOLUNTEER_SERVICE = {
 
 export default function Payments({ user }) {
   const myService = VOLUNTEER_SERVICE[user?.role]
-  const canRecord = !!myService || user?.is_admin_role
+  const canRecord = can(user, 'record:payments')
   const [tab, setTab] = useState('citizens')
 
   return (

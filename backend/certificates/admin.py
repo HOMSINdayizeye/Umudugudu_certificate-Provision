@@ -2,8 +2,10 @@ from django.contrib import admin
 
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
-    LocationImport,
+    LocationImport, RolePolicy,
 )
+
+admin.site.register(RolePolicy)
 
 
 @admin.register(CustomUser)

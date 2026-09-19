@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { api, getToken, getUser, setSession, clearSession } from './api.js'
+import { api, getToken, getUser, setSession, clearSession, can } from './api.js'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -16,10 +16,10 @@ import Codes from './pages/Codes.jsx'
 import Profile from './pages/Profile.jsx'
 import Transfers from './pages/Transfers.jsx'
 import Users from './pages/Users.jsx'
+import Roles from './pages/Roles.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
-const VOLUNTEER_ROLES = ['security_volunteer', 'cleaning_volunteer']
 
 function RequireAuth({ children }) {
   if (!getToken()) return <Navigate to="/login" replace />
@@ -46,7 +46,8 @@ export default function App() {
   }, [])
 
   const isAdmin = user?.is_admin_role || user?.is_superuser
-  const seesPayments = isAdmin || LEADER_ROLES.includes(user?.role) || VOLUNTEER_ROLES.includes(user?.role)
+  // Menu entries follow the permissions the admin granted (role defaults unless changed on the Roles page)
+  const seesPayments = can(user, 'view:payments')
 
   async function handleLogout() {
     try {
@@ -94,10 +95,11 @@ export default function App() {
               <NavLink to="/documents">Documents</NavLink>
               {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/codes">Codes</NavLink>}
               {seesPayments && <NavLink to="/payments">Payments</NavLink>}
-              {(isAdmin || user.role === 'isibo_leader' || LEADER_ROLES.includes(user.role)) && <NavLink to="/citizens">Citizens</NavLink>}
-              {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/transfers">Transfers</NavLink>}
-              {isAdmin && <NavLink to="/users">Users</NavLink>}
-              {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
+              {can(user, 'view:citizens') && <NavLink to="/citizens">Citizens</NavLink>}
+              {can(user, 'view:transfers') && <NavLink to="/transfers">Transfers</NavLink>}
+              {can(user, 'view:users') && <NavLink to="/users">Users</NavLink>}
+              {can(user, 'permissions:users') && <NavLink to="/roles">Roles</NavLink>}
+              {can(user, 'eligibility:users') && <NavLink to="/eligibility">Eligibility</NavLink>}
               <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -127,6 +129,7 @@ export default function App() {
           <Route path="/profile" element={<RequireAuth><Profile user={user} onUpdate={setUser} /></RequireAuth>} />
           <Route path="/add-user" element={<RequireAuth><AddUser /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />
+          <Route path="/roles" element={<RequireAuth><Roles /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

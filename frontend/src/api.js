@@ -26,6 +26,11 @@ export function getUser() {
   return raw ? JSON.parse(raw) : null
 }
 
+// True when the signed-in user holds a permission key such as "delete:users" (admins hold all)
+export function can(user, key) {
+  return !!user && (user.is_superuser || user.is_admin_role || (user.permissions || []).includes(key))
+}
+
 // formData: send multipart (browser sets the boundary header itself)
 // blob: resolve to {blob, filename} using the server's Content-Disposition
 async function request(path, { method = 'GET', body, formData, blob = false } = {}) {
@@ -137,6 +142,13 @@ export const api = {
   listUsers: () => request('/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
   deleteUser: (id) => request(`/users/${id}/`, { method: 'DELETE' }),
+  setUserPermissions: (id, grants, denies) =>
+    request(`/users/${id}/permissions/`, { method: 'PUT', body: { grants, denies } }),
+  permissionCatalog: () => request('/permissions/'),
+  setRolePermissions: (role, permissions) =>
+    request(`/permissions/roles/${role}/`, { method: 'PUT', body: { permissions } }),
+  resetRolePermissions: (role) => request(`/permissions/roles/${role}/`, { method: 'DELETE' }),
+  deleteCitizen: (id) => request(`/citizens/${id}/`, { method: 'DELETE' }),
   setEligibility: (id, isEligible) =>
     request(`/users/${id}/eligibility/`, { method: 'POST', body: { is_eligible: isEligible } }),
 
