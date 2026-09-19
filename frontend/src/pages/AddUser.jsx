@@ -3,7 +3,8 @@ import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
 
-const ROLES = [
+// Every account role the system knows, in the order shown in dropdowns (also used by the Users page filter)
+export const ROLES = [
   { value: 'citizen', label: 'Citizen' },
   { value: 'isibo_leader', label: 'Isibo Leader' },
   { value: 'village_leader', label: 'Village Leader' },

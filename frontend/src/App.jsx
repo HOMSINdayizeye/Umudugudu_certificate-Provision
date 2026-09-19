@@ -97,7 +97,6 @@ export default function App() {
               {(isAdmin || user.role === 'isibo_leader' || LEADER_ROLES.includes(user.role)) && <NavLink to="/citizens">Citizens</NavLink>}
               {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/transfers">Transfers</NavLink>}
               {isAdmin && <NavLink to="/users">Users</NavLink>}
-              {isAdmin && <NavLink to="/add-user">Add User</NavLink>}
               {isAdmin && <NavLink to="/eligibility">Eligibility</NavLink>}
               <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}

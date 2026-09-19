@@ -136,6 +136,7 @@ export const api = {
 
   listUsers: () => request('/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
+  deleteUser: (id) => request(`/users/${id}/`, { method: 'DELETE' }),
   setEligibility: (id, isEligible) =>
     request(`/users/${id}/eligibility/`, { method: 'POST', body: { is_eligible: isEligible } }),
 

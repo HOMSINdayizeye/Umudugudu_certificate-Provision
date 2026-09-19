@@ -756,6 +756,21 @@ def user_list(request):
     return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
+@api_view(['DELETE'])
+def user_delete(request, pk):
+    """Admin removes an account. Not yourself, and only a superuser may remove another superuser."""
+    if not is_admin(request.user):
+        return Response({'detail': 'Only the system admin can delete users.'}, status=status.HTTP_403_FORBIDDEN)
+    target = get_object_or_404(CustomUser, pk=pk)
+    if target.id == request.user.id:
+        return Response({'detail': 'You cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+    if target.is_superuser and not request.user.is_superuser:
+        return Response({'detail': 'Only a superuser can delete another superuser.'}, status=status.HTTP_403_FORBIDDEN)
+    name = target.display_name
+    target.delete()
+    return Response({'detail': f'{name} was deleted.'})
+
+
 @api_view(['POST'])
 def set_eligibility(request, pk):
     if not is_admin(request.user):

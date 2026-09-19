@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../api.js'
+import { api, getUser } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
+import { ROLES } from './AddUser.jsx'
 
 const PAGE_SIZE = 10
 
@@ -13,6 +14,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleDateString() : '—')
 export default function Users() {
   const [users, setUsers] = useState(null)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const [q, setQ] = useState('')
   const [role, setRole] = useState('all')
   const [page, setPage] = useState(1)
@@ -24,7 +26,8 @@ export default function Users() {
 
   useEffect(() => { setPage(1) }, [q, role])
 
-  const roles = [...new Map((users || []).map((u) => [u.role, u.role_display])).entries()]
+  // All defined roles, each with how many users currently hold it
+  const counts = (users || []).reduce((acc, u) => ({ ...acc, [u.role]: (acc[u.role] || 0) + 1 }), {})
   const needle = q.trim().toLowerCase()
   const visible = (users || [])
     .filter((u) => role === 'all' || u.role === role)
@@ -41,6 +44,7 @@ export default function Users() {
         <Link to="/add-user" className="btn btn-small">+ Add User</Link>
       </div>
       {error && <div className="alert alert-error">{error}</div>}
+      {message && <div className="alert alert-success">{message}</div>}
 
       <div className="card">
         <div className="filter-row date-filter">
@@ -52,7 +56,9 @@ export default function Users() {
             <label>Role</label>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="all">All roles</option>
-              {roles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label} ({counts[r.value] || 0})</option>
+              ))}
             </select>
           </div>
         </div>
@@ -60,7 +66,11 @@ export default function Users() {
         {users === null ? (
           <Spinner label="Loading users…" />
         ) : visible.length === 0 ? (
-          <p className="muted">No users match.</p>
+          <p className="muted">
+            {role !== 'all' && !counts[role]
+              ? <>No {ROLES.find((r) => r.value === role)?.label.toLowerCase()} account exists yet. <Link to="/add-user">Add one</Link>.</>
+              : 'No users match.'}
+          </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
@@ -95,28 +105,80 @@ export default function Users() {
       </div>
 
       {selected && (
-        <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{selected.first_name} {selected.last_name}</h2>
-            <dl className="detail-grid">
-              <dt>Username</dt><dd>{selected.username}</dd>
-              <dt>Role</dt><dd>{selected.role_display}</dd>
-              <dt>Email</dt><dd>{selected.email || '—'}</dd>
-              <dt>Phone</dt><dd>{selected.phone || '—'}</dd>
-              <dt>Place</dt><dd>{selected.location_name || '—'}</dd>
-              <dt>Isibo</dt><dd>{selected.isibo || '—'}</dd>
-              <dt>Eligible</dt><dd>{selected.is_eligible ? 'Yes' : 'No'}</dd>
-              <dt>Active</dt><dd>{selected.is_active ? 'Yes' : 'No'}</dd>
-              <dt>Joined</dt><dd>{fmt(selected.date_joined)}</dd>
-              <dt>Last login</dt><dd>{fmt(selected.last_login)}</dd>
-            </dl>
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-              <Link to="/eligibility" className="btn btn-small btn-outline-dark">Manage eligibility</Link>
-              <button className="btn btn-small" onClick={() => setSelected(null)}>Close</button>
+        <UserModal
+          user={selected}
+          onClose={() => setSelected(null)}
+          onDeleted={(u, text) => {
+            setSelected(null)
+            setUsers((list) => list.filter((x) => x.id !== u.id))
+            setMessage(text)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function UserModal({ user, onClose, onDeleted }) {
+  const me = getUser()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  // Same rules as the server: never yourself, and a superuser only by another superuser
+  const canDelete = me && user.id !== me.id && (!user.is_superuser || me.is_superuser)
+
+  async function remove() {
+    setError('')
+    setBusy(true)
+    try {
+      const res = await api.deleteUser(user.id)
+      onDeleted(user, res.detail)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>{user.first_name} {user.last_name}</h2>
+        {error && <div className="alert alert-error">{error}</div>}
+        <dl className="detail-grid">
+          <dt>Username</dt><dd>{user.username}</dd>
+          <dt>Role</dt><dd>{user.role_display}</dd>
+          <dt>Email</dt><dd>{user.email || '—'}</dd>
+          <dt>Phone</dt><dd>{user.phone || '—'}</dd>
+          <dt>Place</dt><dd>{user.location_name || '—'}</dd>
+          <dt>Isibo</dt><dd>{user.isibo || '—'}</dd>
+          <dt>Eligible</dt><dd>{user.is_eligible ? 'Yes' : 'No'}</dd>
+          <dt>Active</dt><dd>{user.is_active ? 'Yes' : 'No'}</dd>
+          <dt>Joined</dt><dd>{fmt(user.date_joined)}</dd>
+          <dt>Last login</dt><dd>{fmt(user.last_login)}</dd>
+        </dl>
+
+        {confirming ? (
+          <div className="alert alert-error" style={{ marginTop: '1rem' }}>
+            <strong>Delete {user.username}?</strong> Their account, certificate requests and notifications will be removed
+            permanently. This cannot be undone.
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-small btn-danger" disabled={busy} onClick={remove}>
+                {busy ? 'Deleting…' : 'Yes, delete this user'}
+              </button>
+              <button className="btn btn-small btn-ghost" disabled={busy} onClick={() => setConfirming(false)}>Keep</button>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            <Link to="/eligibility" className="btn btn-small btn-outline-dark">Manage eligibility</Link>
+            {canDelete && (
+              <button className="btn btn-small btn-danger" onClick={() => setConfirming(true)}>Delete user</button>
+            )}
+            <button className="btn btn-small" onClick={onClose}>Close</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
