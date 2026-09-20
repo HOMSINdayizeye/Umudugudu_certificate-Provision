@@ -1,52 +1,82 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, getUser, can } from '../api.js'
-import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import { passwordIsStrong } from '../components/PasswordField.jsx'
 import { ROLES, LOCATION_DEPTH, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
 
-const PAGE_SIZE = 10
+// Users come from the server five at a time; the next five load when the end of the list scrolls into view
+const PAGE_SIZE = 5
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString() : '—')
 
-// System admin: every account in the system with its role and place, searchable and filterable by role.
+// System admin: every account in the system with its role and place, searched and filtered on the server.
 export default function Users() {
   const [users, setUsers] = useState(null)
+  const [count, setCount] = useState(0) // matches for the current search/role
+  const [total, setTotal] = useState(0) // every account in the system
+  const [counts, setCounts] = useState({}) // users per role
+  const [nextOffset, setNextOffset] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [q, setQ] = useState('')
   const [role, setRole] = useState('all')
-  const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
   const [catalog, setCatalog] = useState(null) // permission catalog, loaded once for the pop-up
+  const sentinel = useRef(null)
+  const requestId = useRef(0) // ignore responses of searches the user has already moved past
 
   useEffect(() => {
-    api.listUsers().then(setUsers).catch((err) => setError(err.message))
     if (can(getUser(), 'permissions:users')) {
       api.permissionCatalog().then((d) => setCatalog(d.catalog)).catch(() => {})
     }
   }, [])
 
-  useEffect(() => { setPage(1) }, [q, role])
+  async function fetchPage(offset, replace) {
+    const id = ++requestId.current
+    setLoading(true)
+    setError('')
+    try {
+      const data = await api.listUsers({ q: q.trim(), role, limit: PAGE_SIZE, offset })
+      if (id !== requestId.current) return
+      setUsers((list) => (replace || !list ? data.results : [...list, ...data.results]))
+      setCount(data.count)
+      setTotal(data.total)
+      setCounts(data.role_counts || {})
+      setNextOffset(data.next_offset)
+    } catch (err) {
+      if (id === requestId.current) setError(err.message)
+    } finally {
+      if (id === requestId.current) setLoading(false)
+    }
+  }
 
-  // All defined roles, each with how many users currently hold it
-  const counts = (users || []).reduce((acc, u) => ({ ...acc, [u.role]: (acc[u.role] || 0) + 1 }), {})
-  const needle = q.trim().toLowerCase()
-  const visible = (users || [])
-    .filter((u) => role === 'all' || u.role === role)
-    .filter((u) => !needle || [u.username, u.first_name, u.last_name, u.email, u.phone, u.location_name, u.isibo]
-      .join(' ').toLowerCase().includes(needle))
-  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
-  const current = Math.min(page, totalPages)
-  const pageUsers = visible.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
+  // New search or role: wait a moment for typing to settle, then start again from the first page
+  useEffect(() => {
+    const t = setTimeout(() => fetchPage(0, true), q ? 300 : 0)
+    return () => clearTimeout(t)
+  }, [q, role])
+
+  // When the marker under the table becomes visible and more rows exist, fetch the next page
+  useEffect(() => {
+    const el = sentinel.current
+    if (!el || nextOffset === null || loading) return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) fetchPage(nextOffset, false)
+    }, { rootMargin: '200px' })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [nextOffset, loading, users])
+
+  const visible = users || []
 
   return (
     <div>
       <div className="page-head">
-        <h1>All Users{users ? ` (${users.length})` : ''}</h1>
+        <h1>All Users{users ? ` (${total})` : ''}</h1>
         {can(getUser(), 'add:users') && <Link to="/add-user" className="btn btn-small">+ Add User</Link>}
       </div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -80,7 +110,7 @@ export default function Users() {
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
-              title="All users"
+              title={`Users${role !== 'all' ? ` — ${ROLES.find((r) => r.value === role)?.label}` : ''} (loaded so far)`}
               columns={['#', 'Username', 'Name', 'Email', 'Phone', 'Role', 'Place', 'Isibo', 'Eligible', 'Joined']}
               rows={visible.map((u, i) => [i + 1, u.username, `${u.first_name} ${u.last_name}`.trim(), u.email, u.phone || '',
                 u.role_display, u.location_name || '', u.isibo || '', u.is_eligible ? 'Yes' : 'No', fmt(u.date_joined)])}
@@ -90,9 +120,9 @@ export default function Users() {
                 <tr><th>#</th><th>Username</th><th>Name</th><th>Role</th><th>Place</th><th>Contact</th><th></th></tr>
               </thead>
               <tbody>
-                {pageUsers.map((u, idx) => (
+                {visible.map((u, idx) => (
                   <tr key={u.id} className="row-clickable" onClick={() => setSelected(u)}>
-                    <td>{(current - 1) * PAGE_SIZE + idx + 1}</td>
+                    <td>{idx + 1}</td>
                     <td>{u.username}</td>
                     <td>{u.first_name} {u.last_name}</td>
                     <td><span className="badge badge-kind">{u.role_display}</span></td>
@@ -105,7 +135,11 @@ export default function Users() {
                 ))}
               </tbody>
             </table>
-            <Pagination page={current} totalPages={totalPages} total={visible.length} label="user" onChange={setPage} />
+            <div ref={sentinel} className="muted small" style={{ textAlign: 'center', padding: '0.75rem 0' }}>
+              {loading ? <Spinner label="Loading more users…" />
+                : nextOffset !== null ? `Showing ${visible.length} of ${count} — scroll for more`
+                : `All ${count} user${count === 1 ? '' : 's'} shown`}
+            </div>
           </div>
         )}
       </div>
@@ -122,6 +156,9 @@ export default function Users() {
           onDeleted={(u, text) => {
             setSelected(null)
             setUsers((list) => list.filter((x) => x.id !== u.id))
+            setCount((n) => n - 1)
+            setTotal((n) => n - 1)
+            setCounts((c) => ({ ...c, [u.role]: Math.max(0, (c[u.role] || 1) - 1) }))
             setMessage(text)
           }}
         />

@@ -139,7 +139,7 @@ export const api = {
   previewAnnouncement: (payload) => request('/announcements/preview/', { method: 'POST', body: payload }),
   downloadAnnouncement: (id, format = 'docx') => request(`/announcements/${id}/download/?as=${format}`, { blob: true }),
 
-  listUsers: () => request('/users/'),
+  listUsers: (params) => request(params ? `/users/?${new URLSearchParams(params)}` : '/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
   deleteUser: (id) => request(`/users/${id}/`, { method: 'DELETE' }),
   updateUser: (id, payload) => request(`/users/${id}/`, { method: 'PATCH', body: payload }),

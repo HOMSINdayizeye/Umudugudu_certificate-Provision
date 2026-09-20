@@ -155,6 +155,27 @@ class CitizenTransferFlowTests(TestCase):
         res = self.as_user(self.receiver).patch(f'/api/users/{self.sender.id}/', {'first_name': 'X'}, format='json')
         self.assertEqual(res.status_code, 403)
 
+    def test_user_list_pages_five_at_a_time(self):
+        admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        for i in range(6):
+            CustomUser.objects.create_user(username=f'citizen{i}', password='x', role='citizen', village=FROM_VILLAGE)
+        client = self.as_user(admin)
+        # 9 accounts in total: admin, sender, receiver and six citizens
+        res = client.get('/api/users/?limit=5&offset=0')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual((len(res.data['results']), res.data['count'], res.data['next_offset']), (5, 9, 5))
+        self.assertEqual(res.data['role_counts']['citizen'], 6)
+        res = client.get('/api/users/?limit=5&offset=5')
+        self.assertEqual((len(res.data['results']), res.data['next_offset']), (4, None))
+        # Search and role filters are applied on the server
+        res = client.get('/api/users/?limit=5&offset=0&role=village_leader')
+        self.assertEqual([u['username'] for u in res.data['results']], ['receiver', 'sender'])
+        res = client.get('/api/users/?limit=5&offset=0&q=Kigarama')
+        self.assertEqual(res.data['count'], 7)  # sender plus the six citizens tied to that village
+        # Without ?limit the old full-list shape still works for the eligibility page
+        res = client.get('/api/users/')
+        self.assertEqual(len(res.data), 9)
+
     def test_unrelated_leader_cannot_decide(self):
         transfer = self.send_transfer()
         LocationImport.objects.create(location_id=10010301, type='VILLAGE', name='Elsewhere', status='active')

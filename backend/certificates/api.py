@@ -755,7 +755,35 @@ def user_list(request):
 
     if request.method == 'GET':
         users = CustomUser.objects.all().order_by('username')
-        return Response(UserSerializer(users, many=True).data)
+        role = request.GET.get('role', '').strip()
+        if role and role != 'all':
+            users = users.filter(role=role)
+        q = request.GET.get('q', '').strip()
+        if q:
+            # Match on account fields, or on the name of the sector/cell/village the account is tied to
+            place_ids = list(LocationImport.objects.filter(name__icontains=q).values_list('location_id', flat=True)[:200])
+            users = users.filter(
+                Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+                | Q(email__icontains=q) | Q(phone__icontains=q) | Q(isibo__icontains=q)
+                | Q(village__in=place_ids) | Q(cell__in=place_ids) | Q(sector__in=place_ids)
+            )
+        # Without ?limit the whole list is returned (eligibility page); with it, one page for infinite scrolling
+        if 'limit' not in request.GET:
+            return Response(UserSerializer(users, many=True).data)
+        try:
+            limit = max(1, min(int(request.GET.get('limit', 5)), 50))
+            offset = max(0, int(request.GET.get('offset', 0)))
+        except ValueError:
+            limit, offset = 5, 0
+        total = users.count()
+        role_counts = {row['role']: row['n'] for row in CustomUser.objects.values('role').annotate(n=Count('id'))}
+        return Response({
+            'count': total,
+            'total': CustomUser.objects.count(),
+            'role_counts': role_counts,
+            'next_offset': offset + limit if offset + limit < total else None,
+            'results': UserSerializer(users[offset:offset + limit], many=True).data,
+        })
 
     serializer = AdminCreateUserSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
