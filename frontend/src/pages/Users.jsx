@@ -134,6 +134,8 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
+  // The permission list is long, so it stays hidden behind one button until the admin wants it
+  const [showPerms, setShowPerms] = useState(false)
 
   // Same rules as the server: the permission, never yourself, admins only by admins, superusers only by superusers
   const meAdmin = me?.is_superuser || me?.is_admin_role
@@ -211,8 +213,23 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
             <div className="section-title">Permissions</div>
             {user.is_superuser || user.is_admin_role ? (
               <p className="muted small" style={{ margin: 0 }}>Administrators always hold every permission.</p>
+            ) : !showPerms ? (
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-small btn-outline-dark" onClick={() => setShowPerms(true)}>
+                  Manage permissions
+                </button>
+                <span className="muted small">
+                  {user.permissions.length} allowed
+                  {user.permission_grants.length + user.permission_denies.length > 0
+                    ? ` · ${user.permission_grants.length} granted, ${user.permission_denies.length} revoked beyond the role`
+                    : ' · all from the role'}
+                </span>
+              </div>
             ) : (
               <>
+                <button type="button" className="link-btn small" style={{ marginBottom: '0.5rem' }} onClick={() => setShowPerms(false)}>
+                  Hide permissions
+                </button>
                 <p className="muted small" style={{ marginTop: 0 }}>
                   Ticked = allowed. Grey ones come from the {user.role_display} role; tick to give this user more, untick to take a role permission away.
                 </p>
