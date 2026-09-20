@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, getUser, can } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
+import Pagination from '../components/Pagination.jsx'
 import Spinner from '../components/Spinner.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import { passwordIsStrong } from '../components/PasswordField.jsx'
 import { ROLES, LOCATION_DEPTH, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
 
-// Users come from the server five at a time; the next five load when the end of the list scrolls into view
+// Users come from the server five per page; scrolling past the end (or the page buttons) turns the page
 const PAGE_SIZE = 5
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString() : '—')
@@ -18,7 +19,7 @@ export default function Users() {
   const [count, setCount] = useState(0) // matches for the current search/role
   const [total, setTotal] = useState(0) // every account in the system
   const [counts, setCounts] = useState({}) // users per role
-  const [nextOffset, setNextOffset] = useState(null)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -26,8 +27,10 @@ export default function Users() {
   const [role, setRole] = useState('all')
   const [selected, setSelected] = useState(null)
   const [catalog, setCatalog] = useState(null) // permission catalog, loaded once for the pop-up
-  const sentinel = useRef(null)
   const requestId = useRef(0) // ignore responses of searches the user has already moved past
+  const lastFlip = useRef(0) // time of the last scroll-triggered page change
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
 
   useEffect(() => {
     if (can(getUser(), 'permissions:users')) {
@@ -35,18 +38,18 @@ export default function Users() {
     }
   }, [])
 
-  async function fetchPage(offset, replace) {
+  // Each page replaces the one before it: only five users are ever on screen
+  async function fetchPage(pageNumber) {
     const id = ++requestId.current
     setLoading(true)
     setError('')
     try {
-      const data = await api.listUsers({ q: q.trim(), role, limit: PAGE_SIZE, offset })
+      const data = await api.listUsers({ q: q.trim(), role, limit: PAGE_SIZE, offset: (pageNumber - 1) * PAGE_SIZE })
       if (id !== requestId.current) return
-      setUsers((list) => (replace || !list ? data.results : [...list, ...data.results]))
+      setUsers(data.results)
       setCount(data.count)
       setTotal(data.total)
       setCounts(data.role_counts || {})
-      setNextOffset(data.next_offset)
     } catch (err) {
       if (id === requestId.current) setError(err.message)
     } finally {
@@ -56,20 +59,37 @@ export default function Users() {
 
   // New search or role: wait a moment for typing to settle, then start again from the first page
   useEffect(() => {
-    const t = setTimeout(() => fetchPage(0, true), q ? 300 : 0)
+    const t = setTimeout(() => { setPage(1); fetchPage(1) }, q ? 300 : 0)
     return () => clearTimeout(t)
   }, [q, role])
 
-  // When the marker under the table becomes visible and more rows exist, fetch the next page
+  function goTo(n) {
+    if (n < 1 || n > totalPages || n === page || loading) return
+    setPage(n)
+    fetchPage(n)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Scrolling past the bottom of the list turns to the next page; scrolling up from the top goes back one
   useEffect(() => {
-    const el = sentinel.current
-    if (!el || nextOffset === null || loading) return
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) fetchPage(nextOffset, false)
-    }, { rootMargin: '200px' })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [nextOffset, loading, users])
+    function onWheel(e) {
+      if (loading || selected) return
+      const now = Date.now()
+      if (now - lastFlip.current < 800) return
+      const root = document.documentElement
+      const atBottom = window.innerHeight + window.scrollY >= root.scrollHeight - 4
+      const atTop = window.scrollY <= 0
+      if (e.deltaY > 0 && atBottom && page < totalPages) {
+        lastFlip.current = now
+        goTo(page + 1)
+      } else if (e.deltaY < 0 && atTop && page > 1) {
+        lastFlip.current = now
+        goTo(page - 1)
+      }
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [loading, selected, page, totalPages])
 
   const visible = users || []
 
@@ -110,7 +130,7 @@ export default function Users() {
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
-              title={`Users${role !== 'all' ? ` — ${ROLES.find((r) => r.value === role)?.label}` : ''} (loaded so far)`}
+              title={`Users${role !== 'all' ? ` — ${ROLES.find((r) => r.value === role)?.label}` : ''} (page ${page} of ${totalPages})`}
               columns={['#', 'Username', 'Name', 'Email', 'Phone', 'Role', 'Place', 'Isibo', 'Eligible', 'Joined']}
               rows={visible.map((u, i) => [i + 1, u.username, `${u.first_name} ${u.last_name}`.trim(), u.email, u.phone || '',
                 u.role_display, u.location_name || '', u.isibo || '', u.is_eligible ? 'Yes' : 'No', fmt(u.date_joined)])}
@@ -122,7 +142,7 @@ export default function Users() {
               <tbody>
                 {visible.map((u, idx) => (
                   <tr key={u.id} className="row-clickable" onClick={() => setSelected(u)}>
-                    <td>{idx + 1}</td>
+                    <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                     <td>{u.username}</td>
                     <td>{u.first_name} {u.last_name}</td>
                     <td><span className="badge badge-kind">{u.role_display}</span></td>
@@ -135,10 +155,12 @@ export default function Users() {
                 ))}
               </tbody>
             </table>
-            <div ref={sentinel} className="muted small" style={{ textAlign: 'center', padding: '0.75rem 0' }}>
-              {loading ? <Spinner label="Loading more users…" />
-                : nextOffset !== null ? `Showing ${visible.length} of ${count} — scroll for more`
-                : `All ${count} user${count === 1 ? '' : 's'} shown`}
+            <Pagination page={page} totalPages={totalPages} total={count} label="user" onChange={goTo} />
+            <div className="muted small" style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+              {loading ? <Spinner label="Loading page…" />
+                : totalPages > 1
+                  ? (page < totalPages ? 'Scroll down for the next page' : 'Last page') + (page > 1 ? ' · scroll up for the previous one' : '')
+                  : `All ${count} user${count === 1 ? '' : 's'} shown`}
             </div>
           </div>
         )}
@@ -155,11 +177,12 @@ export default function Users() {
           }}
           onDeleted={(u, text) => {
             setSelected(null)
-            setUsers((list) => list.filter((x) => x.id !== u.id))
-            setCount((n) => n - 1)
-            setTotal((n) => n - 1)
-            setCounts((c) => ({ ...c, [u.role]: Math.max(0, (c[u.role] || 1) - 1) }))
             setMessage(text)
+            // Refill the page from the server so it shows five again (or step back if the last page emptied)
+            const lastPage = Math.max(1, Math.ceil((count - 1) / PAGE_SIZE))
+            const target = Math.min(page, lastPage)
+            setPage(target)
+            fetchPage(target)
           }}
         />
       )}
