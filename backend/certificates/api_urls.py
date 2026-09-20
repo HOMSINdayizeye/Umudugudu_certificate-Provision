@@ -37,7 +37,7 @@ urlpatterns = [
 
     # Admin: users & eligibility
     path('users/', api.user_list, name='api_user_list'),
-    path('users/<int:pk>/', api.user_delete, name='api_user_delete'),
+    path('users/<int:pk>/', api.user_detail, name='api_user_detail'),
     path('users/<int:pk>/eligibility/', api.set_eligibility, name='api_set_eligibility'),
     path('users/<int:pk>/permissions/', api.set_user_permissions, name='api_set_user_permissions'),
 

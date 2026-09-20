@@ -23,7 +23,7 @@ from .models import (
 )
 from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
-    RegisterSerializer, AdminCreateUserSerializer, LoginSerializer, UserSerializer,
+    RegisterSerializer, AdminCreateUserSerializer, AdminUpdateUserSerializer, LoginSerializer, UserSerializer,
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
     NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
@@ -763,19 +763,33 @@ def user_list(request):
     return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['DELETE'])
-def user_delete(request, pk):
-    """Remove an account. Not yourself; admins only by admins; superusers only by superusers."""
-    if not has_perm(request.user, 'delete:users'):
-        return Response({'detail': 'You are not allowed to delete users.'}, status=status.HTTP_403_FORBIDDEN)
+@api_view(['PATCH', 'DELETE'])
+def user_detail(request, pk):
+    """Edit or remove an account. Admins only by admins; superusers only by superusers; never delete yourself."""
+    editing = request.method == 'PATCH'
+    verb = 'edit' if editing else 'delete'
+    if not has_perm(request.user, f'{verb}:users'):
+        return Response({'detail': f'You are not allowed to {verb} users.'}, status=status.HTTP_403_FORBIDDEN)
     target = get_object_or_404(CustomUser, pk=pk)
+    if target.is_superuser and not request.user.is_superuser:
+        return Response({'detail': f'Only a superuser can {verb} another superuser.'}, status=status.HTTP_403_FORBIDDEN)
+    if is_full_admin(target) and not is_full_admin(request.user):
+        return Response({'detail': f'Only an administrator can {verb} another administrator.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    if editing:
+        # An admin editing themselves keeps their role and access so they cannot lock themselves out
+        data = request.data.copy()
+        if target.id == request.user.id:
+            data.pop('role', None)
+            data.pop('is_active', None)
+        serializer = AdminUpdateUserSerializer(target, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(target).data)
+
     if target.id == request.user.id:
         return Response({'detail': 'You cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
-    if target.is_superuser and not request.user.is_superuser:
-        return Response({'detail': 'Only a superuser can delete another superuser.'}, status=status.HTTP_403_FORBIDDEN)
-    if is_full_admin(target) and not is_full_admin(request.user):
-        return Response({'detail': 'Only an administrator can delete another administrator.'},
-                        status=status.HTTP_403_FORBIDDEN)
     name = target.display_name
     target.delete()
     return Response({'detail': f'{name} was deleted.'})

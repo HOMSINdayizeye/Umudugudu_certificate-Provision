@@ -15,8 +15,8 @@ export const ROLES = [
   { value: 'system_admin', label: 'System Admin' },
 ]
 
-// How deep the location must be selected for each role
-const LOCATION_DEPTH = {
+// How deep the location must be selected for each role (also used when editing a user)
+export const LOCATION_DEPTH = {
   sector_leader: 'sector',
   cell_leader: 'cell',
   system_admin: 'village',

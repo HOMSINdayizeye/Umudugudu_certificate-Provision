@@ -142,6 +142,7 @@ export const api = {
   listUsers: () => request('/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
   deleteUser: (id) => request(`/users/${id}/`, { method: 'DELETE' }),
+  updateUser: (id, payload) => request(`/users/${id}/`, { method: 'PATCH', body: payload }),
   setUserPermissions: (id, grants, denies) =>
     request(`/users/${id}/permissions/`, { method: 'PUT', body: { grants, denies } }),
   permissionCatalog: () => request('/permissions/'),

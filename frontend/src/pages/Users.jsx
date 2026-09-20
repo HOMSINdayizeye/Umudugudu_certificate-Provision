@@ -4,7 +4,9 @@ import { api, getUser, can } from '../api.js'
 import Pagination from '../components/Pagination.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
-import { ROLES } from './AddUser.jsx'
+import LocationSelect from '../components/LocationSelect.jsx'
+import { passwordIsStrong } from '../components/PasswordField.jsx'
+import { ROLES, LOCATION_DEPTH } from './AddUser.jsx'
 
 const PAGE_SIZE = 10
 
@@ -136,11 +138,13 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
   const [saved, setSaved] = useState('')
   // The permission list is long, so it stays hidden behind one button until the admin wants it
   const [showPerms, setShowPerms] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   // Same rules as the server: the permission, never yourself, admins only by admins, superusers only by superusers
   const meAdmin = me?.is_superuser || me?.is_admin_role
-  const canDelete = me && can(me, 'delete:users') && user.id !== me.id
-    && (!user.is_superuser || me.is_superuser) && (!(user.is_superuser || user.is_admin_role) || meAdmin)
+  const outranks = (!user.is_superuser || me?.is_superuser) && (!(user.is_superuser || user.is_admin_role) || meAdmin)
+  const canDelete = me && can(me, 'delete:users') && user.id !== me.id && outranks
+  const canEdit = me && can(me, 'edit:users') && outranks
   const canManagePerms = can(me, 'permissions:users') && !!catalog
 
   // Tick or untick one permission for this user: stored as a grant (outside the role) or a deny (inside it)
@@ -194,7 +198,17 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>{user.first_name} {user.last_name}</h2>
+        {editing ? (
+          <EditUserForm
+            user={user}
+            isSelf={user.id === me?.id}
+            onCancel={() => setEditing(false)}
+            onSaved={(u) => { setEditing(false); setSaved('Account details updated.'); onUpdated(u) }}
+          />
+        ) : (
+        <>
         {error && <div className="alert alert-error">{error}</div>}
+        {saved && <div className="field-hint field-hint-ok">{saved}</div>}
         <dl className="detail-grid">
           <dt>Username</dt><dd>{user.username}</dd>
           <dt>Role</dt><dd>{user.role_display}</dd>
@@ -233,7 +247,6 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
                 <p className="muted small" style={{ marginTop: 0 }}>
                   Ticked = allowed. Grey ones come from the {user.role_display} role; tick to give this user more, untick to take a role permission away.
                 </p>
-                {saved && <div className="field-hint field-hint-ok">{saved}</div>}
                 {catalog.map((group) => (
                   <div key={group.resource} className="perm-group" style={{ marginTop: '0.75rem' }}>
                     <div className="perm-group-head"><strong className="small">{group.label}</strong></div>
@@ -279,14 +292,169 @@ function UserModal({ user, catalog, onClose, onUpdated, onDeleted }) {
           </div>
         ) : (
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+            {canEdit && (
+              <button className="btn btn-small" onClick={() => { setError(''); setSaved(''); setEditing(true) }}>Edit user</button>
+            )}
             {can(me, 'eligibility:users') && <Link to="/eligibility" className="btn btn-small btn-outline-dark">Manage eligibility</Link>}
             {canDelete && (
               <button className="btn btn-small btn-danger" onClick={() => setConfirming(true)}>Delete user</button>
             )}
-            <button className="btn btn-small" onClick={onClose}>Close</button>
+            <button className="btn btn-small btn-ghost" onClick={onClose}>Close</button>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
+  )
+}
+
+// Admin edits an account: identity, contact, role, place, active flag, and an optional password reset.
+function EditUserForm({ user, isSelf, onCancel, onSaved }) {
+  const [form, setForm] = useState({
+    first_name: user.first_name || '', last_name: user.last_name || '', username: user.username || '',
+    email: user.email || '', phone: user.phone || '', role: user.role, isibo: user.isibo || '',
+    is_active: user.is_active, password: '', confirm: '',
+  })
+  // The place is kept as-is unless the admin chooses a new one from the province down
+  const [changingPlace, setChangingPlace] = useState(false)
+  const [loc, setLoc] = useState({ province: '', district: '', sector: '', cell: '', village: '' })
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const depth = LOCATION_DEPTH[form.role] || 'village'
+  const roleChanged = form.role !== user.role
+  const hasPlace = !!user[depth]
+  const needsPlace = form.role !== 'system_admin' && (changingPlace || !hasPlace)
+  const set = (field) => (e) => setForm({ ...form, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+
+  async function submit(e) {
+    e.preventDefault()
+    setError('')
+    if (form.password && !passwordIsStrong(form.password)) {
+      setError('The new password must have 8+ characters with upper and lower case letters, a number and a special character.')
+      return
+    }
+    if (form.password && form.password !== form.confirm) {
+      setError('Passwords do not match.')
+      return
+    }
+    if (needsPlace && !loc[depth]) {
+      setError(`Select the location down to the ${depth} for this role.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const { confirm, password, ...payload } = form
+      if (password) payload.password = password
+      if (needsPlace) {
+        for (const level of ['province', 'district', 'sector', 'cell', 'village']) payload[level] = loc[level] || null
+      }
+      if (isSelf) {
+        delete payload.role
+        delete payload.is_active
+      }
+      onSaved(await api.updateUser(user.id, payload))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit}>
+      {error && <div className="alert alert-error">{error}</div>}
+      <div className="section-title" style={{ marginTop: 0 }}>Account</div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>First name</label>
+          <input value={form.first_name} onChange={set('first_name')} required />
+        </div>
+        <div className="form-group">
+          <label>Last name</label>
+          <input value={form.last_name} onChange={set('last_name')} required />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Username</label>
+          <input value={form.username} onChange={set('username')} required />
+        </div>
+        <div className="form-group">
+          <label>Email</label>
+          <input type="email" value={form.email} onChange={set('email')} required />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Phone</label>
+          <input value={form.phone} onChange={set('phone')} />
+        </div>
+        <div className="form-group">
+          <label>Role</label>
+          <select value={form.role} onChange={set('role')} disabled={isSelf}>
+            {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          {isSelf && <div className="field-hint muted">You cannot change your own role.</div>}
+        </div>
+      </div>
+      {!isSelf && (
+        <label className="perm-row" style={{ marginBottom: '0.5rem' }}>
+          <input type="checkbox" checked={form.is_active} onChange={set('is_active')} />
+          <span className="perm-text"><span className="perm-desc">Account is active (unticked users cannot sign in)</span></span>
+        </label>
+      )}
+
+      {form.role !== 'system_admin' && (
+        <>
+          <div className="section-title">
+            {form.role === 'sector_leader' ? 'Sector of authority' : form.role === 'cell_leader' ? 'Cell of authority' : 'Location'}
+          </div>
+          {!needsPlace ? (
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span>{user.location_name || '—'}</span>
+              <button type="button" className="link-btn small" onClick={() => setChangingPlace(true)}>change place</button>
+            </div>
+          ) : (
+            <>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                {roleChanged && !hasPlace ? `This role needs a ${depth}. ` : ''}Pick the province first; each next level appears once the one above it is chosen.
+              </p>
+              <LocationSelect value={loc} onChange={setLoc} progressive upTo={depth} />
+              {hasPlace && (
+                <button type="button" className="link-btn small" onClick={() => { setChangingPlace(false); setLoc({ province: '', district: '', sector: '', cell: '', village: '' }) }}>
+                  keep current place
+                </button>
+              )}
+            </>
+          )}
+          {(form.role === 'isibo_leader' || form.role === 'citizen') && (
+            <div className="form-group" style={{ marginTop: '0.75rem' }}>
+              <label>Isibo {form.role === 'isibo_leader' ? '(the isibo they lead)' : '(optional)'}</label>
+              <input value={form.isibo} onChange={set('isibo')} required={form.role === 'isibo_leader'} />
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="section-title">Reset password (optional)</div>
+      <p className="muted small" style={{ marginTop: 0 }}>Leave blank to keep the current password.</p>
+      <div className="form-row">
+        <div className="form-group">
+          <label>New password</label>
+          <input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
+        </div>
+        <div className="form-group">
+          <label>Confirm new password</label>
+          <input type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+        <button className="btn btn-small" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+        <button type="button" className="btn btn-small btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   )
 }

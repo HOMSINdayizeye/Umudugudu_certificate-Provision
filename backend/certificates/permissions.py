@@ -48,6 +48,7 @@ CATALOG = [
         'actions': [
             ('view:users', 'View all user accounts'),
             ('add:users', 'Create user accounts'),
+            ('edit:users', 'Edit user accounts (name, contact, role, place, password reset)'),
             ('delete:users', 'Delete user accounts'),
             ('eligibility:users', 'Mark users eligible or not eligible'),
             ('permissions:users', 'Manage roles and permissions'),

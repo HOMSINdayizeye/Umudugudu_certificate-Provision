@@ -81,6 +81,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
+# Deepest location level each role must have; roles missing here (system admin) need none
+LOCATION_REQUIRED_BY_ROLE = {
+    'sector_leader': 'sector',
+    'cell_leader': 'cell',
+    'village_leader': 'village',
+    'isibo_leader': 'village',
+    'security_volunteer': 'village',
+    'cleaning_volunteer': 'village',
+    'citizen': 'village',
+}
+
+
+def check_role_location(role, data):
+    needed = LOCATION_REQUIRED_BY_ROLE.get(role)
+    if needed and not data.get(needed):
+        raise serializers.ValidationError({needed: f'A {role.replace("_", " ")} must have a {needed} assigned.'})
+
+
 class AdminCreateUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_strong_password])
 
@@ -97,19 +115,7 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        role = attrs.get('role', 'citizen')
-        required_by_role = {
-            'sector_leader': 'sector',
-            'cell_leader': 'cell',
-            'village_leader': 'village',
-            'isibo_leader': 'village',
-            'security_volunteer': 'village',
-            'cleaning_volunteer': 'village',
-            'citizen': 'village',
-        }
-        needed = required_by_role.get(role)
-        if needed and not attrs.get(needed):
-            raise serializers.ValidationError({needed: f'A {role.replace("_", " ")} must have a {needed} assigned.'})
+        check_role_location(attrs.get('role', 'citizen'), attrs)
         return attrs
 
     def create(self, validated_data):
@@ -118,6 +124,45 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class AdminUpdateUserSerializer(serializers.ModelSerializer):
+    """Fields the admin may change on an existing account; a password here resets it."""
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True,
+                                     validators=[validate_strong_password])
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            'username', 'email', 'first_name', 'last_name', 'phone', 'role', 'is_active',
+            'province', 'district', 'sector', 'cell', 'village', 'isibo', 'password',
+        ]
+
+    def validate_username(self, value):
+        if CustomUser.objects.filter(username__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError('A user with this username already exists.')
+        return value
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+    def validate(self, attrs):
+        # Judge the role against the location as it will be after the update, not only the fields sent
+        merged = {f: getattr(self.instance, f) for f in ('province', 'district', 'sector', 'cell', 'village')}
+        merged.update({k: v for k, v in attrs.items() if k in merged})
+        check_role_location(attrs.get('role', self.instance.role), merged)
+        return attrs
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', '')
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

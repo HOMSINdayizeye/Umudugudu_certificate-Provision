@@ -130,6 +130,27 @@ class CitizenTransferFlowTests(TestCase):
         # Once cancelled, a new transfer can be sent
         self.send_transfer()
 
+    def test_admin_edits_user_and_leader_cannot(self):
+        admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        res = self.as_user(admin).patch(f'/api/users/{self.sender.id}/',
+                                        {'first_name': 'Jean', 'phone': '0788000000', 'role': 'cell_leader',
+                                         'cell': 100101, 'password': 'Strong#Pass1'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.sender.refresh_from_db()
+        self.assertEqual((self.sender.first_name, self.sender.phone, self.sender.role, self.sender.cell),
+                         ('Jean', '0788000000', 'cell_leader', 100101))
+        self.assertTrue(self.sender.check_password('Strong#Pass1'))
+        # A role that needs a location it does not have is refused
+        res = self.as_user(admin).patch(f'/api/users/{self.receiver.id}/', {'role': 'sector_leader'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        # Admins cannot demote or deactivate themselves; a village leader cannot edit anyone
+        res = self.as_user(admin).patch(f'/api/users/{admin.id}/', {'role': 'citizen', 'is_active': False}, format='json')
+        self.assertEqual(res.status_code, 200)
+        admin.refresh_from_db()
+        self.assertEqual((admin.role, admin.is_active), ('system_admin', True))
+        res = self.as_user(self.receiver).patch(f'/api/users/{self.sender.id}/', {'first_name': 'X'}, format='json')
+        self.assertEqual(res.status_code, 403)
+
     def test_unrelated_leader_cannot_decide(self):
         transfer = self.send_transfer()
         LocationImport.objects.create(location_id=10010301, type='VILLAGE', name='Elsewhere', status='active')
