@@ -6,7 +6,7 @@ import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import { passwordIsStrong } from '../components/PasswordField.jsx'
-import { ROLES, LOCATION_DEPTH } from './AddUser.jsx'
+import { ROLES, LOCATION_DEPTH, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
 
 const PAGE_SIZE = 10
 
@@ -369,27 +369,29 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
       <div className="form-row">
         <div className="form-group">
           <label>First name</label>
-          <input value={form.first_name} onChange={set('first_name')} required />
+          <input value={form.first_name} onChange={set('first_name')} required placeholder="e.g. Jean" />
         </div>
         <div className="form-group">
           <label>Last name</label>
-          <input value={form.last_name} onChange={set('last_name')} required />
+          <input value={form.last_name} onChange={set('last_name')} required placeholder="e.g. Mugisha" />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Username</label>
-          <input value={form.username} onChange={set('username')} required />
+          <input value={form.username} onChange={set('username')} required placeholder="e.g. jmugisha" />
         </div>
         <div className="form-group">
           <label>Email</label>
-          <input type="email" value={form.email} onChange={set('email')} required />
+          <input type="email" value={form.email} onChange={set('email')} required placeholder="name@example.com" />
         </div>
       </div>
       <div className="form-row">
         <div className="form-group">
           <label>Phone</label>
-          <input value={form.phone} onChange={set('phone')} />
+          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="250791234567"
+                 pattern={PHONE_PATTERN} title={PHONE_HINT} inputMode="numeric" maxLength={12} />
+          <div className="field-hint muted">{PHONE_HINT}</div>
         </div>
         <div className="form-group">
           <label>Role</label>
@@ -432,7 +434,7 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
           {(form.role === 'isibo_leader' || form.role === 'citizen') && (
             <div className="form-group" style={{ marginTop: '0.75rem' }}>
               <label>Isibo {form.role === 'isibo_leader' ? '(the isibo they lead)' : '(optional)'}</label>
-              <input value={form.isibo} onChange={set('isibo')} required={form.role === 'isibo_leader'} />
+              <input value={form.isibo} onChange={set('isibo')} required={form.role === 'isibo_leader'} placeholder="e.g. Amahoro" />
             </div>
           )}
         </>
@@ -443,11 +445,11 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
       <div className="form-row">
         <div className="form-group">
           <label>New password</label>
-          <input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" />
+          <input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="Leave blank to keep" />
         </div>
         <div className="form-group">
           <label>Confirm new password</label>
-          <input type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" />
+          <input type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" placeholder="Repeat the new password" />
         </div>
       </div>
 

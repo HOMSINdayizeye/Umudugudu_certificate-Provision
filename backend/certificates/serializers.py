@@ -52,6 +52,14 @@ def validate_strong_password(value):
     return value
 
 
+def validate_phone_format(value):
+    # Rwandan number in international form without "+": 250 then 9 digits (blank allowed)
+    value = (value or '').strip()
+    if value and not re.fullmatch(r'250\d{9}', value):
+        raise serializers.ValidationError('Enter the phone as 25079........ (250 followed by 9 digits, no + or spaces).')
+    return value
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_strong_password])
 
@@ -114,6 +122,9 @@ class AdminCreateUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A user with this email already exists.')
         return value
 
+    def validate_phone(self, value):
+        return validate_phone_format(value)
+
     def validate(self, attrs):
         check_role_location(attrs.get('role', 'citizen'), attrs)
         return attrs
@@ -147,6 +158,9 @@ class AdminUpdateUserSerializer(serializers.ModelSerializer):
         if CustomUser.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
             raise serializers.ValidationError('A user with this email already exists.')
         return value
+
+    def validate_phone(self, value):
+        return validate_phone_format(value)
 
     def validate(self, attrs):
         # Judge the role against the location as it will be after the update, not only the fields sent

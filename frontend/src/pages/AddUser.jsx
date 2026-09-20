@@ -15,6 +15,10 @@ export const ROLES = [
   { value: 'system_admin', label: 'System Admin' },
 ]
 
+// Rwandan number in international form without "+": 250 then 9 digits, e.g. 250791234567
+export const PHONE_PATTERN = '250[0-9]{9}'
+export const PHONE_HINT = 'Format: 250791234567 (12 digits: 250 followed by 9 digits, no + or spaces)'
+
 // How deep the location must be selected for each role (also used when editing a user)
 export const LOCATION_DEPTH = {
   sector_leader: 'sector',
@@ -23,7 +27,7 @@ export const LOCATION_DEPTH = {
 }
 
 const emptyForm = {
-  first_name: '', last_name: '', username: '', email: '',
+  first_name: '', last_name: '', username: '', email: '', phone: '',
   password: '', confirm: '', role: 'citizen', isibo: '',
 }
 const emptyLoc = { province: '', district: '', sector: '', cell: '', village: '' }
@@ -95,22 +99,28 @@ export default function AddUser() {
         <div className="form-row">
           <div className="form-group">
             <label>First name</label>
-            <input value={form.first_name} onChange={set('first_name')} required />
+            <input value={form.first_name} onChange={set('first_name')} required placeholder="e.g. Jean" />
           </div>
           <div className="form-group">
             <label>Last name</label>
-            <input value={form.last_name} onChange={set('last_name')} required />
+            <input value={form.last_name} onChange={set('last_name')} required placeholder="e.g. Mugisha" />
           </div>
         </div>
         <div className="form-row">
           <div className="form-group">
             <label>Username</label>
-            <input value={form.username} onChange={set('username')} required />
+            <input value={form.username} onChange={set('username')} required placeholder="e.g. jmugisha" />
           </div>
           <div className="form-group">
             <label>Email</label>
-            <input type="email" value={form.email} onChange={set('email')} required />
+            <input type="email" value={form.email} onChange={set('email')} required placeholder="name@example.com" />
           </div>
+        </div>
+        <div className="form-group">
+          <label>Phone (optional)</label>
+          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="250791234567"
+                 pattern={PHONE_PATTERN} title={PHONE_HINT} inputMode="numeric" maxLength={12} />
+          <div className="field-hint muted">{PHONE_HINT}</div>
         </div>
 
         {form.role !== 'system_admin' && (
@@ -125,7 +135,7 @@ export default function AddUser() {
             {(form.role === 'isibo_leader' || form.role === 'citizen') && (
               <div className="form-group">
                 <label>Isibo {form.role === 'isibo_leader' ? '(the isibo they lead)' : '(optional)'}</label>
-                <input value={form.isibo} onChange={set('isibo')} required={form.role === 'isibo_leader'} />
+                <input value={form.isibo} onChange={set('isibo')} required={form.role === 'isibo_leader'} placeholder="e.g. Amahoro" />
               </div>
             )}
           </>
@@ -135,7 +145,7 @@ export default function AddUser() {
         <PasswordField value={form.password} onChange={set('password')} />
         <div className="form-group">
           <label>Confirm password</label>
-          <input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
+          <input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" placeholder="Repeat the password" />
         </div>
 
         <button className="btn" disabled={loading}>{loading ? 'Creating…' : 'Create User'}</button>
