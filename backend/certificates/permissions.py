@@ -10,7 +10,7 @@ CATALOG = [
             ('edit:citizens', 'Edit citizen information'),
             ('delete:citizens', 'Delete a citizen record'),
             ('transfer:citizens', 'Transfer a citizen to another village'),
-            ('place:citizens', 'Place a transferred citizen in an isibo'),
+            ('place:citizens', 'Accept a transferred citizen into the village and place them in an isibo'),
             ('view:transfers', 'View citizens transferred in and out of their area'),
             ('report:deaths', 'Report a citizen as deceased (registering them first if needed)'),
             ('view:deaths', 'View the deceased register of their area'),

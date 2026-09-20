@@ -217,6 +217,9 @@ class DeathReport(models.Model):
 
 class CitizenTransfer(models.Model):
     """One move of a registry citizen from a village to another, recorded by a village/cell leader."""
+    # The citizen stays in the source village until the destination village leader accepts the transfer
+    STATUS_CHOICES = [('pending', 'Pending'), ('accepted', 'Accepted'), ('rejected', 'Rejected'),
+                      ('cancelled', 'Cancelled')]
     citizen = models.ForeignKey(Citizen, on_delete=models.CASCADE, related_name='transfers')
     from_village = models.IntegerField()
     from_isibo = models.CharField(max_length=100, blank=True, default='')
@@ -227,6 +230,12 @@ class CitizenTransfer(models.Model):
     transferred_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                                        related_name='citizen_transfers')
     transferred_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    # Who accepted/declined/cancelled the transfer and when; decision_note holds the reason for declining
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='citizen_transfer_decisions')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True, default='')
     placed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                   related_name='citizen_placements')
     placed_at = models.DateTimeField(null=True, blank=True)

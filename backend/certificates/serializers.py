@@ -306,6 +306,7 @@ class CitizenSerializer(serializers.ModelSerializer):
     added_by_name = serializers.SerializerMethodField()
     transferred_from_village_name = serializers.SerializerMethodField()
     awaiting_isibo = serializers.BooleanField(read_only=True)
+    pending_transfer = serializers.SerializerMethodField()
 
     class Meta:
         model = Citizen
@@ -313,7 +314,7 @@ class CitizenSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'national_id',
             'age', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
             'transferred_from_village', 'transferred_from_village_name', 'transferred_from_isibo',
-            'transferred_at', 'transfer_placed_at', 'awaiting_isibo', 'status',
+            'transferred_at', 'transfer_placed_at', 'awaiting_isibo', 'status', 'pending_transfer',
         ]
         read_only_fields = ['village', 'created_at', 'transferred_from_village', 'transferred_from_isibo',
                             'transferred_at', 'transfer_placed_at', 'status']
@@ -329,6 +330,19 @@ class CitizenSerializer(serializers.ModelSerializer):
 
     def get_transferred_from_village_name(self, obj):
         return location_path(obj.transferred_from_village)
+
+    def get_pending_transfer(self, obj):
+        # Transfer waiting for the destination leader's confirmation; uses the prefetched list when the view set one
+        pending = getattr(obj, 'pending_transfers', None)
+        if pending is None:
+            pending = list(obj.transfers.filter(status='pending').select_related('transferred_by')[:1])
+        if not pending:
+            return None
+        t = pending[0]
+        return {
+            'id': t.id, 'to_village': t.to_village, 'to_village_name': location_path(t.to_village),
+            'note': t.note, 'transferred_at': t.transferred_at, 'transferred_by_name': user_name(t.transferred_by),
+        }
 
     def validate_national_id(self, value):
         qs = Citizen.objects.filter(national_id=value)
@@ -356,6 +370,7 @@ class CitizenTransferSerializer(serializers.ModelSerializer):
     current_isibo = serializers.CharField(source='citizen.isibo', read_only=True)
     transferred_by_name = serializers.SerializerMethodField()
     placed_by_name = serializers.SerializerMethodField()
+    decided_by_name = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
 
     class Meta:
@@ -364,7 +379,8 @@ class CitizenTransferSerializer(serializers.ModelSerializer):
             'id', 'citizen', 'citizen_name', 'national_id', 'phone',
             'from_village', 'from_village_name', 'from_isibo', 'to_village', 'to_village_name', 'to_isibo',
             'current_village', 'current_village_name', 'current_isibo', 'note',
-            'transferred_by_name', 'transferred_at', 'placed_by_name', 'placed_at', 'status',
+            'transferred_by_name', 'transferred_at', 'placed_by_name', 'placed_at',
+            'decided_by_name', 'decided_at', 'decision_note', 'status',
         ]
 
     def get_citizen_name(self, obj):
@@ -385,7 +401,13 @@ class CitizenTransferSerializer(serializers.ModelSerializer):
     def get_placed_by_name(self, obj):
         return user_name(obj.placed_by)
 
+    def get_decided_by_name(self, obj):
+        return user_name(obj.decided_by)
+
     def get_status(self, obj):
+        # pending/rejected/cancelled come straight from the record; an accepted transfer is refined by what happened next
+        if obj.status != 'accepted':
+            return obj.status
         # moved_on: transferred again from the destination before/after being placed there
         if obj.citizen.village != obj.to_village:
             return 'moved_on'

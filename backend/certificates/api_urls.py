@@ -57,6 +57,7 @@ urlpatterns = [
     # Citizens & service payments
     path('citizens/', api.citizen_list, name='api_citizen_list'),
     path('citizens/transfers/', api.citizen_transfer_list, name='api_citizen_transfer_list'),
+    path('citizens/transfers/<int:pk>/<str:decision>/', api.citizen_transfer_decide, name='api_citizen_transfer_decide'),
     path('citizens/isibos/', api.village_isibos, name='api_village_isibos'),
     path('citizens/deaths/', api.death_list, name='api_death_list'),
     path('citizens/deaths/search/', api.death_search, name='api_death_search'),

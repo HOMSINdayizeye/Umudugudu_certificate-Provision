@@ -196,6 +196,19 @@ function CitizenPaymentModal({ citizen, service, year, canMark, canTransfer, onC
   }
 
   const unpaid = [1, 2, 3].filter((t) => !citizen.paid[t])
+  const pending = citizen.pending_transfer
+
+  async function cancelTransfer() {
+    setError('')
+    setBusy(true)
+    try {
+      await api.cancelTransfer(pending.id)
+      onMoved(`Transfer of ${citizen.name} to ${pending.to_village_name} cancelled.`)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -219,6 +232,12 @@ function CitizenPaymentModal({ citizen, service, year, canMark, canTransfer, onC
               </dd>
             </>
           )}
+          {pending && (
+            <>
+              <dt>Transfer pending</dt>
+              <dd>To {pending.to_village_name}. Waiting for that village leader to accept.</dd>
+            </>
+          )}
         </dl>
         <p className="muted" style={{ marginTop: 0 }}>
           Citizen information can only be changed by the isibo leader.
@@ -231,9 +250,15 @@ function CitizenPaymentModal({ citizen, service, year, canMark, canTransfer, onC
               {citizen.awaiting_isibo && (
                 <button className="btn btn-small" onClick={() => setAction('place')}>Add to an isibo</button>
               )}
-              <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>
-                Transfer to another village
-              </button>
+              {pending ? (
+                <button className="btn btn-small btn-outline-dark" disabled={busy} onClick={cancelTransfer}>
+                  {busy ? 'Cancelling…' : 'Cancel pending transfer'}
+                </button>
+              ) : (
+                <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>
+                  Transfer to another village
+                </button>
+              )}
             </div>
             {citizen.awaiting_isibo && (
               <div className="field-hint muted">This citizen moved here and has no isibo yet. Place them so the isibo leader can see them.</div>
@@ -245,7 +270,7 @@ function CitizenPaymentModal({ citizen, service, year, canMark, canTransfer, onC
           <TransferCitizenModal
             citizen={citizen}
             onClose={() => setAction(null)}
-            onDone={(t) => onMoved(`${citizen.name} transferred to ${t.to_village_name}. They no longer appear among your citizens; see Transfers.`)}
+            onDone={(t) => onMoved(`Transfer of ${citizen.name} to ${t.to_village_name} sent. They stay in your list until that village leader accepts.`)}
           />
         )}
         {action === 'place' && (

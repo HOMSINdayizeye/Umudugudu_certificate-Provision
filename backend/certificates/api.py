@@ -5,7 +5,7 @@ import datetime
 
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.db.models import Q, TextField, Count
+from django.db.models import Q, TextField, Count, Prefetch
 from django.db.models.functions import Cast, Length
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -947,6 +947,20 @@ def is_village_id(value):
     return LocationImport.objects.filter(location_id=value, type='VILLAGE').exists()
 
 
+def pending_transfer_prefetch():
+    # Lets CitizenSerializer.pending_transfer read each citizen's open transfer without a query per row
+    return Prefetch('transfers', queryset=CitizenTransfer.objects.filter(status='pending').select_related('transferred_by'),
+                    to_attr='pending_transfers')
+
+
+def village_leaders(village):
+    return CustomUser.objects.filter(role='village_leader', village=village)
+
+
+def citizen_label(citizen):
+    return f'{citizen.first_name} {citizen.last_name}'.strip() + f' (ID {citizen.national_id})'
+
+
 @api_view(['GET', 'POST'])
 def citizen_list(request):
     """Citizen registry: isibo leaders add citizens; volunteers/leaders view with payment status."""
@@ -983,7 +997,7 @@ def citizen_list(request):
     except ValueError:
         year = timezone.now().year
 
-    qs = qs.order_by('first_name', 'last_name')
+    qs = qs.order_by('first_name', 'last_name').prefetch_related(pending_transfer_prefetch())
 
     payments = ServicePayment.objects.filter(service=service, year=year, citizen__in=qs)
     paid_map = {}
@@ -1039,7 +1053,7 @@ def citizen_detail(request, pk):
 
 @api_view(['POST'])
 def citizen_transfer(request, pk):
-    """Move a citizen to the village they now live in. Body: {village, note?}."""
+    """Ask to move a citizen to another village. Body: {village, note?}. The citizen stays here until accepted."""
     user = request.user
     citizen = get_object_or_404(Citizen, pk=pk)
     if not can_see_citizen(user, citizen):
@@ -1047,6 +1061,16 @@ def citizen_transfer(request, pk):
     if not can_move_citizen(user, citizen, 'transfer:citizens'):
         return Response({'detail': 'You are not allowed to transfer citizens of this area.'},
                         status=status.HTTP_403_FORBIDDEN)
+    if citizen.status != 'alive':
+        return Response({'detail': 'A deceased citizen cannot be transferred.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    open_transfer = citizen.transfers.filter(status='pending').first()
+    if open_transfer:
+        return Response(
+            {'detail': f'A transfer to {location_path(open_transfer.to_village)} is already waiting for confirmation. '
+                       'Cancel it first to send the citizen elsewhere.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     try:
         to_village = int(request.data.get('village'))
@@ -1057,28 +1081,108 @@ def citizen_transfer(request, pk):
     if not is_village_id(to_village):
         return Response({'village': 'Select the full location down to the village.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    now = timezone.now()
     transfer = CitizenTransfer.objects.create(
         citizen=citizen, from_village=citizen.village, from_isibo=citizen.isibo, to_village=to_village,
         note=(request.data.get('note') or '').strip(), transferred_by=user,
     )
-    citizen.transferred_from_village = citizen.village
-    citizen.transferred_from_isibo = citizen.isibo
-    citizen.transferred_at = now
-    citizen.transfer_placed_at = None
-    citizen.village = to_village
-    citizen.isibo = ''
-    citizen.save()
-
-    name = f'{citizen.first_name} {citizen.last_name}'.strip()
     notify_users(
-        CustomUser.objects.filter(role='village_leader', village=to_village),
-        'Citizen transferred into your village',
-        f'{name} (ID {citizen.national_id}) moved here from {location_path(transfer.from_village)}, '
-        f'transferred by {user.display_name}. Open Transfers to place them in an isibo.',
+        village_leaders(to_village),
+        'Citizen transfer awaiting your confirmation',
+        f'{citizen_label(citizen)} is being transferred to your village from {location_path(transfer.from_village)} '
+        f'by {user.display_name}. Open Transfers to accept or decline.',
         link='/transfers',
     )
     return Response(CitizenTransferSerializer(transfer).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def citizen_transfer_decide(request, pk, decision):
+    """Destination leader accepts (body: {isibo?}) or declines (body: {note?}); the sender may cancel."""
+    user = request.user
+    if decision not in ('accept', 'reject', 'cancel'):
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    transfer = get_object_or_404(CitizenTransfer.objects.select_related('citizen', 'transferred_by'), pk=pk)
+    citizen = transfer.citizen
+    if transfer.status != 'pending':
+        return Response({'detail': f'This transfer was already {transfer.get_status_display().lower()}.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if decision == 'cancel':
+        # Only leaders of the village the citizen is leaving (or the sender) may withdraw the request
+        allowed = is_admin(user) or transfer.transferred_by_id == user.id or (
+            has_perm(user, 'transfer:citizens') and in_scope(transfer.from_village, area_code(user)))
+        if not allowed:
+            return Response({'detail': 'You are not allowed to cancel this transfer.'}, status=status.HTTP_403_FORBIDDEN)
+    else:
+        # Accept/decline belongs to the destination village's leaders
+        allowed = is_admin(user) or (has_perm(user, 'place:citizens') and in_scope(transfer.to_village, area_code(user)))
+        if not allowed:
+            return Response({'detail': 'Only the leader of the receiving village can confirm this transfer.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+    now = timezone.now()
+    transfer.decided_by = user
+    transfer.decided_at = now
+    transfer.decision_note = (request.data.get('note') or '').strip()
+    senders = village_leaders(transfer.from_village)
+    if transfer.transferred_by and transfer.transferred_by.role != 'village_leader':
+        senders = list(senders) + [transfer.transferred_by]
+
+    if decision == 'accept':
+        isibo = (request.data.get('isibo') or '').strip()
+        transfer.status = 'accepted'
+        if isibo:
+            transfer.to_isibo = isibo
+            transfer.placed_by = user
+            transfer.placed_at = now
+        transfer.save()
+
+        citizen.transferred_from_village = transfer.from_village
+        citizen.transferred_from_isibo = transfer.from_isibo
+        citizen.transferred_at = now
+        citizen.transfer_placed_at = now if isibo else None
+        citizen.village = transfer.to_village
+        citizen.isibo = isibo
+        citizen.save()
+
+        where = f' and placed in isibo {isibo}' if isibo else ''
+        notify_users(
+            senders,
+            'Citizen transfer accepted',
+            f'{citizen_label(citizen)} was accepted into {location_path(transfer.to_village)}{where} '
+            f'by {user.display_name}. They no longer appear among your citizens.',
+            link='/transfers',
+        )
+        if isibo:
+            notify_users(
+                CustomUser.objects.filter(role='isibo_leader', village=citizen.village, isibo__iexact=isibo),
+                'Transferred citizen added to your isibo',
+                f'{citizen_label(citizen)} was transferred from {location_path(transfer.from_village)} '
+                f'and placed in isibo {isibo} by {user.display_name}.',
+                link='/citizens',
+            )
+    elif decision == 'reject':
+        transfer.status = 'rejected'
+        transfer.save()
+        reason = f' Reason: {transfer.decision_note}' if transfer.decision_note else ''
+        notify_users(
+            senders,
+            'Citizen transfer declined',
+            f'{location_path(transfer.to_village)} declined to receive {citizen_label(citizen)} '
+            f'({user.display_name}).{reason} The citizen stays in your village.',
+            link='/transfers',
+        )
+    else:
+        transfer.status = 'cancelled'
+        transfer.save()
+        notify_users(
+            village_leaders(transfer.to_village),
+            'Citizen transfer cancelled',
+            f'The transfer of {citizen_label(citizen)} from {location_path(transfer.from_village)} '
+            f'was cancelled by {user.display_name}.',
+            link='/transfers',
+        )
+    return Response(CitizenTransferSerializer(transfer).data)
 
 
 @api_view(['POST'])
@@ -1103,18 +1207,17 @@ def citizen_place(request, pk):
     citizen.isibo = isibo
     citizen.transfer_placed_at = now
     citizen.save()
-    transfer = citizen.transfers.filter(to_village=citizen.village).first()
+    transfer = citizen.transfers.filter(to_village=citizen.village, status='accepted').first()
     if transfer:
         transfer.to_isibo = isibo
         transfer.placed_by = user
         transfer.placed_at = now
         transfer.save()
 
-    name = f'{citizen.first_name} {citizen.last_name}'.strip()
     notify_users(
         CustomUser.objects.filter(role='isibo_leader', village=citizen.village, isibo__iexact=isibo),
         'Transferred citizen added to your isibo',
-        f'{name} (ID {citizen.national_id}) was transferred from {location_path(citizen.transferred_from_village)} '
+        f'{citizen_label(citizen)} was transferred from {location_path(citizen.transferred_from_village)} '
         f'and placed in isibo {isibo} by {user.display_name}.',
         link='/citizens',
     )
@@ -1128,29 +1231,34 @@ def citizen_transfer_list(request):
     if not has_perm(user, 'view:transfers'):
         return Response({'detail': 'You are not allowed to view citizen transfers.'}, status=status.HTTP_403_FORBIDDEN)
     scope = None if is_admin(user) else area_code(user)
+    flags = {'can_place': has_perm(user, 'place:citizens'), 'can_transfer': has_perm(user, 'transfer:citizens')}
     if scope is None and not is_admin(user):
-        return Response({'incoming': [], 'outgoing': [], 'can_place': False})
+        return Response({'pending_in': [], 'incoming': [], 'outgoing': [], **flags})
 
-    incoming = living().filter(transferred_from_village__isnull=False)
-    outgoing = CitizenTransfer.objects.select_related('citizen', 'transferred_by', 'placed_by')
+    # pending_in: transfers waiting for this area's leader to accept; incoming: citizens already accepted here
+    pending_in = CitizenTransfer.objects.filter(status='pending').select_related('citizen', 'transferred_by')
+    incoming = living().filter(transferred_from_village__isnull=False).prefetch_related(pending_transfer_prefetch())
+    outgoing = CitizenTransfer.objects.select_related('citizen', 'transferred_by', 'placed_by', 'decided_by')
     if scope is not None:
+        pending_in = scope_queryset_by_village_prefix(pending_in, 'to_village', scope)
         incoming = scope_queryset_by_village_prefix(incoming, 'village', scope)
         outgoing = scope_queryset_by_village_prefix(outgoing, 'from_village', scope)
 
-    # Latest move per citizen only, and drop citizens who have since come back to the village they left
+    # Latest move per citizen only, and drop accepted moves whose citizen has since come back to the village they left
     seen = set()
     out_rows = []
     for t in outgoing:
-        if t.citizen_id in seen or t.citizen.village == t.from_village:
+        if t.citizen_id in seen or (t.status == 'accepted' and t.citizen.village == t.from_village):
             continue
         seen.add(t.citizen_id)
         out_rows.append(t)
 
     incoming = incoming.order_by('transfer_placed_at', '-transferred_at')
     return Response({
+        'pending_in': CitizenTransferSerializer(pending_in.order_by('transferred_at'), many=True).data,
         'incoming': CitizenSerializer(incoming, many=True).data,
         'outgoing': CitizenTransferSerializer(out_rows, many=True).data,
-        'can_place': has_perm(user, 'place:citizens'),
+        **flags,
     })
 
 

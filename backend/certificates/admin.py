@@ -56,6 +56,7 @@ admin.site.register(ServicePayment)
 
 @admin.register(CitizenTransfer)
 class CitizenTransferAdmin(admin.ModelAdmin):
-    list_display = ('id', 'citizen', 'from_village', 'to_village', 'to_isibo', 'transferred_by', 'transferred_at', 'placed_at')
-    list_filter = ('from_village', 'to_village')
+    list_display = ('id', 'citizen', 'from_village', 'to_village', 'status', 'to_isibo', 'transferred_by',
+                    'transferred_at', 'decided_at', 'placed_at')
+    list_filter = ('status', 'from_village', 'to_village')
 admin.site.register(LocationImport)

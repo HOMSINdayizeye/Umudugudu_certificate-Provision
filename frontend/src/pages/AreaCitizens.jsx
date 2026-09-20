@@ -195,6 +195,20 @@ function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, c
     }
   }
 
+  async function cancelTransfer() {
+    setError('')
+    setBusy(true)
+    try {
+      await api.cancelTransfer(citizen.pending_transfer.id)
+      onMoved(`Transfer of ${citizen.name} to ${citizen.pending_transfer.to_village_name} cancelled.`)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  const pending = citizen.pending_transfer
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -217,6 +231,15 @@ function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, c
               </dd>
             </>
           )}
+          {pending && (
+            <>
+              <dt>Transfer pending</dt>
+              <dd>
+                To {pending.to_village_name}, sent by {pending.transferred_by_name || '—'}
+                {pending.transferred_at ? ` on ${new Date(pending.transferred_at).toLocaleDateString()}` : ''}. Waiting for that village leader to accept.
+              </dd>
+            </>
+          )}
         </dl>
         <p className="muted small">Citizen information can only be changed by the isibo leader.</p>
         {error && <div className="alert alert-error">{error}</div>}
@@ -228,8 +251,13 @@ function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, c
               {canPlace && citizen.awaiting_isibo && (
                 <button className="btn btn-small" onClick={() => setAction('place')}>Add to an isibo</button>
               )}
-              {canTransfer && (
+              {canTransfer && !pending && (
                 <button className="btn btn-small btn-outline-dark" onClick={() => setAction('transfer')}>Transfer to another village</button>
+              )}
+              {canTransfer && pending && (
+                <button className="btn btn-small btn-outline-dark" disabled={busy} onClick={cancelTransfer}>
+                  {busy ? 'Cancelling…' : 'Cancel pending transfer'}
+                </button>
               )}
             </div>
           </>
@@ -259,7 +287,7 @@ function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, c
           <TransferCitizenModal
             citizen={citizen}
             onClose={() => setAction(null)}
-            onDone={(t) => onMoved(`${citizen.name} transferred to ${t.to_village_name}. See Transfers for where they are.`)}
+            onDone={(t) => onMoved(`Transfer of ${citizen.name} to ${t.to_village_name} sent. They stay in your list until that village leader accepts.`)}
           />
         )}
         {action === 'place' && (
