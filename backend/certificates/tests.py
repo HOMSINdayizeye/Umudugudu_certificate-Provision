@@ -1,7 +1,19 @@
-from django.test import TestCase
+import datetime
+import os
+import shutil
+import tempfile
+
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Citizen, CitizenTransfer, CustomUser, LocationImport, Notification
+from .models import (
+    Citizen, CitizenTransfer, CustomUser, LocationImport, Notification, CertificateRequest, RequestAttachment,
+    Announcement, ServicePayment, DeathReport, Activity, Attendance,
+)
 
 # Two villages in different cells of the same sector: sector 1001 -> cells 100101/100102 -> villages ...01
 FROM_VILLAGE = 10010101
@@ -183,3 +195,122 @@ class CitizenTransferFlowTests(TestCase):
         for decision in ('accept', 'reject', 'cancel'):
             res = self.as_user(other).post(f'/api/citizens/transfers/{transfer.id}/{decision}/', {}, format='json')
             self.assertEqual(res.status_code, 403, decision)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix='certify-test-media-'))
+class DataManagementTests(TestCase):
+    """System admin bulk deletion: counts, partial deletion by dataset and date, file cleanup, guards."""
+
+    def setUp(self):
+        # The database rolls back between tests but files do not: start each test with an empty media folder
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+        make_locations()
+        self.admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        self.other_admin = CustomUser.objects.create_user(username='admin2', password='x', role='system_admin')
+        self.leader = leader('sender', FROM_VILLAGE)
+        self.citizen_user = CustomUser.objects.create_user(username='cit', password='x', role='citizen', village=FROM_VILLAGE)
+        self.req = CertificateRequest.objects.create(user=self.citizen_user, cert_type='conduct', status='village_approved')
+        self.req.generated_document.save('letter.docx', ContentFile(b'letter'), save=True)
+        att = RequestAttachment.objects.create(request=self.req, kind='proof', original_name='id.pdf', size=3)
+        att.file.save('id.pdf', ContentFile(b'pdf'), save=True)
+        Notification.objects.create(user=self.leader, title='New request', request=self.req)
+        Notification.objects.create(user=self.leader, title='Old notice')
+        Notification.objects.filter(title='Old notice').update(created_at=timezone.now() - datetime.timedelta(days=400))
+        ann = Announcement.objects.create(created_by=self.leader, village=FROM_VILLAGE, letter_date=datetime.date.today())
+        ann.generated_document.save('ann.docx', ContentFile(b'ann'), save=True)
+        self.citizen = Citizen.objects.create(first_name='Alice', last_name='Uwase', national_id='1199000000000001',
+                                              age=30, village=FROM_VILLAGE, added_by=self.leader)
+        dead = Citizen.objects.create(first_name='Bob', last_name='Gone', national_id='1199000000000002', age=80,
+                                      village=FROM_VILLAGE, status='deceased')
+        DeathReport.objects.create(citizen=dead, date_of_death=datetime.date(2024, 1, 1), village=FROM_VILLAGE)
+        ServicePayment.objects.create(citizen=self.citizen, service='cleaning', trimester=1, year=2025, amount=1000)
+        act = Activity.objects.create(title='Umuganda', date=datetime.date.today(), location_code=FROM_VILLAGE, created_by=self.leader)
+        Attendance.objects.create(activity=act, citizen=self.citizen, marked_by=self.leader)
+        # A stray file nothing points to
+        default_storage.save('generated/orphan.docx', ContentFile(b'orphan'))
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def test_only_admins_and_confirmation_phrase(self):
+        self.assertEqual(self.as_user(self.leader).get('/api/data/').status_code, 403)
+        res = self.as_user(self.leader).post('/api/data/purge/', {'datasets': ['notifications'], 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 403)
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['notifications'], 'confirm': 'delete please'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('confirm', res.data)
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['nonsense'], 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_overview_counts_rows_files_and_orphans(self):
+        res = self.as_user(self.admin).get('/api/data/')
+        self.assertEqual(res.status_code, 200, res.data)
+        rows = {d['key']: d for d in res.data['datasets']}
+        self.assertEqual((rows['requests']['rows'], rows['requests']['files']), (1, 2))
+        self.assertEqual(rows['notifications']['rows'], 2)
+        self.assertEqual(rows['deaths']['rows'], 1)
+        self.assertEqual(rows['citizens']['rows'], 2)
+        self.assertEqual(rows['accounts']['rows'], 2)  # leader and citizen; both admins are kept
+        self.assertEqual(rows['orphan_files']['files'], 1)
+        self.assertEqual(res.data['storage']['files'], 4)
+        self.assertEqual(res.data['confirm_phrase'], 'DELETE')
+        # The date cutoff narrows the counts
+        cutoff = (timezone.now() - datetime.timedelta(days=30)).date().isoformat()
+        res = self.as_user(self.admin).get(f'/api/data/?before={cutoff}')
+        rows = {d['key']: d for d in res.data['datasets']}
+        self.assertEqual(rows['notifications']['rows'], 1)
+        self.assertEqual(rows['requests']['rows'], 0)
+        self.assertEqual(rows['orphan_files']['files'], 1)  # not limited by date
+        self.assertEqual(self.as_user(self.admin).get('/api/data/?before=yesterday').status_code, 400)
+
+    def test_partial_purge_by_dataset_and_date(self):
+        cutoff = (timezone.now() - datetime.timedelta(days=30)).date().isoformat()
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['notifications'], 'before': cutoff, 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data['rows'], 1)
+        self.assertEqual([n.title for n in Notification.objects.all()], ['New request'])
+        self.assertEqual(CertificateRequest.objects.count(), 1)
+
+    def test_purging_requests_removes_their_files_and_notices(self):
+        letter, attachment = self.req.generated_document.name, self.req.attachments.first().file.name
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['requests', 'orphan_files'], 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(CertificateRequest.objects.count(), 0)
+        self.assertEqual(RequestAttachment.objects.count(), 0)
+        self.assertFalse(Notification.objects.filter(title='New request').exists())
+        self.assertTrue(Notification.objects.filter(title='Old notice').exists())
+        self.assertFalse(default_storage.exists(letter))
+        self.assertFalse(default_storage.exists(attachment))
+        self.assertFalse(default_storage.exists('generated/orphan.docx'))
+        self.assertEqual(res.data['files'], 3)
+        self.assertGreater(res.data['bytes'], 0)
+        self.assertIn('overview', res.data)
+
+    def test_letters_purge_keeps_requests(self):
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['letters'], 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.req.refresh_from_db()
+        self.assertFalse(self.req.generated_document)
+        self.assertEqual(self.req.status, 'village_approved')
+        self.assertEqual(res.data['files'], 1)
+
+    def test_deaths_purge_removes_only_deceased(self):
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': ['deaths'], 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(DeathReport.objects.count(), 0)
+        self.assertEqual(list(Citizen.objects.values_list('first_name', flat=True)), ['Alice'])
+
+    def test_clear_everything_keeps_admins_locations_and_settings(self):
+        keys = [d['key'] for d in self.as_user(self.admin).get('/api/data/').data['datasets']]
+        res = self.as_user(self.admin).post('/api/data/purge/', {'datasets': keys, 'confirm': 'DELETE'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        for model in (CertificateRequest, RequestAttachment, Notification, Announcement, Citizen, DeathReport,
+                      ServicePayment, Activity, Attendance, CitizenTransfer):
+            self.assertEqual(model.objects.count(), 0, model.__name__)
+        self.assertEqual(set(CustomUser.objects.values_list('username', flat=True)), {'admin', 'admin2'})
+        self.assertEqual(LocationImport.objects.count(), 5)
+        self.assertEqual(res.data['overview']['storage']['files'], 0)

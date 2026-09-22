@@ -54,6 +54,10 @@ urlpatterns = [
     path('permissions/', api.permission_catalog, name='api_permission_catalog'),
     path('permissions/roles/<str:role>/', api.set_role_permissions, name='api_set_role_permissions'),
 
+    # Data management (system admin): counts and bulk deletion
+    path('data/', api.data_overview, name='api_data_overview'),
+    path('data/purge/', api.data_purge, name='api_data_purge'),
+
     # Citizens & service payments
     path('citizens/', api.citizen_list, name='api_citizen_list'),
     path('citizens/transfers/', api.citizen_transfer_list, name='api_citizen_transfer_list'),

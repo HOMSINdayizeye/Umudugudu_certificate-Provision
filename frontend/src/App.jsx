@@ -17,6 +17,7 @@ import Profile from './pages/Profile.jsx'
 import Transfers from './pages/Transfers.jsx'
 import Users from './pages/Users.jsx'
 import Roles from './pages/Roles.jsx'
+import DataManagement from './pages/DataManagement.jsx'
 import Activities from './pages/Activities.jsx'
 import ActivityDetail from './pages/ActivityDetail.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
@@ -103,6 +104,7 @@ export default function App() {
               {can(user, 'view:users') && <NavLink to="/users">Users</NavLink>}
               {can(user, 'permissions:users') && <NavLink to="/roles">Roles</NavLink>}
               {can(user, 'eligibility:users') && <NavLink to="/eligibility">Eligibility</NavLink>}
+              {isAdmin && <NavLink to="/data">Data</NavLink>}
               <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -136,6 +138,7 @@ export default function App() {
           <Route path="/activities" element={<RequireAuth><Activities user={user} /></RequireAuth>} />
           <Route path="/activities/:id" element={<RequireAuth><ActivityDetail user={user} /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
+          <Route path="/data" element={<RequireAuth><DataManagement user={user} /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

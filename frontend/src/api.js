@@ -149,6 +149,9 @@ export const api = {
   setRolePermissions: (role, permissions) =>
     request(`/permissions/roles/${role}/`, { method: 'PUT', body: { permissions } }),
   resetRolePermissions: (role) => request(`/permissions/roles/${role}/`, { method: 'DELETE' }),
+  dataOverview: (before = '') => request(`/data/${before ? `?before=${before}` : ''}`),
+  purgeData: (datasets, before, confirm) =>
+    request('/data/purge/', { method: 'POST', body: { datasets, before: before || null, confirm } }),
   deleteCitizen: (id) => request(`/citizens/${id}/`, { method: 'DELETE' }),
 
   listDeaths: () => request('/citizens/deaths/'),

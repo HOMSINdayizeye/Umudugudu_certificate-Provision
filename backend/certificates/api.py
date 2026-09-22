@@ -33,6 +33,7 @@ from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, location_chain,
     request_location_id, docx_to_pdf, build_table_docx, build_table_pdf,
 )
+from . import data_management
 
 LEADER_STAGE = {
     # role -> (status it can act on, status approval moves the request to)
@@ -912,6 +913,47 @@ def set_user_permissions(request, pk):
     target.permission_denies = [k for k in clean_keys(denies) if k in base]
     target.save()
     return Response(UserSerializer(target).data)
+
+
+# ---------- Data management (system admin) ----------
+
+def _parse_before_param(value):
+    try:
+        return data_management.parse_before(value), None
+    except ValueError:
+        return None, Response({'before': 'Use a date like 2025-12-31.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def data_overview(request):
+    """What each dataset holds (rows and stored files), plus database and storage size. ?before=YYYY-MM-DD limits the counts."""
+    if not is_full_admin(request.user):
+        return Response({'detail': 'Only a system administrator can manage data.'}, status=status.HTTP_403_FORBIDDEN)
+    before, err = _parse_before_param(request.GET.get('before'))
+    if err:
+        return err
+    return Response(data_management.overview(request.user, before))
+
+
+@api_view(['POST'])
+def data_purge(request):
+    """POST {datasets: [...], before: 'YYYY-MM-DD' | null, confirm: 'DELETE'} deletes the chosen datasets."""
+    if not is_full_admin(request.user):
+        return Response({'detail': 'Only a system administrator can manage data.'}, status=status.HTTP_403_FORBIDDEN)
+    keys = request.data.get('datasets')
+    if not isinstance(keys, list) or not keys:
+        return Response({'datasets': 'Choose at least one dataset.'}, status=status.HTTP_400_BAD_REQUEST)
+    unknown = [k for k in keys if k not in data_management.DATASET_KEYS]
+    if unknown:
+        return Response({'datasets': f'Unknown dataset: {", ".join(map(str, unknown))}.'}, status=status.HTTP_400_BAD_REQUEST)
+    if (request.data.get('confirm') or '').strip() != data_management.CONFIRM_PHRASE:
+        return Response({'confirm': f'Type {data_management.CONFIRM_PHRASE} to confirm.'}, status=status.HTTP_400_BAD_REQUEST)
+    before, err = _parse_before_param(request.data.get('before'))
+    if err:
+        return err
+    result = data_management.purge(request.user, keys, before)
+    result['overview'] = data_management.overview(request.user, before)
+    return Response(result)
 
 
 # ---------- Citizens & service payments ----------
