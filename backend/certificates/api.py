@@ -678,15 +678,27 @@ def leader_stats(request):
 # ---------- Announcements ----------
 
 def announcements_qs(user):
+    """An announcement's `village` is its area code: a village, or the cell/sector of the leader who wrote it."""
     if is_admin(user):
         return Announcement.objects.all()
     if user.role == 'village_leader':
-        return Announcement.objects.filter(Q(village=user.village) | Q(created_by=user))
+        # Own village plus letters from the cell and sector above it
+        return Announcement.objects.filter(Q(village__in=location_prefixes(user.village)) | Q(created_by=user))
     if user.role in ('cell_leader', 'sector_leader') and user.scope_code:
-        qs = scope_queryset_by_village_prefix(Announcement.objects.all(), 'village', user.scope_code)
-        return qs | Announcement.objects.filter(created_by=user)
-    # Citizens and volunteers only read what their village leader has published
-    return Announcement.objects.filter(published=True, village=user.village)
+        inside = scope_queryset_by_village_prefix(Announcement.objects.all(), 'village', user.scope_code)
+        above = Announcement.objects.filter(village__in=location_prefixes(user.scope_code))
+        return inside | above | Announcement.objects.filter(created_by=user)
+    # Citizens and volunteers read what their village, cell and sector leaders have published
+    if not user.village:
+        return Announcement.objects.none()
+    return Announcement.objects.filter(published=True, village__in=location_prefixes(user.village))
+
+
+def announcement_area(user, requested):
+    """Area code a leader's announcement is written for: cell/sector leaders always use their own area."""
+    if user.role in ('cell_leader', 'sector_leader'):
+        return user.scope_code
+    return requested or user.village
 
 
 def can_announce(user):
@@ -710,7 +722,7 @@ def announcement_list(request):
     if not can_announce(user):
         return Response({'detail': 'Only village, cell or sector leaders can create announcements.'},
                         status=status.HTTP_403_FORBIDDEN)
-    village = request.data.get('village') or user.village
+    village = announcement_area(user, request.data.get('village'))
     if not village:
         return Response({'village': 'Choose the village this announcement is for.'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = AnnouncementSerializer(data=request.data)
@@ -737,7 +749,10 @@ def announcement_detail(request, pk):
             ann.generated_document.delete(save=False)
         ann.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    serializer = AnnouncementSerializer(ann, data=request.data, partial=True)
+    data = {k: v for k, v in request.data.items()}
+    if 'village' in data and not is_admin(user):
+        data['village'] = announcement_area(user, data['village'])
+    serializer = AnnouncementSerializer(ann, data=data, partial=True)
     serializer.is_valid(raise_exception=True)
     ann = serializer.save()
     # Any edit beyond publishing changes the letter text, so rebuild the stored file
@@ -753,8 +768,7 @@ def announcement_preview(request):
     user = request.user
     if not can_announce(user):
         return Response({'detail': 'Not allowed.'}, status=status.HTTP_403_FORBIDDEN)
-    village = request.data.get('village') or user.village
-    chain = location_chain(village)
+    chain = location_chain(announcement_area(user, request.data.get('village')))
     paragraphs = announcement_paragraphs(request.data, chain, user.display_name)
     return Response({
         'letterhead': chain,

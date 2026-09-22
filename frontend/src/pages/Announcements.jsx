@@ -7,13 +7,18 @@ import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 5
 
-// Split an 8-digit village id into the ids the cascading selector expects
+// Split a location id (8-digit village, 6-digit cell or 4-digit sector) into the ids the cascading selector expects
 function locFromVillage(village) {
   const s = village ? String(village) : ''
   return {
-    province: s.slice(0, 1), district: s.slice(0, 2), sector: s.slice(0, 4), cell: s.slice(0, 6), village: s,
+    province: s.slice(0, 1), district: s.slice(0, 2), sector: s.slice(0, 4),
+    cell: s.length >= 6 ? s.slice(0, 6) : '', village: s.length >= 8 ? s : '',
   }
 }
+
+// Cell and sector leaders write for their whole area, so they never pick a village
+const LEVEL_OF_ROLE = { cell_leader: 'cell', sector_leader: 'sector' }
+const AREA_LABEL = { 4: 'Sector', 6: 'Cell', 8: 'Village' }
 
 const KINDS = [
   ['umuganda', 'Community Work (Umuganda)'],
@@ -50,9 +55,11 @@ export default function Announcements({ user }) {
   const [form, setForm] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
   const [preview, setPreview] = useState(null)
-  // Letterhead location: the leader's own village unless changed
+  // Letterhead location: the leader's own village unless changed; fixed to the cell/sector for those leaders
+  const fixedLevel = LEVEL_OF_ROLE[user?.role]
   const [loc, setLoc] = useState(locFromVillage(user?.village))
-  const [changingLoc, setChangingLoc] = useState(!user?.village)
+  const [changingLoc, setChangingLoc] = useState(!fixedLevel && !user?.village)
+  const areaCode = fixedLevel ? user?.[fixedLevel] : loc.village
   const [prevLoc, setPrevLoc] = useState(null)
   const [range, setRange] = useState({ from: '', to: '' })
   const [page, setPage] = useState(1)
@@ -93,12 +100,12 @@ export default function Announcements({ user }) {
 
   // Live preview: refresh the letter text shortly after the leader stops typing
   useEffect(() => {
-    if (!canCreate || !loc.village) return
+    if (!canCreate || !areaCode) return
     const t = setTimeout(() => {
-      api.previewAnnouncement({ ...form, village: loc.village }).then(setPreview).catch(() => {})
+      api.previewAnnouncement({ ...form, village: areaCode }).then(setPreview).catch(() => {})
     }, 350)
     return () => clearTimeout(t)
-  }, [form, loc.village, canCreate])
+  }, [form, areaCode, canCreate])
 
   function set(field) {
     return (e) => {
@@ -149,7 +156,7 @@ export default function Announcements({ user }) {
     setEditingId(null)
     setForm(EMPTY)
     setLoc(locFromVillage(user?.village))
-    setChangingLoc(!user?.village)
+    setChangingLoc(!fixedLevel && !user?.village)
   }
 
   // andDownload: hand the leader the .docx right after saving
@@ -157,9 +164,9 @@ export default function Announcements({ user }) {
     e?.preventDefault()
     setError(''); setNotice(''); setBusy(andDownload ? 'save-download' : 'save')
     try {
-      if (!loc.village) throw new Error('Choose the village for the letterhead first.')
+      if (!areaCode) throw new Error(fixedLevel ? `Your account has no ${fixedLevel} set; ask the administrator to add it.` : 'Choose the village for the letterhead first.')
       const payload = {
-        ...form, event_date: form.event_date || null, village: Number(loc.village),
+        ...form, event_date: form.event_date || null, village: Number(areaCode),
         meeting_points: (form.meeting_points || []).filter((p) => (p.place || '').trim()),
         gathering_point: '', audience: '',
       }
@@ -238,15 +245,17 @@ export default function Announcements({ user }) {
             <h2 className="card-title">{editingId ? `Edit announcement #${editingId}` : 'New announcement'}</h2>
 
             <div className="form-group">
-              <label>Letterhead (City / District / Sector / Cell / Village)</label>
+              <label>Letterhead ({fixedLevel === 'sector' ? 'City / District / Sector' : fixedLevel === 'cell' ? 'City / District / Sector / Cell' : 'City / District / Sector / Cell / Village'})</label>
               {!changingLoc ? (
                 <div className="loc-summary">
                   <span>
                     {preview?.letterhead
                       ? [preview.letterhead.province, preview.letterhead.district, preview.letterhead.sector, preview.letterhead.cell, preview.letterhead.village].filter(Boolean).join(' › ')
-                      : user?.village_name || 'Your village'}
+                      : fixedLevel ? user?.location_name || `Your ${fixedLevel}` : user?.village_name || 'Your village'}
                   </span>
-                  <button type="button" className="link-btn" onClick={() => { setPrevLoc(loc); setLoc(locFromVillage(null)); setChangingLoc(true) }}>Change</button>
+                  {fixedLevel
+                    ? <span className="muted small">Letters from a {fixedLevel} leader carry the {fixedLevel} letterhead</span>
+                    : <button type="button" className="link-btn" onClick={() => { setPrevLoc(loc); setLoc(locFromVillage(null)); setChangingLoc(true) }}>Change</button>}
                 </div>
               ) : (
                 <div className="loc-picker">
@@ -357,7 +366,7 @@ export default function Announcements({ user }) {
             </div>
             <div className="form-group checkbox-row">
               <input type="checkbox" id="published" checked={form.published} onChange={set('published')} />
-              <label htmlFor="published" style={{ margin: 0 }}>Publish to citizens of the village</label>
+              <label htmlFor="published" style={{ margin: 0 }}>Publish to citizens of the {fixedLevel || 'village'}</label>
             </div>
             <div className="btn-row">
               <button className="btn" disabled={!!busy}>{busy === 'save' ? 'Saving…' : editingId ? 'Save changes' : 'Save'}</button>
@@ -379,16 +388,16 @@ export default function Announcements({ user }) {
                         <div>{/kigali/i.test(preview.letterhead.province) ? 'UMUJYI WA KIGALI' : `INTARA Y'${preview.letterhead.province.toUpperCase()}`}</div>
                         <div>AKARERE KA {preview.letterhead.district.toUpperCase()}</div>
                         <div>UMURENGE WA {preview.letterhead.sector.toUpperCase()}</div>
-                        <div>AKAGARI KA {preview.letterhead.cell.toUpperCase()}</div>
-                        <div>UMUDUGUDU W{/^[aeiou]/i.test(preview.letterhead.village) ? "'" : 'A '}{preview.letterhead.village.toUpperCase()}</div>
+                        {preview.letterhead.cell && <div>AKAGARI KA {preview.letterhead.cell.toUpperCase()}</div>}
+                        {preview.letterhead.village && <div>UMUDUGUDU W{/^[aeiou]/i.test(preview.letterhead.village) ? "'" : 'A '}{preview.letterhead.village.toUpperCase()}</div>}
                       </>
                     ) : (
                       <>
                         <div>{/kigali/i.test(preview.letterhead.province) ? 'CITY OF KIGALI' : `${preview.letterhead.province.toUpperCase()} PROVINCE`}</div>
                         <div>{preview.letterhead.district.toUpperCase()} DISTRICT</div>
                         <div>{preview.letterhead.sector.toUpperCase()} SECTOR</div>
-                        <div>{preview.letterhead.cell.toUpperCase()} CELL</div>
-                        <div>{preview.letterhead.village.toUpperCase()} VILLAGE</div>
+                        {preview.letterhead.cell && <div>{preview.letterhead.cell.toUpperCase()} CELL</div>}
+                        {preview.letterhead.village && <div>{preview.letterhead.village.toUpperCase()} VILLAGE</div>}
                       </>
                     )}
                   </div>
@@ -404,7 +413,7 @@ export default function Announcements({ user }) {
       )}
 
       <div className="card">
-        <h2 className="card-title">{canCreate ? 'Saved announcements' : 'Announcements from your village'}</h2>
+        <h2 className="card-title">{canCreate ? 'Saved announcements' : 'Announcements from your leaders'}</h2>
         {items.length > 0 && <DateFilter from={range.from} to={range.to} onChange={setRange} />}
         {loading ? (
           <Spinner label="Loading announcements…" />
@@ -417,7 +426,7 @@ export default function Announcements({ user }) {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Created</th><th>Letter date</th><th>Type</th><th>Event</th><th>Village</th>
+                  <th>Created</th><th>Letter date</th><th>Type</th><th>Event</th><th>Area</th>
                   {canCreate && <th>Status</th>}
                   <th>Open</th>
                   {canCreate && <th>Manage</th>}
@@ -430,7 +439,7 @@ export default function Announcements({ user }) {
                     <td>{a.letter_date}</td>
                     <td>{a.kind_display}<div className="muted small">{a.language_display}{a.title ? ` · ${a.title}` : ''}</div></td>
                     <td>{a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}{a.venue ? <div className="muted small">{a.venue}</div> : null}</td>
-                    <td>{a.village_name || '—'}</td>
+                    <td>{a.village_name || '—'}{a.village_name && <div className="muted small">{AREA_LABEL[String(a.village).length] || ''}</div>}</td>
                     {canCreate && <td><span className={`badge ${a.published ? 'badge-approved' : 'badge-pending'}`}>{a.published ? 'Published' : 'Draft'}</span></td>}
                     <td className="actions-cell">
                       <button className="btn btn-small" onClick={() => view(a)}>View</button>

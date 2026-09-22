@@ -196,6 +196,35 @@ class CitizenTransferFlowTests(TestCase):
             res = self.as_user(other).post(f'/api/citizens/transfers/{transfer.id}/{decision}/', {}, format='json')
             self.assertEqual(res.status_code, 403, decision)
 
+    def test_cell_and_sector_leaders_announce_for_their_whole_area(self):
+        cell_leader = CustomUser.objects.create_user(username='cell', password='x', role='cell_leader', cell=100101,
+                                                     first_name='Cell', last_name='Leader')
+        sector_leader = CustomUser.objects.create_user(username='sector', password='x', role='sector_leader',
+                                                       sector=1001, first_name='Sector', last_name='Leader')
+        body = {'kind': 'umuganda', 'language': 'en', 'event_date': '2026-10-03', 'letter_date': '2026-09-22'}
+        # A cell leader's letter starts with the cell office and its letterhead stops at the cell, whatever village is sent
+        res = self.as_user(cell_leader).post('/api/announcements/preview/', {**body, 'village': TO_VILLAGE}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual((res.data['letterhead']['cell'], res.data['letterhead']['village']), ('Cell A', ''))
+        self.assertTrue(res.data['paragraphs'][1]['text'].startswith('The Office of Cell A Cell'))
+        self.assertEqual(res.data['paragraphs'][-2]['text'], 'Cell Leader')
+        # Sector leader: letterhead ends at the sector, in Kinyarwanda too
+        res = self.as_user(sector_leader).post('/api/announcements/preview/', {**body, 'language': 'rw'}, format='json')
+        self.assertEqual((res.data['letterhead']['sector'], res.data['letterhead']['cell']), ('Sector A', ''))
+        self.assertTrue(res.data['paragraphs'][1]['text'].startswith("Ubuyobozi bw'umurenge wa Sector A"))
+        self.assertEqual(res.data['paragraphs'][-2]['text'], "Umuyobozi w'umurenge wa Sector A")
+        # Published cell and sector letters reach the village leader and citizens below them, village letters stay local
+        Announcement.objects.create(created_by=cell_leader, village=100101, letter_date=datetime.date.today(), published=True)
+        Announcement.objects.create(created_by=sector_leader, village=1001, letter_date=datetime.date.today(), published=True)
+        Announcement.objects.create(created_by=self.receiver, village=TO_VILLAGE, letter_date=datetime.date.today(), published=True)
+        citizen = CustomUser.objects.create_user(username='cit', password='x', role='citizen', village=FROM_VILLAGE)
+        seen = lambda user: sorted(a['village'] for a in self.as_user(user).get('/api/announcements/').data['announcements'])
+        self.assertEqual(seen(citizen), [1001, 100101])
+        self.assertEqual(seen(self.sender), [1001, 100101])
+        self.assertEqual(seen(self.receiver), [1001, TO_VILLAGE])
+        self.assertEqual(seen(cell_leader), [1001, 100101])
+        self.assertEqual(seen(sector_leader), [1001, 100101, TO_VILLAGE])
+
     def test_leader_stats_count_only_the_leaders_own_work(self):
         cell_leader = CustomUser.objects.create_user(username='cell', password='x', role='cell_leader', cell=100101,
                                                      first_name='Cell', last_name='Leader')

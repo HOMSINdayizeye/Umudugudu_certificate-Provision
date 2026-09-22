@@ -205,7 +205,31 @@ def docx_to_pdf(docx_bytes):
     return buf.getvalue()
 
 
+def office_level(chain):
+    """Deepest named level of a location chain: 'village', 'cell' or 'sector' (a cell/sector leader's letters stop there)."""
+    for level in ('village', 'cell', 'sector'):
+        if chain.get(level):
+            return level
+    return 'village'
+
+
+# Wording of "the office of X" and the signing leader's title per level and language
+OFFICE_EN = {'village': 'Village', 'cell': 'Cell', 'sector': 'Sector'}
+OFFICE_RW = {'village': 'umudugudu w', 'cell': 'akagari k', 'sector': 'umurenge w'}
+
+
+def office_name_en(chain):
+    level = office_level(chain)
+    return f"{chain[level]} {OFFICE_EN[level]}"
+
+
+def office_name_rw(chain):
+    level = office_level(chain)
+    return rw_of(chain[level], OFFICE_RW[level])
+
+
 def _letterhead(doc, chain, date_text, lang):
+    # Lines stop at the deepest named level, so a cell leader's letterhead ends with the cell
     if lang == 'rw':
         province = chain['province']
         first = 'UMUJYI WA KIGALI' if 'kigali' in province.lower() else rw_of(province.upper(), "INTARA Y")
@@ -213,17 +237,18 @@ def _letterhead(doc, chain, date_text, lang):
             first,
             f"AKARERE KA {chain['district'].upper()}",
             f"UMURENGE WA {chain['sector'].upper()}",
-            f"AKAGARI KA {chain['cell'].upper()}",
-            rw_of(chain['village'].upper(), 'UMUDUGUDU W'),
+            chain['cell'] and f"AKAGARI KA {chain['cell'].upper()}",
+            chain['village'] and rw_of(chain['village'].upper(), 'UMUDUGUDU W'),
         ]
     else:
         lines = [
             EN_PROVINCE.get(chain['province'].lower(), f"{chain['province'].upper()} PROVINCE"),
             f"{chain['district'].upper()} DISTRICT",
             f"{chain['sector'].upper()} SECTOR",
-            f"{chain['cell'].upper()} CELL",
-            f"{chain['village'].upper()} VILLAGE",
+            chain['cell'] and f"{chain['cell'].upper()} CELL",
+            chain['village'] and f"{chain['village'].upper()} VILLAGE",
         ]
+    lines = [line for line in lines if line]
     table = doc.add_table(rows=1, cols=2)
     left, right = table.rows[0].cells
     for i, line in enumerate(lines):
@@ -678,7 +703,10 @@ def build_table_pdf(title, subtitle, columns, rows):
 
 def announcement_paragraphs(a, chain, leader_name):
     """Paragraphs for an announcement as (style, text) tuples; shared by preview and .docx."""
-    village = chain['village']
+    # "The Office of X Village/Cell/Sector" follows whoever writes the letter
+    office_en = office_name_en(chain)
+    office_rw = office_name_rw(chain)
+    leader_title_en = f'{OFFICE_EN[office_level(chain)]} Leader'
     lang = a.get('language', 'en')
     kind = a.get('kind', 'umuganda')
     partner = (a.get('partner') or '').strip()
@@ -718,7 +746,7 @@ def announcement_paragraphs(a, chain, leader_name):
         if body:
             out.extend(('body', p) for p in body.split('\n') if p.strip())
         elif kind == 'umuganda':
-            text = f"Ubuyobozi {rw_of(rw_of(village, 'umudugudu w'), 'bw')}"
+            text = f"Ubuyobozi {rw_of(office_rw, 'bw')}"
             if partner:
                 text += f' bufatanyije na {partner}'
             text += f' burabamenyesha ko hateganyijwe umuganda rusange kuwa {rw_date(event_date)}'
@@ -738,7 +766,7 @@ def announcement_paragraphs(a, chain, leader_name):
             if reminder:
                 out.append(('body', reminder))
         else:
-            text = f"Ubuyobozi {rw_of(rw_of(village, 'umudugudu w'), 'bw')} burabamenyesha ko hateganyijwe " \
+            text = f"Ubuyobozi {rw_of(office_rw, 'bw')} burabamenyesha ko hateganyijwe " \
                    f"{(a.get('title') or 'inama').strip()} kuwa {rw_date(event_date)}"
             if venue:
                 text += f' ahitwa {venue}'
@@ -750,14 +778,14 @@ def announcement_paragraphs(a, chain, leader_name):
             out.append(('body', text))
         if note:
             out.append(('note', f'Icyitonderwa: {note}'))
-        out.append(('sign_title', f"Umuyobozi {rw_of(rw_of(village, 'umudugudu w'), 'w')}"))
+        out.append(('sign_title', f"Umuyobozi {rw_of(office_rw, 'w')}"))
     else:
         title = (a.get('title') or '').strip() or 'ANNOUNCEMENT'
         out.append(('title', title.upper()))
         if body:
             out.extend(('body', p) for p in body.split('\n') if p.strip())
         elif kind == 'umuganda':
-            text = f'The Office of {village} Village'
+            text = f'The Office of {office_en}'
             if partner:
                 text += f', in collaboration with {partner},'
             text += f' wishes to inform you of forthcoming community work (Umuganda) on {en_long_date(event_date)}'
@@ -777,7 +805,7 @@ def announcement_paragraphs(a, chain, leader_name):
             if reminder:
                 out.append(('body', reminder))
         else:
-            text = f"The Office of {village} Village wishes to inform you of a forthcoming " \
+            text = f"The Office of {office_en} wishes to inform you of a forthcoming " \
                    f"{(a.get('title') or 'meeting').strip().lower()} on {en_long_date(event_date)}"
             if venue:
                 text += f' at {venue}'
@@ -789,13 +817,14 @@ def announcement_paragraphs(a, chain, leader_name):
             out.append(('body', text))
         if note:
             out.append(('note', f'Note: {note}'))
-        out.append(('sign_title', 'Village Leader'))
+        out.append(('sign_title', leader_title_en))
     out.append(('sign_name', leader_name))
     return out
 
 
 def render_announcement(ann, leader):
-    chain = location_chain(ann.village or (ann.created_by.village if ann.created_by else None))
+    # ann.village holds the letter's area code: a village, or the cell/sector of the leader who wrote it
+    chain = location_chain(ann.village or (ann.created_by.scope_code if ann.created_by else None))
     data = {
         'language': ann.language, 'kind': ann.kind, 'title': ann.title, 'partner': ann.partner,
         'venue': ann.venue, 'gathering_point': ann.gathering_point, 'audience': ann.audience,
