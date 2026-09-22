@@ -1,4 +1,5 @@
 import datetime
+import io
 import os
 import shutil
 import tempfile
@@ -208,6 +209,25 @@ class CitizenTransferFlowTests(TestCase):
         self.assertEqual((res.data['letterhead']['cell'], res.data['letterhead']['village']), ('Cell A', ''))
         self.assertTrue(res.data['paragraphs'][1]['text'].startswith('The Office of Cell A Cell'))
         self.assertEqual(res.data['paragraphs'][-2]['text'], 'Cell Leader')
+        # Date, venue, gathering place and times are the bold parts of the letter
+        res = self.as_user(cell_leader).post('/api/announcements/preview/', {
+            **body, 'venue': 'GANZA village', 'start_time': '08:30',
+            'meeting_points': [{'audience': 'Students', 'place': 'DUSAIDI Hall', 'time': '07:45'}],
+        }, format='json')
+        bold = [p['text'] for para in res.data['paragraphs'] for p in para['parts'] if p['bold']]
+        self.assertEqual(bold, ['Saturday, 03 October 2026', 'GANZA village', '8:30 AM', 'DUSAIDI Hall', '7:45 AM'])
+        self.assertEqual(res.data['paragraphs'][2]['text'],
+                         'Students will gather at DUSAIDI Hall at 7:45 AM. Further details about the location and '
+                         'activities will be shared at the gathering point.')
+        # The generated Word letter carries the same bold runs
+        from docx import Document
+        from .documents import render_announcement
+        ann = Announcement(created_by=cell_leader, village=100101, kind='umuganda', language='en', venue='GANZA village',
+                           start_time='08:30', letter_date=datetime.date(2026, 9, 22), event_date=datetime.date(2026, 10, 3))
+        data, filename = render_announcement(ann, cell_leader)
+        runs = [r.text for p in Document(io.BytesIO(data)).paragraphs for r in p.runs if r.bold]
+        self.assertIn('GANZA village', runs)
+        self.assertIn('8:30 AM', runs)
         # Sector leader: letterhead ends at the sector, in Kinyarwanda too
         res = self.as_user(sector_leader).post('/api/announcements/preview/', {**body, 'language': 'rw'}, format='json')
         self.assertEqual((res.data['letterhead']['sector'], res.data['letterhead']['cell']), ('Sector A', ''))

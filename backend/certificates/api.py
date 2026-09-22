@@ -30,7 +30,7 @@ from .serializers import (
     ActivitySerializer, AttendanceSerializer, DeathReportSerializer,
 )
 from .documents import (
-    render_request_document, render_announcement, announcement_paragraphs, location_chain,
+    render_request_document, render_announcement, announcement_paragraphs, paragraph_text, location_chain,
     request_location_id, docx_to_pdf, build_table_docx, build_table_pdf,
 )
 from . import data_management
@@ -770,9 +770,11 @@ def announcement_preview(request):
         return Response({'detail': 'Not allowed.'}, status=status.HTTP_403_FORBIDDEN)
     chain = location_chain(announcement_area(user, request.data.get('village')))
     paragraphs = announcement_paragraphs(request.data, chain, user.display_name)
+    # parts carry the bold flag so the preview highlights places and times like the letter does
     return Response({
         'letterhead': chain,
-        'paragraphs': [{'style': s, 'text': t} for s, t in paragraphs],
+        'paragraphs': [{'style': s, 'text': paragraph_text(parts),
+                        'parts': [{'text': t, 'bold': b} for t, b in parts]} for s, parts in paragraphs],
     })
 
 

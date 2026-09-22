@@ -724,17 +724,22 @@ def announcement_paragraphs(a, chain, leader_name):
         points = [{'audience': audience, 'place': gathering}]
     bracket = f' ({location_details})' if location_details else ''
 
+    # Every paragraph is a list of (text, bold) parts; places, dates and times are bold so they stand out
+    def plain(text):
+        return [(text, False)]
+
     def gathering_paragraph(default_who, will_gather, time_word):
         """One full sentence per gathering point: "<Who> will gather at <place> at <time>." """
-        sentences = []
-        for p in points:
+        parts = []
+        for i, p in enumerate(points):
             who = str(p.get('audience', '')).strip()
-            s = f"{who} {will_gather}" if who else default_who
-            s += f" {str(p['place']).strip()}"
+            parts.append((f"{' ' if i else ''}{who} {will_gather} " if who else f"{' ' if i else ''}{default_who} ", False))
+            parts.append((str(p['place']).strip(), True))
             if str(p.get('time', '')).strip():
-                s += f" {time_word} {fmt_time(p['time'], lang)}"
-            sentences.append(s + '.')
-        return ' '.join(sentences)
+                parts.append((f' {time_word} ', False))
+                parts.append((fmt_time(p['time'], lang), True))
+            parts.append(('.', False))
+        return parts
     note = (a.get('note') or '').strip()
     body = (a.get('body') or '').strip()
     event_date = a.get('event_date')
@@ -742,84 +747,91 @@ def announcement_paragraphs(a, chain, leader_name):
     out = []
     if lang == 'rw':
         title = (a.get('title') or '').strip() or 'ITANGAZO'
-        out.append(('title', title.upper()))
+        out.append(('title', plain(title.upper())))
         if body:
-            out.extend(('body', p) for p in body.split('\n') if p.strip())
+            out.extend(('body', plain(p)) for p in body.split('\n') if p.strip())
         elif kind == 'umuganda':
-            text = f"Ubuyobozi {rw_of(office_rw, 'bw')}"
+            first = [(f"Ubuyobozi {rw_of(office_rw, 'bw')}", False)]
             if partner:
-                text += f' bufatanyije na {partner}'
-            text += f' burabamenyesha ko hateganyijwe umuganda rusange kuwa {rw_date(event_date)}'
+                first.append((f' bufatanyije na {partner}', False))
+            first += [(' burabamenyesha ko hateganyijwe umuganda rusange kuwa ', False), (rw_date(event_date), True)]
             if venue:
-                text += f' ahitwa {venue}'
-            text += '.'
+                first += [(' ahitwa ', False), (venue, True)]
+            first.append(('.', False))
             if start_time:
-                text += f' Umuganda uzatangira saa {start_time}.'
-            out.append(('body', text))
+                first += [(' Umuganda uzatangira saa ', False), (start_time, True), ('.', False)]
+            out.append(('body', first))
             # Where and when people gather, then what will be done (or that details follow on arrival)
             second = gathering_paragraph('Twese tuzahurira', 'bazahurira', 'saa')
+            lead = ' ' if second else ''
             if activities:
-                second += f" Ibikorwa bizakorwa ni: {activities}{bracket}."
+                second.append((f"{lead}Ibikorwa bizakorwa ni: {activities}{bracket}.", False))
             else:
-                second += f" Andi makuru ku hantu n'ibikorwa azatangwa aho tuzahurira{bracket}."
-            out.append(('body', second.strip()))
+                second.append((f"{lead}Andi makuru ku hantu n'ibikorwa azatangwa aho tuzahurira{bracket}.", False))
+            out.append(('body', second))
             if reminder:
-                out.append(('body', reminder))
+                out.append(('body', plain(reminder)))
         else:
-            text = f"Ubuyobozi {rw_of(office_rw, 'bw')} burabamenyesha ko hateganyijwe " \
-                   f"{(a.get('title') or 'inama').strip()} kuwa {rw_date(event_date)}"
+            first = [(f"Ubuyobozi {rw_of(office_rw, 'bw')} burabamenyesha ko hateganyijwe "
+                      f"{(a.get('title') or 'inama').strip()} kuwa ", False), (rw_date(event_date), True)]
             if venue:
-                text += f' ahitwa {venue}'
+                first += [(' ahitwa ', False), (venue, True)]
             if start_time:
-                text += f' guhera saa {start_time}'
-            text += '.'
+                first += [(' guhera saa ', False), (start_time, True)]
+            first.append(('.', False))
             if audience:
-                text += f' Abatumiwe: {audience}.'
-            out.append(('body', text))
+                first.append((f' Abatumiwe: {audience}.', False))
+            out.append(('body', first))
         if note:
-            out.append(('note', f'Icyitonderwa: {note}'))
-        out.append(('sign_title', f"Umuyobozi {rw_of(office_rw, 'w')}"))
+            out.append(('note', plain(f'Icyitonderwa: {note}')))
+        out.append(('sign_title', plain(f"Umuyobozi {rw_of(office_rw, 'w')}")))
     else:
         title = (a.get('title') or '').strip() or 'ANNOUNCEMENT'
-        out.append(('title', title.upper()))
+        out.append(('title', plain(title.upper())))
         if body:
-            out.extend(('body', p) for p in body.split('\n') if p.strip())
+            out.extend(('body', plain(p)) for p in body.split('\n') if p.strip())
         elif kind == 'umuganda':
-            text = f'The Office of {office_en}'
+            first = [(f'The Office of {office_en}', False)]
             if partner:
-                text += f', in collaboration with {partner},'
-            text += f' wishes to inform you of forthcoming community work (Umuganda) on {en_long_date(event_date)}'
+                first.append((f', in collaboration with {partner},', False))
+            first += [(' wishes to inform you of forthcoming community work (Umuganda) on ', False),
+                      (en_long_date(event_date), True)]
             if venue:
-                text += f' at {venue}'
-            text += '.'
+                first += [(' at ', False), (venue, True)]
+            first.append(('.', False))
             if start_time:
-                text += f' The community work (Umuganda) will start at {start_time}.'
-            out.append(('body', text))
+                first += [(' The community work (Umuganda) will start at ', False), (start_time, True), ('.', False)]
+            out.append(('body', first))
             # Where and when people gather, then what will be done (or that details follow on arrival)
             second = gathering_paragraph('We will all gather at', 'will gather at', 'at')
+            lead = ' ' if second else ''
             if activities:
-                second += f" The work will focus on {activities}{bracket}."
+                second.append((f"{lead}The work will focus on {activities}{bracket}.", False))
             else:
-                second += f" Further details about the location and activities will be shared at the gathering point{bracket}."
-            out.append(('body', second.strip()))
+                second.append((f"{lead}Further details about the location and activities will be shared at the gathering point{bracket}.", False))
+            out.append(('body', second))
             if reminder:
-                out.append(('body', reminder))
+                out.append(('body', plain(reminder)))
         else:
-            text = f"The Office of {office_en} wishes to inform you of a forthcoming " \
-                   f"{(a.get('title') or 'meeting').strip().lower()} on {en_long_date(event_date)}"
+            first = [(f"The Office of {office_en} wishes to inform you of a forthcoming "
+                      f"{(a.get('title') or 'meeting').strip().lower()} on ", False), (en_long_date(event_date), True)]
             if venue:
-                text += f' at {venue}'
+                first += [(' at ', False), (venue, True)]
             if start_time:
-                text += f', starting at {start_time}'
-            text += '.'
+                first += [(', starting at ', False), (start_time, True)]
+            first.append(('.', False))
             if audience:
-                text += f' Invited: {audience}.'
-            out.append(('body', text))
+                first.append((f' Invited: {audience}.', False))
+            out.append(('body', first))
         if note:
-            out.append(('note', f'Note: {note}'))
-        out.append(('sign_title', leader_title_en))
-    out.append(('sign_name', leader_name))
+            out.append(('note', plain(f'Note: {note}')))
+        out.append(('sign_title', plain(leader_title_en)))
+    out.append(('sign_name', plain(leader_name)))
     return out
+
+
+def paragraph_text(parts):
+    return ''.join(text for text, _ in parts)
 
 
 def render_announcement(ann, leader):
@@ -840,15 +852,16 @@ def render_announcement(ann, leader):
     _letterhead(doc, chain, date_text, ann.language)
     # Letterhead already ends with one blank line; five in total before the title, three after it
     _blank_lines(doc, 4)
-    for style, text in paragraphs:
+    for style, parts in paragraphs:
+        text = paragraph_text(parts)
         if style == 'title':
             p = _title(doc, text, center=True)
             p.paragraph_format.space_after = Pt(0)
             _blank_lines(doc, 3)
         elif style == 'body':
-            _para(doc, text)
+            _para(doc, parts)
         elif style == 'note':
-            p = _para(doc, text)
+            p = _para(doc, parts)
             for run in p.runs:
                 run.italic = True
         elif style == 'sign_title':

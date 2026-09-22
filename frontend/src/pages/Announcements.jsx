@@ -404,7 +404,9 @@ export default function Announcements({ user }) {
                   <div>{form.letter_date}</div>
                 </div>
                 {preview.paragraphs.map((p, i) => (
-                  <p key={i} className={`letter-${p.style}`}>{p.text}</p>
+                  <p key={i} className={`letter-${p.style}`}>
+                    {(p.parts || [{ text: p.text }]).map((part, j) => part.bold ? <strong key={j}>{part.text}</strong> : part.text)}
+                  </p>
                 ))}
               </div>
             ) : <p className="muted small">Fill in the form to see the letter text.</p>}
