@@ -15,14 +15,18 @@ export default function AreaCitizens({ user }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [q, setQ] = useState('')
+  const [cell, setCell] = useState('all')
   const [village, setVillage] = useState('all')
   const [isibo, setIsibo] = useState('all')
+  const [cells, setCells] = useState([])
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
   const [tab, setTab] = useState('living') // living | deceased
   const [reporting, setReporting] = useState(false)
   const seesDeaths = can(user, 'view:deaths')
   const reportsDeaths = can(user, 'report:deaths')
+  // Sector leaders narrow the list cell by cell; "all" keeps the whole sector
+  const bySector = user?.role === 'sector_leader'
 
   async function load() {
     setError('')
@@ -34,17 +38,28 @@ export default function AreaCitizens({ user }) {
   }
 
   useEffect(() => { load() }, [])
-  useEffect(() => { setPage(1) }, [q, village, isibo])
+  useEffect(() => {
+    if (bySector && user?.sector) api.cells(user.sector).then(setCells).catch(() => {})
+  }, [bySector, user?.sector])
+  useEffect(() => { setPage(1) }, [q, cell, village, isibo])
 
   const citizens = data?.citizens || []
   const area = AREA[user?.role] || 'area'
-  const villages = [...new Map(citizens.map((c) => [String(c.village), c.village_name])).entries()]
+  // A citizen's cell is the first six digits of their village id
+  const cellOf = (c) => String(c.village).slice(0, 6)
+  const cellName = (id) => cells.find((k) => String(k.location_id) === id)?.name || `Cell ${id}`
+  const cellCounts = citizens.reduce((m, c) => m.set(cellOf(c), (m.get(cellOf(c)) || 0) + 1), new Map())
+  const cellOptions = (cells.length ? cells.map((k) => String(k.location_id)) : [...cellCounts.keys()])
+    .map((id) => [id, cellName(id), cellCounts.get(id) || 0])
     .sort((a, b) => a[1].localeCompare(b[1]))
-  const isibos = [...new Set(citizens.filter((c) => String(c.village) === village || village === 'all').map((c) => c.isibo))]
+  const inCell = citizens.filter((c) => cell === 'all' || cellOf(c) === cell)
+  const villages = [...new Map(inCell.map((c) => [String(c.village), c.village_name])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+  const isibos = [...new Set(inCell.filter((c) => String(c.village) === village || village === 'all').map((c) => c.isibo))]
     .sort((a, b) => (a || '').localeCompare(b || ''))
 
   const needle = q.trim().toLowerCase()
-  const visible = citizens
+  const visible = inCell
     .filter((c) => village === 'all' || String(c.village) === village)
     .filter((c) => isibo === 'all' || c.isibo === isibo)
     .filter((c) => !needle || [c.name, c.national_id, c.phone, c.email, c.isibo, c.village_name].join(' ').toLowerCase().includes(needle))
@@ -55,7 +70,7 @@ export default function AreaCitizens({ user }) {
   return (
     <div>
       <div className="page-head">
-        <h1>Citizens in your {area}{data ? ` (${citizens.length})` : ''}</h1>
+        <h1>Citizens in your {area}{data ? ` (${citizens.length})` : ''}{bySector && cell !== 'all' ? ` · ${cellName(cell)} cell (${inCell.length})` : ''}</h1>
         {reportsDeaths && <button className="btn btn-small btn-danger" onClick={() => setReporting(true)}>Report a death</button>}
       </div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -88,11 +103,20 @@ export default function AreaCitizens({ user }) {
             <label>Search</label>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, ID number, phone, isibo…" />
           </div>
+          {bySector && (
+            <div className="form-group">
+              <label>Cell</label>
+              <select value={cell} onChange={(e) => { setCell(e.target.value); setVillage('all'); setIsibo('all') }}>
+                <option value="all">All cells (whole sector)</option>
+                {cellOptions.map(([id, name, count]) => <option key={id} value={id}>{name} ({count})</option>)}
+              </select>
+            </div>
+          )}
           {villages.length > 1 && (
             <div className="form-group">
               <label>Village</label>
               <select value={village} onChange={(e) => { setVillage(e.target.value); setIsibo('all') }}>
-                <option value="all">All villages</option>
+                <option value="all">{bySector && cell !== 'all' ? 'All villages in this cell' : 'All villages'}</option>
                 {villages.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </div>
@@ -115,10 +139,10 @@ export default function AreaCitizens({ user }) {
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
-              title={`Citizens in your ${area}`}
-              columns={['#', 'Name', 'ID number', 'Age', 'Phone', 'Email', 'Village', 'Isibo', 'Registered by', 'Transferred from']}
-              rows={visible.map((c, i) => [i + 1, c.name, c.national_id, c.age, c.phone || '', c.email || '', c.village_name || '',
-                c.isibo || '', c.added_by_name || '', c.transferred_from_village_name || ''])}
+              title={bySector && cell !== 'all' ? `Citizens in ${cellName(cell)} cell` : `Citizens in your ${area}`}
+              columns={['#', 'Name', 'ID number', 'Age', 'Phone', 'Email', ...(bySector ? ['Cell'] : []), 'Village', 'Isibo', 'Registered by', 'Transferred from']}
+              rows={visible.map((c, i) => [i + 1, c.name, c.national_id, c.age, c.phone || '', c.email || '', ...(bySector ? [cellName(cellOf(c))] : []),
+                c.village_name || '', c.isibo || '', c.added_by_name || '', c.transferred_from_village_name || ''])}
             />
             <table className="table">
               <thead>
@@ -128,6 +152,7 @@ export default function AreaCitizens({ user }) {
                   <th>ID number</th>
                   <th>Age</th>
                   <th>Phone</th>
+                  {bySector && cell === 'all' && <th>Cell</th>}
                   {villages.length > 1 && <th>Village</th>}
                   <th>Isibo</th>
                   <th></th>
@@ -141,6 +166,7 @@ export default function AreaCitizens({ user }) {
                     <td>{c.national_id}</td>
                     <td>{c.age || '—'}</td>
                     <td>{c.phone || '—'}</td>
+                    {bySector && cell === 'all' && <td>{cellName(cellOf(c))}</td>}
                     {villages.length > 1 && <td>{c.village_name}</td>}
                     <td>{c.isibo || '—'}</td>
                     <td className="actions-cell">
