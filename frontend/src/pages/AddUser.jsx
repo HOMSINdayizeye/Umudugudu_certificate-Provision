@@ -3,6 +3,7 @@ import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
 import PasswordInput from '../components/PasswordInput.jsx'
+import { phoneInputProps } from '../phone.js'
 
 // Every account role the system knows, in the order shown in dropdowns (also used by the Users page filter)
 export const ROLES = [
@@ -16,9 +17,8 @@ export const ROLES = [
   { value: 'system_admin', label: 'System Admin' },
 ]
 
-// Rwandan number in international form without "+": 250 then 9 digits, e.g. 250791234567
-export const PHONE_PATTERN = '250[0-9]{9}'
-export const PHONE_HINT = 'Format: 250791234567 (12 digits: 250 followed by 9 digits, no + or spaces)'
+// Phone format lives in phone.js; re-exported because the Users page imports it from here
+export { PHONE_PATTERN, PHONE_HINT } from '../phone.js'
 
 // How deep the location must be selected for each role (also used when editing a user)
 export const LOCATION_DEPTH = {
@@ -119,9 +119,8 @@ export default function AddUser() {
         </div>
         <div className="form-group">
           <label>Phone (optional)</label>
-          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="250791234567"
-                 pattern={PHONE_PATTERN} title={PHONE_HINT} inputMode="numeric" maxLength={12} />
-          <div className="field-hint muted">{PHONE_HINT}</div>
+          <input {...phoneInputProps} value={form.phone} onChange={set('phone')} placeholder="0791234567 or 250791234567" />
+          <div className="field-hint muted">{phoneInputProps.title}</div>
         </div>
 
         {form.role !== 'system_admin' && (

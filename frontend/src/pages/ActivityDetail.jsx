@@ -4,6 +4,7 @@ import { api } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Spinner from '../components/Spinner.jsx'
 import { ActivityFormModal } from './Activities.jsx'
+import { phoneInputProps } from '../phone.js'
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString() : '—')
 const fmtTime = (d) => (d ? new Date(d).toLocaleString() : '—')
@@ -288,7 +289,7 @@ function MarkAttendance({ activityId, user, onMarked }) {
                 ? <input value={user.isibo} disabled title="New citizens join your isibo" />
                 : <input value={form.isibo} onChange={set('isibo')} />}
             </div>
-            <div className="form-group"><label>Phone (optional)</label><input value={form.phone} onChange={set('phone')} maxLength={20} /></div>
+            <div className="form-group"><label>Phone (optional)</label><input {...phoneInputProps} value={form.phone} onChange={set('phone')} placeholder="0791234567" /></div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Register & Mark Attended'}</button>

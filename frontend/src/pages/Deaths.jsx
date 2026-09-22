@@ -3,6 +3,7 @@ import { api } from '../api.js'
 import ExportButtons from '../components/ExportButtons.jsx'
 import Pagination from '../components/Pagination.jsx'
 import Spinner from '../components/Spinner.jsx'
+import { phoneInputProps } from '../phone.js'
 
 const PAGE_SIZE = 15
 const fmt = (d) => (d ? new Date(d).toLocaleDateString() : '—')
@@ -282,7 +283,7 @@ export function ReportDeathModal({ user, citizen: preselected, onClose, onDone }
                 </div>
                 <div className="form-row">
                   <div className="form-group"><label>Isibo (optional)</label><input value={form.isibo} onChange={setF('isibo')} /></div>
-                  <div className="form-group"><label>Phone (optional)</label><input value={form.phone} onChange={setF('phone')} maxLength={20} /></div>
+                  <div className="form-group"><label>Phone (optional)</label><input {...phoneInputProps} value={form.phone} onChange={setF('phone')} placeholder="0791234567" /></div>
                 </div>
               </>
             ) : (

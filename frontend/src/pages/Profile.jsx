@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, getToken, setSession } from '../api.js'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
 import PasswordInput from '../components/PasswordInput.jsx'
+import { phoneInputProps } from '../phone.js'
 import Spinner from '../components/Spinner.jsx'
 
 // The signed-in user's own account: details they may edit, and a password change
@@ -91,7 +92,8 @@ export default function Profile({ user, onUpdate }) {
             </div>
             <div className="form-group">
               <label>Phone</label>
-              <input value={form.phone} onChange={set('phone')} placeholder="+250 7xx xxx xxx" />
+              <input {...phoneInputProps} value={form.phone} onChange={set('phone')} placeholder="0791234567 or 250791234567" />
+              <div className="field-hint muted">{phoneInputProps.title}</div>
             </div>
             {user.role !== 'citizen' && <p className="muted small">Your name and phone are printed on the letters you sign.</p>}
             <button className="btn" disabled={busy === 'profile'}>{busy === 'profile' ? 'Saving…' : 'Save Changes'}</button>

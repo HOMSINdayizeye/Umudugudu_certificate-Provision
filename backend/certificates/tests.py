@@ -153,10 +153,20 @@ class CitizenTransferFlowTests(TestCase):
         self.assertEqual((self.sender.first_name, self.sender.phone, self.sender.role, self.sender.cell),
                          ('Jean', '250788000000', 'cell_leader', 100101))
         self.assertTrue(self.sender.check_password('Strong#Pass1'))
-        # Phone must be 250 followed by 9 digits
+        # Phone: 10 digits starting 07, or 12 digits starting 2507; anything else is refused
+        for bad in ('078800000', '07880000000', '25078800000', '2517880000000', '+250788000000', '0688000000'):
+            res = self.as_user(admin).patch(f'/api/users/{self.sender.id}/', {'phone': bad}, format='json')
+            self.assertEqual(res.status_code, 400, bad)
+            self.assertIn('phone', res.data)
         res = self.as_user(admin).patch(f'/api/users/{self.sender.id}/', {'phone': '0788000000'}, format='json')
-        self.assertEqual(res.status_code, 400)
-        self.assertIn('phone', res.data)
+        self.assertEqual(res.status_code, 200, res.data)
+        # Citizens' phones follow the same rule (isibo leaders edit citizens)
+        isibo_leader = CustomUser.objects.create_user(username='isibo', password='x', role='isibo_leader',
+                                                      village=FROM_VILLAGE, isibo='Amahoro')
+        res = self.as_user(isibo_leader).patch(f'/api/citizens/{self.citizen.id}/', {'phone': '079123456'}, format='json')
+        self.assertEqual(res.status_code, 400, res.data)
+        res = self.as_user(isibo_leader).patch(f'/api/citizens/{self.citizen.id}/', {'phone': '250791234567'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
         # A role that needs a location it does not have is refused
         res = self.as_user(admin).patch(f'/api/users/{self.receiver.id}/', {'role': 'sector_leader'}, format='json')
         self.assertEqual(res.status_code, 400)

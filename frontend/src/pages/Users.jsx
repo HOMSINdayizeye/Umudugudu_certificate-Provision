@@ -450,7 +450,7 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
       <div className="form-row">
         <div className="form-group">
           <label>Phone</label>
-          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="250791234567"
+          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="0791234567 or 250791234567"
                  pattern={PHONE_PATTERN} title={PHONE_HINT} inputMode="numeric" maxLength={12} />
           <div className="field-hint muted">{PHONE_HINT}</div>
         </div>

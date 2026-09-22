@@ -52,11 +52,14 @@ def validate_strong_password(value):
     return value
 
 
+PHONE_HINT = 'Enter the phone as 07........ (10 digits) or 2507........ (12 digits), no + or spaces.'
+
+
 def validate_phone_format(value):
-    # Rwandan number in international form without "+": 250 then 9 digits (blank allowed)
+    # Rwandan mobile number: 12 digits when it starts with 2507, 10 digits when it starts with 07 (blank allowed)
     value = (value or '').strip()
-    if value and not re.fullmatch(r'250\d{9}', value):
-        raise serializers.ValidationError('Enter the phone as 25079........ (250 followed by 9 digits, no + or spaces).')
+    if value and not re.fullmatch(r'2507\d{8}|07\d{8}', value):
+        raise serializers.ValidationError(PHONE_HINT)
     return value
 
 
@@ -74,6 +77,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         if CustomUser.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError('A user with this email already exists.')
         return value
+
+    def validate_phone(self, value):
+        return validate_phone_format(value)
 
     def validate(self, attrs):
         if not attrs.get('village'):
@@ -184,6 +190,9 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['first_name', 'last_name', 'phone']
+
+    def validate_phone(self, value):
+        return validate_phone_format(value)
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -415,6 +424,9 @@ class CitizenSerializer(serializers.ModelSerializer):
         if value < 1 or value > 130:
             raise serializers.ValidationError('Enter a valid age.')
         return value
+
+    def validate_phone(self, value):
+        return validate_phone_format(value)
 
 
 class CitizenTransferSerializer(serializers.ModelSerializer):

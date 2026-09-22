@@ -4,6 +4,7 @@ import LocationSelect from '../components/LocationSelect.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import { TransferBadge } from '../components/TransferCitizenModal.jsx'
 import AreaCitizens from './AreaCitizens.jsx'
+import { phoneInputProps } from '../phone.js'
 
 const emptyForm = { first_name: '', last_name: '', email: '', phone: '', national_id: '', age: '', isibo: '' }
 const AREA_LEADERS = ['village_leader', 'cell_leader', 'sector_leader']
@@ -152,7 +153,8 @@ function IsiboCitizens({ user }) {
           </div>
           <div className="form-group">
             <label>Phone number (optional)</label>
-            <input value={form.phone} onChange={set('phone')} maxLength={20} />
+            <input {...phoneInputProps} value={form.phone} onChange={set('phone')} placeholder="0791234567 or 250791234567" />
+            <div className="field-hint muted">{phoneInputProps.title}</div>
           </div>
         </div>
         <div className="form-group">
@@ -246,8 +248,8 @@ function IsiboCitizens({ user }) {
                 </div>
                 <div className="form-group">
                   <label>Phone number (optional)</label>
-                  <input value={editing.phone}
-                         onChange={(e) => setEditing({ ...editing, phone: e.target.value })} maxLength={20} />
+                  <input {...phoneInputProps} value={editing.phone}
+                         onChange={(e) => setEditing({ ...editing, phone: e.target.value })} />
                 </div>
               </div>
               <div className="form-group">
