@@ -647,6 +647,34 @@ def code_lookup(request, code):
     return Response(entry)
 
 
+# ---------- Leader dashboard ----------
+
+@api_view(['GET'])
+def leader_stats(request):
+    """Totals of the leader's own work: letters approved, communications, activities, deaths, transfers, payments."""
+    user = request.user
+    if user.role not in LEADER_STAGE and not is_admin(user):
+        return Response({'detail': 'Only leaders have a work summary.'}, status=status.HTTP_403_FORBIDDEN)
+    # Village leaders are the approver; cell/sector leaders appear by name in the letter's code history
+    approved = CertificateRequest.objects.filter(
+        Q(approved_by=user) | Q(code_history__contains=[{'by': user.display_name}])).distinct()
+    transfers = CitizenTransfer.objects.filter(Q(transferred_by=user) | Q(decided_by=user) | Q(placed_by=user)).distinct()
+    code = None if is_admin(user) else area_code(user)
+    citizens = living() if code is None else citizens_in_area(code)
+    return Response({
+        'approved': approved.count(),
+        'fully_approved': approved.filter(status='approved').count(),
+        'announcements': Announcement.objects.filter(created_by=user).count(),
+        'announcements_published': Announcement.objects.filter(created_by=user, published=True).count(),
+        'activities': Activity.objects.filter(created_by=user).count(),
+        'attendance_marked': Attendance.objects.filter(marked_by=user).count(),
+        'deaths': DeathReport.objects.filter(reported_by=user).count(),
+        'transfers': transfers.count(),
+        'payments': ServicePayment.objects.filter(recorded_by=user).count(),
+        'citizens': citizens.count(),
+    })
+
+
 # ---------- Announcements ----------
 
 def announcements_qs(user):

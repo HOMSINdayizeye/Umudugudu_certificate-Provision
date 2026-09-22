@@ -196,6 +196,46 @@ class CitizenTransferFlowTests(TestCase):
             res = self.as_user(other).post(f'/api/citizens/transfers/{transfer.id}/{decision}/', {}, format='json')
             self.assertEqual(res.status_code, 403, decision)
 
+    def test_leader_stats_count_only_the_leaders_own_work(self):
+        cell_leader = CustomUser.objects.create_user(username='cell', password='x', role='cell_leader', cell=100101,
+                                                     first_name='Cell', last_name='Leader')
+        applicant = CustomUser.objects.create_user(username='app', password='x', role='citizen', village=FROM_VILLAGE)
+        # Two letters the sender issued as village leader, one of them since endorsed by the cell leader
+        for status_, history in (('village_approved', []),
+                                 ('cell_approved', [{'level': 'cell', 'by': cell_leader.display_name}])):
+            CertificateRequest.objects.create(user=applicant, cert_type='conduct', village=FROM_VILLAGE,
+                                              status=status_, approved_by=self.sender, code_history=history)
+        # A letter the receiver issued in the other village
+        CertificateRequest.objects.create(user=applicant, cert_type='conduct', village=TO_VILLAGE,
+                                          status='approved', approved_by=self.receiver)
+        Announcement.objects.create(created_by=self.sender, village=FROM_VILLAGE, letter_date=datetime.date.today(),
+                                    published=True)
+        Announcement.objects.create(created_by=self.sender, village=FROM_VILLAGE, letter_date=datetime.date.today())
+        Activity.objects.create(title='Umuganda', date=datetime.date.today(), location_code=FROM_VILLAGE,
+                                created_by=self.sender)
+        ServicePayment.objects.create(citizen=self.citizen, service='cleaning', trimester=1, year=2026, amount=500,
+                                      recorded_by=self.sender)
+        transfer = self.send_transfer()
+        self.as_user(self.receiver).post(f'/api/citizens/transfers/{transfer.id}/accept/', {'isibo': 'Ubumwe'},
+                                         format='json')
+
+        res = self.as_user(self.sender).get('/api/dashboard/leader/')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(
+            {k: res.data[k] for k in ('approved', 'fully_approved', 'announcements', 'announcements_published',
+                                      'activities', 'deaths', 'transfers', 'payments', 'citizens')},
+            {'approved': 2, 'fully_approved': 0, 'announcements': 2, 'announcements_published': 1,
+             'activities': 1, 'deaths': 0, 'transfers': 1, 'payments': 1, 'citizens': 0})
+        # The cell leader is counted through the endorsement written into the letter's code history; Alice has left their cell
+        res = self.as_user(cell_leader).get('/api/dashboard/leader/')
+        self.assertEqual((res.data['approved'], res.data['citizens']), (1, 0))
+        # The receiving leader counts the transfer they accepted and the citizen now in their village
+        res = self.as_user(self.receiver).get('/api/dashboard/leader/')
+        self.assertEqual((res.data['approved'], res.data['fully_approved'], res.data['transfers'], res.data['citizens']),
+                         (1, 1, 1, 1))
+        # Citizens have no work summary
+        self.assertEqual(self.as_user(applicant).get('/api/dashboard/leader/').status_code, 403)
+
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix='certify-test-media-'))
 class DataManagementTests(TestCase):

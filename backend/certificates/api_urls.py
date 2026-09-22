@@ -29,6 +29,9 @@ urlpatterns = [
     path('codes/', api.code_list, name='api_code_list'),
     path('codes/<str:code>/', api.code_lookup, name='api_code_lookup'),
 
+    # Leader dashboard: totals of the signed-in leader's own work
+    path('dashboard/leader/', api.leader_stats, name='api_leader_stats'),
+
     # Announcements
     path('announcements/', api.announcement_list, name='api_announcement_list'),
     path('announcements/preview/', api.announcement_preview, name='api_announcement_preview'),

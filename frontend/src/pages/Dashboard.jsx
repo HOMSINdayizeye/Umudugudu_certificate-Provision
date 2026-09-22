@@ -5,6 +5,7 @@ import { CodeModal } from '../components/CodeCards.jsx'
 import { CodesSummaryCard, CodesBrowser } from '../components/CodesByType.jsx'
 import CountUp from '../components/CountUp.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import LeaderWorkCard from '../components/LeaderWorkCard.jsx'
 import Spinner from '../components/Spinner.jsx'
 
 // Each summary number counts up in turn: Pending, then Approved, then Rejected, then Total
@@ -103,6 +104,8 @@ export default function Dashboard({ user }) {
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {isLeader && <LeaderWorkCard user={user} />}
 
       {(isLeader || isAdmin) && <CodesSummaryCard codes={codes} onOpen={() => setBrowsingCodes(true)} />}
 

@@ -120,6 +120,7 @@ export const api = {
   markNotificationRead: (id) => request(`/notifications/${id}/read/`, { method: 'POST' }),
   markAllNotificationsRead: () => request('/notifications/read-all/', { method: 'POST' }),
   listCodes: (q = '') => request(`/codes/?q=${encodeURIComponent(q)}`),
+  leaderStats: () => request('/dashboard/leader/'),
   lookupCode: (code) => request(`/codes/${encodeURIComponent(code.trim())}/`),
   downloadByUrl: (url) => request(url.replace(/^\/api/, ''), { blob: true }),
 
