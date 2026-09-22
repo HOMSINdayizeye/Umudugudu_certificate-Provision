@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, getToken, setSession } from '../api.js'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
+import PasswordInput from '../components/PasswordInput.jsx'
 import Spinner from '../components/Spinner.jsx'
 
 // The signed-in user's own account: details they may edit, and a password change
@@ -103,12 +104,12 @@ export default function Profile({ user, onUpdate }) {
           {pwNotice && <div className="alert alert-success">{pwNotice}</div>}
           <div className="form-group">
             <label>Current password</label>
-            <input type="password" value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} required autoComplete="current-password" />
+            <PasswordInput value={pw.current_password} onChange={(e) => setPw({ ...pw, current_password: e.target.value })} required autoComplete="current-password" />
           </div>
           <PasswordField value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} />
           <div className="form-group">
             <label>Confirm new password</label>
-            <input type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required autoComplete="new-password" />
+            <PasswordInput value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required autoComplete="new-password" />
           </div>
           <button className="btn" disabled={busy === 'password'}>{busy === 'password' ? 'Changing…' : 'Change Password'}</button>
         </form>

@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination.jsx'
 import Spinner from '../components/Spinner.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import { passwordIsStrong } from '../components/PasswordField.jsx'
+import PasswordInput from '../components/PasswordInput.jsx'
 import { ROLES, LOCATION_DEPTH, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
 
 // Users come from the server five per page; scrolling past the end (or the page buttons) turns the page
@@ -505,11 +506,11 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
       <div className="form-row">
         <div className="form-group">
           <label>New password</label>
-          <input type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="Leave blank to keep" />
+          <PasswordInput value={form.password} onChange={set('password')} autoComplete="new-password" placeholder="Leave blank to keep" />
         </div>
         <div className="form-group">
           <label>Confirm new password</label>
-          <input type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" placeholder="Repeat the new password" />
+          <PasswordInput value={form.confirm} onChange={set('confirm')} autoComplete="new-password" placeholder="Repeat the new password" />
         </div>
       </div>
 

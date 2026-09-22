@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import PasswordInput from './PasswordInput.jsx'
 
 const RULES = [
   { key: 'length', label: 'At least 8 characters', test: (v) => v.length >= 8 },
@@ -21,7 +22,7 @@ export default function PasswordField({ value, onChange, label = 'Password' }) {
   return (
     <div className="form-group">
       <label>{label}</label>
-      <input type="password" value={value} onChange={onChange} required autoComplete="new-password" />
+      <PasswordInput value={value} onChange={onChange} required autoComplete="new-password" />
       {value && (
         <>
           <div className="strength-bar">

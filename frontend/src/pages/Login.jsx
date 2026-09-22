@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, setSession } from '../api.js'
+import PasswordInput from '../components/PasswordInput.jsx'
 
 export default function Login({ onLogin }) {
   const navigate = useNavigate()
@@ -40,11 +41,11 @@ export default function Login({ onLogin }) {
         </div>
         <div className="form-group">
           <label>Password</label>
-          <input
-            type="password"
+          <PasswordInput
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+            autoComplete="current-password"
           />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Logging in…' : 'Login'}</button>

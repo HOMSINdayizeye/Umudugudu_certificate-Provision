@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
+import PasswordInput from '../components/PasswordInput.jsx'
 
 // Every account role the system knows, in the order shown in dropdowns (also used by the Users page filter)
 export const ROLES = [
@@ -145,7 +146,7 @@ export default function AddUser() {
         <PasswordField value={form.password} onChange={set('password')} />
         <div className="form-group">
           <label>Confirm password</label>
-          <input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" placeholder="Repeat the password" />
+          <PasswordInput value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" placeholder="Repeat the password" />
         </div>
 
         <button className="btn" disabled={loading}>{loading ? 'Creating…' : 'Create User'}</button>

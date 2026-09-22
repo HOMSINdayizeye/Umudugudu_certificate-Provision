@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, setSession } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import PasswordField, { passwordIsStrong } from '../components/PasswordField.jsx'
+import PasswordInput from '../components/PasswordInput.jsx'
 
 export default function Register({ onRegister }) {
   const navigate = useNavigate()
@@ -92,7 +93,7 @@ export default function Register({ onRegister }) {
         <PasswordField value={form.password} onChange={set('password')} />
         <div className="form-group">
           <label>Confirm password</label>
-          <input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
+          <PasswordInput value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
           {form.confirm && form.confirm !== form.password && (
             <div className="field-hint field-hint-error">Passwords do not match.</div>
           )}
