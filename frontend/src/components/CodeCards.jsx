@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import SplitModal from './SplitModal.jsx'
 
 const TYPE_TILE = { conduct: '', residence: 'green', stolen_computer: 'amber', community: 'purple', other: '' }
 
@@ -17,50 +19,91 @@ export function CodeCard({ item, onOpen }) {
   )
 }
 
-// Details of the letter linked to a code
+// The code split into one box per character, coloured by outcome, with a copy button
+export function CodeDigits({ code, tone }) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch { /* clipboard blocked; the code is still readable on screen */ }
+  }
+  return (
+    <div className={`code-digits-wrap ${tone || ''}`}>
+      <div className="code-digits" aria-label={`Code ${code}`}>
+        {[...code].map((ch, i) => <span key={i} className="code-digit">{ch}</span>)}
+      </div>
+      <button type="button" className="code-copy" onClick={copy}>{copied ? 'Copied ✓' : 'Copy code'}</button>
+    </div>
+  )
+}
+
+// Outcome banner: genuine, replaced by a newer code, or not one of ours
+function CodeStatus({ item }) {
+  if (item.valid === false) {
+    return (
+      <div className="code-status code-status-bad" role="alert">
+        <span className="code-status-icon">✕</span>
+        <div><strong>Not a valid code</strong><span>{item.detail || 'No letter issued by this system carries this code.'}</span></div>
+      </div>
+    )
+  }
+  if (item.superseded) {
+    const latest = item.history?.[item.history.length - 1]?.code
+    return (
+      <div className="code-status code-status-warn" role="alert">
+        <span className="code-status-icon">!</span>
+        <div><strong>Replaced by a newer code</strong><span>This code was valid but a later endorsement issued <span className="code-inline">{latest}</span>. Ask for the latest copy of the letter.</span></div>
+      </div>
+    )
+  }
+  return (
+    <div className="code-status code-status-ok" role="status">
+      <span className="code-status-icon">✓</span>
+      <div><strong>Genuine document</strong><span>This code was issued by Umudugudu Certify when the letter was approved.</span></div>
+    </div>
+  )
+}
+
+// Details of the letter linked to a code, or the failed lookup for a code that is not ours
 export function CodeModal({ item, onClose }) {
   if (!item) return null
+  const invalid = item.valid === false
+  const tone = invalid ? 'bad' : item.superseded ? 'warn' : 'ok'
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Verification code">
-        <div className="viewer-head" style={{ padding: 0, border: 'none', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Verification code</h2>
-          <button className="btn btn-small btn-ghost" onClick={onClose}>Close ✕</button>
-        </div>
-        <div className="code-big">{item.code}</div>
-        {item.superseded && (
-          <div className="alert alert-error" style={{ marginTop: '1rem' }}>
-            This code was valid but has been replaced by <strong>{item.history?.[item.history.length - 1]?.code}</strong> after a later endorsement. Ask for the latest copy of the letter.
-          </div>
-        )}
-        {item.valid === false ? (
-          <div className="alert alert-error" style={{ marginTop: '1rem' }}>{item.detail}</div>
-        ) : (
-          <>
-            <dl className="detail-grid" style={{ marginTop: '1.25rem' }}>
-              <dt>Document</dt><dd>{item.cert_type_display}</dd>
-              <dt>Issued to</dt><dd>{item.applicant || '—'}</dd>
-              {item.village_name && (<><dt>Village</dt><dd>{item.village_name}</dd></>)}
-              {item.status_display && (<><dt>Stage</dt><dd><span className={`badge badge-${item.status}`}>{item.status_display}</span></dd></>)}
-              <dt>Approved</dt><dd>{item.approved_at ? new Date(item.approved_at).toLocaleString() : '—'}</dd>
-              <dt>Approved by</dt><dd>{item.approved_by || '—'}</dd>
-              {(item.history || []).length > 0 && (
-                <>
-                  <dt>Code history</dt>
-                  <dd>{item.history.map((h, i) => <div key={i}><span className="code-inline">{h.code}</span> <span className="muted small">{h.level} · {h.by} · {new Date(h.at).toLocaleDateString()}</span></div>)}</dd>
-                </>
-              )}
-              {item.in_scope === false && (<><dt>Note</dt><dd>This letter was issued outside your area, so only the summary is shown.</dd></>)}
-            </dl>
-            {item.in_scope !== false && (
-              <div className="btn-row" style={{ marginTop: '1.25rem' }}>
-                <Link to={`/requests/${item.request_id}`} className="btn" onClick={onClose}>Open request #{item.request_id}</Link>
-              </div>
+    <SplitModal
+      title="Verification code"
+      subtitle={invalid ? 'We checked this code against every letter issued by this system.' : 'Compare it with the code printed in the footer of the letter.'}
+      headline="Every letter carries a code."
+      tagline="A code is issued the moment a letter is approved, so anyone presented with it can confirm it came from this office."
+      onClose={onClose}
+    >
+      <CodeDigits code={item.code} tone={tone} />
+      <CodeStatus item={item} />
+      {!invalid && (
+        <>
+          <dl className="detail-grid split-details">
+            <dt>Document</dt><dd>{item.cert_type_display}</dd>
+            <dt>Issued to</dt><dd>{item.applicant || '—'}</dd>
+            {item.village_name && (<><dt>Village</dt><dd>{item.village_name}</dd></>)}
+            {item.status_display && (<><dt>Stage</dt><dd><span className={`badge badge-${item.status}`}>{item.status_display}</span></dd></>)}
+            <dt>Approved</dt><dd>{item.approved_at ? new Date(item.approved_at).toLocaleString() : '—'}</dd>
+            <dt>Approved by</dt><dd>{item.approved_by || '—'}</dd>
+            {(item.history || []).length > 0 && (
+              <>
+                <dt>Code history</dt>
+                <dd>{item.history.map((h, i) => <div key={i}><span className="code-inline">{h.code}</span> <span className="muted small">{h.level} · {h.by} · {new Date(h.at).toLocaleDateString()}</span></div>)}</dd>
+              </>
             )}
-          </>
-        )}
-        <p className="muted small" style={{ marginTop: '1rem' }}>Codes are shared with cell and village leaders only. Do not give them to applicants.</p>
-      </div>
-    </div>
+            {item.in_scope === false && (<><dt>Note</dt><dd>This letter was issued outside your area, so only the summary is shown.</dd></>)}
+          </dl>
+          {item.in_scope !== false && (
+            <Link to={`/requests/${item.request_id}`} className="btn btn-block" style={{ marginTop: '1.25rem' }} onClick={onClose}>Open request #{item.request_id}</Link>
+          )}
+        </>
+      )}
+      <p className="split-note">Codes are shared with cell and village leaders only. Do not give them to applicants.</p>
+    </SplitModal>
   )
 }

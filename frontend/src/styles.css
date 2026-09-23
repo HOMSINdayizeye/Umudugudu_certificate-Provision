@@ -460,11 +460,81 @@ img { max-width: 100%; }
 .codes-summary-types { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; flex: 1; }
 .codes-summary-type { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.95rem; }
 .codes-summary-btn > .arrow-link { margin-left: auto; }
-.modal.codes-browser { max-width: 900px; }
 .codes-tabs { flex-wrap: wrap; }
 .tab-count { display: inline-block; margin-left: 0.3rem; padding: 0 0.45rem; background: #f0f2f4; color: var(--muted); font-size: 0.7rem; border-radius: 999px; }
 .tab-active .tab-count { background: var(--primary-tint); color: var(--primary-dark); }
 @media (max-width: 700px) { .codes-summary-total { border-right: none; padding-right: 0; align-items: flex-start; } }
+
+/* ===== Split dialog: brand panel on the left, content on the right ===== */
+.split-modal { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); grid-template-rows: minmax(0, 1fr); width: 100%; max-width: 900px; max-height: 92vh; background: var(--card); border-radius: 20px; overflow: hidden; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3); animation: split-in 0.22s ease-out; }
+.split-modal-wide { max-width: 1100px; grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr); }
+@keyframes split-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+.split-brand { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 3vw, 2.5rem); background: linear-gradient(160deg, #f4fafd 0%, var(--primary-tint) 100%); border-right: 1px solid #d5e7f3; min-height: 0; }
+.split-logo { width: 112px; height: 112px; display: grid; place-items: center; background: #fff; border-radius: 18px; box-shadow: 0 10px 30px rgba(5, 109, 170, 0.14); flex-shrink: 0; }
+.split-logo img { width: 68px; height: 68px; object-fit: contain; }
+.split-logo .brand-mark { width: 56px; height: 56px; font-size: 1.3rem; border-radius: 10px; }
+.split-brand-text { display: flex; flex-direction: column; align-items: inherit; gap: 0.6rem; }
+.split-org { font-size: 0.72rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--primary); }
+.split-headline { margin: 0; font-size: clamp(1.4rem, 2.4vw, 1.85rem); line-height: 1.2; color: var(--text); }
+.split-tagline { margin: 0; color: var(--muted); font-size: 0.95rem; line-height: 1.6; max-width: 32ch; }
+.split-body { position: relative; padding: clamp(1.5rem, 4vw, 2.75rem) clamp(1.25rem, 3.5vw, 2.5rem); overflow-y: auto; min-width: 0; min-height: 0; }
+.split-close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; display: grid; place-items: center; background: #fff; border: 1.6px solid var(--border); border-radius: 10px; font-size: 1rem; color: var(--text); cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); transition: border-color 0.15s, color 0.15s; }
+.split-close:hover { border-color: var(--primary); color: var(--primary); }
+.split-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.split-title { margin: 0 3rem 0.35rem 0; font-size: 1.6rem; line-height: 1.2; }
+.split-subtitle { margin: 0 0 1.5rem; color: var(--muted); font-size: 0.95rem; line-height: 1.55; }
+.split-note { margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.82rem; }
+.split-note-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.split-details { grid-template-columns: 130px 1fr; }
+/* Controls inside the dialog take its rounded corners */
+.split-body .btn, .split-body .page-btn, .split-body .code-card, .split-body .tab-count { border-radius: 10px; }
+.split-body .code-card { border-left-width: 1.6px; border-left-color: var(--border); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; }
+.split-body .code-card:hover { border-color: var(--primary-light); }
+.btn-block { width: 100%; }
+
+/* Code as one box per character; tone follows the verification outcome */
+.code-digits-wrap { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
+.code-digits { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.code-digit { flex: 1 1 0; min-width: 26px; max-width: 46px; height: 54px; display: grid; place-items: center; font-family: 'Consolas', 'Courier New', monospace; font-weight: 700; font-size: clamp(1.1rem, 2.2vw, 1.45rem); color: var(--primary-dark); background: var(--primary-tint); border: 1.6px solid #c6ddec; border-radius: 10px; }
+.bad .code-digit { color: #a93226; background: #fdecea; border-color: #f2c4bf; }
+.warn .code-digit { color: #8a6100; background: #fff4d6; border-color: #f0d9a0; }
+.code-copy { align-self: flex-start; background: none; border: none; padding: 0; color: var(--primary); font-family: var(--font); font-weight: 700; font-size: 0.75rem; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; }
+.code-copy:hover { text-decoration: underline; }
+
+/* Outcome banner under the digits */
+.code-status { display: flex; align-items: flex-start; gap: 0.8rem; padding: 0.9rem 1rem; border-radius: 12px; margin-bottom: 1.25rem; font-size: 0.88rem; line-height: 1.45; }
+.code-status strong { display: block; font-size: 0.95rem; margin-bottom: 0.1rem; }
+.code-status-icon { flex-shrink: 0; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; font-weight: 900; font-size: 0.85rem; color: #fff; margin-top: 0.1rem; }
+.code-status-ok { background: #e8f5e9; color: #2e7d32; }
+.code-status-ok .code-status-icon { background: var(--success); }
+.code-status-bad { background: #fdecea; color: #a93226; }
+.code-status-bad .code-status-icon { background: var(--danger); }
+.code-status-warn { background: #fff4d6; color: #8a6100; }
+.code-status-warn .code-status-icon { background: var(--warning); }
+.code-status-warn .code-inline { background: #fff; }
+
+/* Verify form on the codes page */
+.verify-card .form-group input.code-input { font-family: 'Consolas', 'Courier New', monospace; font-weight: 700; font-size: 1.15rem; letter-spacing: 3px; padding: 0.9rem 1rem; }
+.verify-card .form-group input.code-input::placeholder { letter-spacing: 1px; font-weight: 400; font-size: 0.95rem; }
+.verify-hint { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); margin-top: 0.5rem; }
+.verify-hint svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--success); }
+
+@media (max-width: 800px) {
+  .split-modal, .split-modal-wide { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); max-height: 94vh; border-radius: 16px; }
+  .split-brand { flex-direction: row; text-align: left; align-items: center; gap: 0.9rem; padding: 0.9rem 1rem; border-right: none; border-bottom: 1px solid #d5e7f3; }
+  .split-brand-text { gap: 0.1rem; }
+  .split-logo { width: 52px; height: 52px; border-radius: 12px; box-shadow: 0 4px 14px rgba(5, 109, 170, 0.12); }
+  .split-logo img { width: 34px; height: 34px; }
+  .split-logo .brand-mark { width: 30px; height: 30px; font-size: 0.8rem; border-radius: 6px; }
+  .split-org { font-size: 0.62rem; letter-spacing: 2px; }
+  .split-headline { font-size: 1.05rem; }
+  .split-tagline { display: none; }
+  .split-body { padding: 1.25rem 1rem 1.5rem; }
+  .split-close { top: 0.75rem; right: 0.75rem; width: 36px; height: 36px; }
+  .split-title { font-size: 1.3rem; margin-right: 2.5rem; }
+  .split-details { grid-template-columns: 1fr; }
+  .code-digit { height: 48px; }
+}
 
 /* Dashboard "Your work" card: one clickable tile per total, each leading to the page it counts */
 .work-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }

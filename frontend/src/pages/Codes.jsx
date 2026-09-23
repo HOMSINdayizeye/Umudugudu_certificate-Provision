@@ -49,14 +49,18 @@ export default function Codes() {
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="two-col" style={{ marginBottom: '1.25rem' }}>
-        <form className="card" onSubmit={check}>
+        <form className="card verify-card" onSubmit={check}>
           <h2 className="card-title">Verify a document</h2>
           <p className="muted small" style={{ marginTop: 0 }}>Type the code printed in the footer of a letter to confirm it was issued by this system.</p>
           <div className="form-group">
             <label>Verification code</label>
-            <input value={verify} onChange={(e) => setVerify(e.target.value)} placeholder="e.g. 1109030905" />
+            <input className="code-input" value={verify} onChange={(e) => setVerify(e.target.value)} placeholder="e.g. 1109030905" autoComplete="off" spellCheck={false} />
+            <p className="field-hint verify-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z" /><path d="M9 12l2 2 4-4" /></svg>
+              We only check the code against issued letters. Nothing is sent to the applicant.
+            </p>
           </div>
-          <button className="btn" disabled={checking || !verify.trim()}>{checking ? 'Checking…' : 'Verify'}</button>
+          <button className="btn btn-block" disabled={checking || !verify.trim()}>{checking ? 'Checking…' : 'Verify code'}</button>
         </form>
         <div className="card">
           <h2 className="card-title">Search issued codes</h2>

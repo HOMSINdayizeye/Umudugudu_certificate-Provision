@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CodeCard } from './CodeCards.jsx'
 import Pagination from './Pagination.jsx'
+import SplitModal from './SplitModal.jsx'
 
 const PAGE_SIZE = 9
 const TYPE_TILE = { conduct: '', residence: 'green', stolen_computer: 'amber', community: 'purple', other: '' }
@@ -63,35 +64,37 @@ export function CodesBrowser({ codes, onClose, onOpenCode }) {
   function pick(next) { setTab(next); setPage(1) }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal codes-browser" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="All verification codes">
-        <div className="viewer-head" style={{ padding: 0, border: 'none', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Verification codes</h2>
-          <button className="btn btn-small btn-ghost" onClick={onClose}>Close ✕</button>
-        </div>
-        <div className="tabs codes-tabs">
-          <button type="button" className={tab === 'all' ? 'tab tab-active' : 'tab'} onClick={() => pick('all')}>All <span className="tab-count">{codes.length}</span></button>
-          {groups.map((g) => (
-            <button key={g.type} type="button" className={tab === g.type ? 'tab tab-active' : 'tab'} onClick={() => pick(g.type)}>
-              {g.label} <span className="tab-count">{g.items.length}</span>
-            </button>
-          ))}
-        </div>
-        {visible.length === 0 ? (
-          <p className="muted">No codes for this request type.</p>
-        ) : (
-          <>
-            <div className="code-grid">
-              {pageItems.map((c) => <CodeCard key={c.code} item={c} onOpen={onOpenCode} />)}
-            </div>
-            <Pagination page={current} totalPages={totalPages} total={visible.length} label="code" onChange={setPage} />
-          </>
-        )}
-        <div className="btn-row" style={{ marginTop: '1.25rem', justifyContent: 'space-between' }}>
-          <p className="muted small" style={{ margin: 0 }}>Codes are shared with cell and village leaders only. Do not give them to applicants.</p>
-          <Link to="/codes" className="arrow-link" onClick={onClose}>Search & verify →</Link>
-        </div>
+    <SplitModal
+      wide
+      title="Verification codes"
+      subtitle="Every code issued in your area, grouped by the document it was printed on. Click one to see the letter behind it."
+      headline="All codes, one place."
+      tagline={`${codes.length} code${codes.length === 1 ? '' : 's'} issued across ${groups.length} document type${groups.length === 1 ? '' : 's'}.`}
+      label="All verification codes"
+      onClose={onClose}
+    >
+      <div className="tabs codes-tabs">
+        <button type="button" className={tab === 'all' ? 'tab tab-active' : 'tab'} onClick={() => pick('all')}>All <span className="tab-count">{codes.length}</span></button>
+        {groups.map((g) => (
+          <button key={g.type} type="button" className={tab === g.type ? 'tab tab-active' : 'tab'} onClick={() => pick(g.type)}>
+            {g.label} <span className="tab-count">{g.items.length}</span>
+          </button>
+        ))}
       </div>
-    </div>
+      {visible.length === 0 ? (
+        <p className="muted">No codes for this request type.</p>
+      ) : (
+        <>
+          <div className="code-grid">
+            {pageItems.map((c) => <CodeCard key={c.code} item={c} onOpen={onOpenCode} />)}
+          </div>
+          <Pagination page={current} totalPages={totalPages} total={visible.length} label="code" onChange={setPage} />
+        </>
+      )}
+      <div className="split-note split-note-row">
+        <span>Codes are shared with cell and village leaders only. Do not give them to applicants.</span>
+        <Link to="/codes" className="arrow-link" onClick={onClose}>Search & verify →</Link>
+      </div>
+    </SplitModal>
   )
 }
