@@ -533,7 +533,9 @@ img { max-width: 100%; }
   .split-close { top: 0.75rem; right: 0.75rem; width: 36px; height: 36px; }
   .split-title { font-size: 1.3rem; margin-right: 2.5rem; }
   .split-details { grid-template-columns: 1fr; }
-  .code-digit { height: 48px; }
+  .split-body .tab { padding: 0.6rem 0.75rem; font-size: 0.72rem; }
+  .code-digits { gap: 0.3rem; }
+  .code-digit { height: 46px; min-width: 22px; font-size: 1.05rem; }
 }
 
 /* Dashboard "Your work" card: one clickable tile per total, each leading to the page it counts */
