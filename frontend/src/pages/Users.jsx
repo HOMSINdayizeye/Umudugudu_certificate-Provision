@@ -7,7 +7,7 @@ import Spinner from '../components/Spinner.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import { passwordIsStrong } from '../components/PasswordField.jsx'
 import PasswordInput from '../components/PasswordInput.jsx'
-import { ROLES, LOCATION_DEPTH, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
+import { ROLES, LOCATION_DEPTH, AUTHORITY_LABEL, PHONE_PATTERN, PHONE_HINT } from './AddUser.jsx'
 
 // Users come from the server five per page; scrolling past the end (or the page buttons) turns the page
 const PAGE_SIZE = 5
@@ -472,7 +472,7 @@ function EditUserForm({ user, isSelf, onCancel, onSaved }) {
       {form.role !== 'system_admin' && (
         <>
           <div className="section-title">
-            {form.role === 'sector_leader' ? 'Sector of authority' : form.role === 'cell_leader' ? 'Cell of authority' : 'Location'}
+            {AUTHORITY_LABEL[form.role] || 'Location'}
           </div>
           {!needsPlace ? (
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>

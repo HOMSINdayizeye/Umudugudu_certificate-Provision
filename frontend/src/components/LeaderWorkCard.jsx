@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, can } from '../api.js'
 import CountUp from './CountUp.jsx'
+import { YOUTH_ROLES } from '../citizen.js'
 
 const COUNT_MS = 450
 
@@ -15,11 +16,13 @@ export default function LeaderWorkCard({ user }) {
 
   if (!stats) return null
 
+  // Youth leaders never approve letters and only count the youth of their area
+  const youth = YOUTH_ROLES.includes(user?.role)
   const tiles = [
-    { key: 'approved', label: 'Letters approved', hint: `${stats.fully_approved} fully approved`, to: '/documents' },
+    ...(youth ? [] : [{ key: 'approved', label: 'Letters approved', hint: `${stats.fully_approved} fully approved`, to: '/documents' }]),
     { key: 'announcements', label: 'Communications', hint: `${stats.announcements_published} published`, to: '/announcements' },
     { key: 'activities', label: 'Activities', hint: `${stats.attendance_marked} attendance marks`, to: '/activities', perm: 'view:activities' },
-    { key: 'citizens', label: 'Citizens in area', to: '/citizens', perm: 'view:citizens' },
+    { key: 'citizens', label: youth ? 'Youth in area' : 'Citizens in area', to: '/citizens', perm: 'view:citizens' },
     { key: 'transfers', label: 'Transfers handled', to: '/transfers', perm: 'view:transfers' },
     { key: 'deaths', label: 'Deaths reported', to: '/citizens', perm: 'view:citizens' },
     { key: 'payments', label: 'Payments recorded', to: '/payments', perm: 'view:payments' },

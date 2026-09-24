@@ -13,10 +13,14 @@ class CustomUser(AbstractUser):
         ('village_leader', 'Village Leader'),
         ('cell_leader', 'Cell Leader'),
         ('sector_leader', 'Sector Leader'),
+        ('cell_youth_leader', 'Cell Youth Leader'),
+        ('sector_youth_leader', 'Sector Youth Leader'),
         ('security_volunteer', 'Security Volunteer'),
         ('cleaning_volunteer', 'Cleaning Service Volunteer'),
         ('system_admin', 'System Admin'),
     ]
+    # Youth leaders see only the youth of their cell/sector and write announcements for them
+    YOUTH_ROLES = ('cell_youth_leader', 'sector_youth_leader')
 
     is_eligible = models.BooleanField(default=False)
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='citizen')
@@ -47,9 +51,9 @@ class CustomUser(AbstractUser):
     @property
     def scope_code(self):
         # Location code this user's authority covers (prefix of child location ids)
-        if self.role == 'sector_leader':
+        if self.role in ('sector_leader', 'sector_youth_leader'):
             return self.sector
-        if self.role == 'cell_leader':
+        if self.role in ('cell_leader', 'cell_youth_leader'):
             return self.cell
         if self.role in ('village_leader', 'isibo_leader', 'security_volunteer', 'cleaning_volunteer'):
             return self.village
@@ -167,11 +171,18 @@ class Location(models.Model):
 
 class Citizen(models.Model):
     """Citizen registry record maintained by the isibo leader (not a login account)."""
+    ID_TYPE_CHOICES = [('national_id', 'National ID'), ('passport', 'Passport')]
+    # Citizens aged 16 to 30 inclusive count as youth; everyone else is an ordinary citizen
+    YOUTH_MIN, YOUTH_MAX = 16, 30
+    CATEGORY_LABELS = {'youth': 'Youth', 'citizen': 'Citizen'}
+
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True, default='')
     phone = models.CharField(max_length=20, blank=True, default='')
-    national_id = models.CharField(max_length=16)
+    # A 16-digit national ID (its digits 2-5 are the birth year) or a passport number
+    id_type = models.CharField(max_length=12, choices=ID_TYPE_CHOICES, default='national_id')
+    national_id = models.CharField(max_length=20)
     age = models.PositiveIntegerField()
     village = models.IntegerField()
     isibo = models.CharField(max_length=100, blank=True, default='')
@@ -191,6 +202,14 @@ class Citizen(models.Model):
     @property
     def awaiting_isibo(self):
         return self.transferred_from_village is not None and self.transfer_placed_at is None
+
+    @property
+    def is_youth(self):
+        return self.age is not None and self.YOUTH_MIN <= self.age <= self.YOUTH_MAX
+
+    @property
+    def category(self):
+        return 'youth' if self.is_youth else 'citizen'
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.national_id})"
@@ -449,6 +468,8 @@ class Announcement(models.Model):
     body = models.TextField(blank=True, default='')
     note = models.TextField(blank=True, default='')
     published = models.BooleanField(default=False)
+    # Written by a youth leader: addressed to the youth of the area and signed as youth leader
+    for_youth = models.BooleanField(default=False)
     # The rendered letter is kept on disk so it can be downloaded again later
     generated_document = models.FileField(upload_to='announcements/', blank=True, null=True)
     generated_at = models.DateTimeField(null=True, blank=True)

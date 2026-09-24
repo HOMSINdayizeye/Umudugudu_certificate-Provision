@@ -5,11 +5,14 @@ import Pagination from '../components/Pagination.jsx'
 import Spinner from '../components/Spinner.jsx'
 import { TransferCitizenModal, PlaceCitizenModal, TransferBadge } from '../components/TransferCitizenModal.jsx'
 import Deaths, { ReportDeathModal } from './Deaths.jsx'
+import CategoryBadge from '../components/CategoryBadge.jsx'
+import { YOUTH_ROLES, YOUTH_MIN, YOUTH_MAX } from '../citizen.js'
 
 const PAGE_SIZE = 10
-const AREA = { village_leader: 'village', cell_leader: 'cell', sector_leader: 'sector' }
+const AREA = { village_leader: 'village', cell_leader: 'cell', sector_leader: 'sector', cell_youth_leader: 'cell', sector_youth_leader: 'sector' }
 
 // Village / cell / sector leader: every registered citizen living in their area, read-only with transfer actions.
+// Youth leaders get the same view limited by the server to the youth (16–30) of their cell or sector.
 export default function AreaCitizens({ user }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -18,6 +21,7 @@ export default function AreaCitizens({ user }) {
   const [cell, setCell] = useState('all')
   const [village, setVillage] = useState('all')
   const [isibo, setIsibo] = useState('all')
+  const [category, setCategory] = useState('all') // all | youth | citizen
   const [cells, setCells] = useState([])
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState(null)
@@ -25,8 +29,9 @@ export default function AreaCitizens({ user }) {
   const [reporting, setReporting] = useState(false)
   const seesDeaths = can(user, 'view:deaths')
   const reportsDeaths = can(user, 'report:deaths')
+  const youthOnly = YOUTH_ROLES.includes(user?.role)
   // Sector leaders narrow the list cell by cell; "all" keeps the whole sector
-  const bySector = user?.role === 'sector_leader'
+  const bySector = ['sector_leader', 'sector_youth_leader'].includes(user?.role)
 
   async function load() {
     setError('')
@@ -41,10 +46,12 @@ export default function AreaCitizens({ user }) {
   useEffect(() => {
     if (bySector && user?.sector) api.cells(user.sector).then(setCells).catch(() => {})
   }, [bySector, user?.sector])
-  useEffect(() => { setPage(1) }, [q, cell, village, isibo])
+  useEffect(() => { setPage(1) }, [q, cell, village, isibo, category])
 
   const citizens = data?.citizens || []
   const area = AREA[user?.role] || 'area'
+  const people = youthOnly ? 'Youth' : 'Citizens'
+  const youthCount = citizens.filter((c) => c.category === 'youth').length
   // A citizen's cell is the first six digits of their village id
   const cellOf = (c) => String(c.village).slice(0, 6)
   const cellName = (id) => cells.find((k) => String(k.location_id) === id)?.name || `Cell ${id}`
@@ -62,6 +69,7 @@ export default function AreaCitizens({ user }) {
   const visible = inCell
     .filter((c) => village === 'all' || String(c.village) === village)
     .filter((c) => isibo === 'all' || c.isibo === isibo)
+    .filter((c) => category === 'all' || c.category === category)
     .filter((c) => !needle || [c.name, c.national_id, c.phone, c.email, c.isibo, c.village_name].join(' ').toLowerCase().includes(needle))
   const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
   const current = Math.min(page, totalPages)
@@ -70,7 +78,16 @@ export default function AreaCitizens({ user }) {
   return (
     <div>
       <div className="page-head">
-        <h1>Citizens in your {area}{data ? ` (${citizens.length})` : ''}{bySector && cell !== 'all' ? ` · ${cellName(cell)} cell (${inCell.length})` : ''}</h1>
+        <div>
+          <h1>{people} in your {area}{data ? ` (${citizens.length})` : ''}{bySector && cell !== 'all' ? ` · ${cellName(cell)} cell (${inCell.length})` : ''}</h1>
+          {data && citizens.length > 0 && (
+            <p className="muted small" style={{ margin: '0.25rem 0 0' }}>
+              {youthOnly
+                ? `Only citizens aged ${YOUTH_MIN} to ${YOUTH_MAX} registered in your ${area} are listed.`
+                : `${youthCount} youth (${YOUTH_MIN}–${YOUTH_MAX}) · ${citizens.length - youthCount} other citizens`}
+            </p>
+          )}
+        </div>
         {reportsDeaths && <button className="btn btn-small btn-danger" onClick={() => setReporting(true)}>Report a death</button>}
       </div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -128,20 +145,30 @@ export default function AreaCitizens({ user }) {
               {isibos.map((n) => <option key={n || '_none'} value={n}>{n || '(no isibo)'}</option>)}
             </select>
           </div>
+          {!youthOnly && (
+            <div className="form-group">
+              <label>Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="all">Everyone</option>
+                <option value="youth">Youth ({YOUTH_MIN}–{YOUTH_MAX})</option>
+                <option value="citizen">Other citizens</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {!data ? (
           <Spinner label="Loading citizens…" />
         ) : citizens.length === 0 ? (
-          <p className="muted">No citizens are registered in your {area} yet. Isibo leaders add citizens.</p>
+          <p className="muted">No {people.toLowerCase()} are registered in your {area} yet. Isibo leaders add citizens.</p>
         ) : visible.length === 0 ? (
-          <p className="muted">No citizens match these filters.</p>
+          <p className="muted">No {people.toLowerCase()} match these filters.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
-              title={bySector && cell !== 'all' ? `Citizens in ${cellName(cell)} cell` : `Citizens in your ${area}`}
-              columns={['#', 'Name', 'ID number', 'Age', 'Phone', 'Email', ...(bySector ? ['Cell'] : []), 'Village', 'Isibo', 'Registered by', 'Transferred from']}
-              rows={visible.map((c, i) => [i + 1, c.name, c.national_id, c.age, c.phone || '', c.email || '', ...(bySector ? [cellName(cellOf(c))] : []),
+              title={bySector && cell !== 'all' ? `${people} in ${cellName(cell)} cell` : `${people} in your ${area}`}
+              columns={['#', 'Name', 'ID number', 'Age', 'Category', 'Phone', 'Email', ...(bySector ? ['Cell'] : []), 'Village', 'Isibo', 'Registered by', 'Transferred from']}
+              rows={visible.map((c, i) => [i + 1, c.name, c.national_id, c.age, c.category_display || '', c.phone || '', c.email || '', ...(bySector ? [cellName(cellOf(c))] : []),
                 c.village_name || '', c.isibo || '', c.added_by_name || '', c.transferred_from_village_name || ''])}
             />
             <table className="table">
@@ -151,6 +178,7 @@ export default function AreaCitizens({ user }) {
                   <th>Name</th>
                   <th>ID number</th>
                   <th>Age</th>
+                  {!youthOnly && <th>Category</th>}
                   <th>Phone</th>
                   {bySector && cell === 'all' && <th>Cell</th>}
                   {villages.length > 1 && <th>Village</th>}
@@ -163,8 +191,9 @@ export default function AreaCitizens({ user }) {
                   <tr key={c.id} className="row-clickable" onClick={() => setSelected(c)}>
                     <td>{(current - 1) * PAGE_SIZE + idx + 1}</td>
                     <td>{c.name}<TransferBadge citizen={c} /></td>
-                    <td>{c.national_id}</td>
+                    <td>{c.national_id}{c.id_type === 'passport' && <div className="muted small">Passport</div>}</td>
                     <td>{c.age || '—'}</td>
+                    {!youthOnly && <td><CategoryBadge category={c.category} /></td>}
                     <td>{c.phone || '—'}</td>
                     {bySector && cell === 'all' && <td>{cellName(cellOf(c))}</td>}
                     {villages.length > 1 && <td>{c.village_name}</td>}
@@ -240,8 +269,8 @@ function CitizenDetailModal({ citizen, user, canTransfer, canPlace, canDelete, c
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>{citizen.name}</h2>
         <dl className="detail-grid">
-          <dt>ID number</dt><dd>{citizen.national_id}</dd>
-          <dt>Age</dt><dd>{citizen.age || '—'}</dd>
+          <dt>{citizen.id_type === 'passport' ? 'Passport number' : 'ID number'}</dt><dd>{citizen.national_id}</dd>
+          <dt>Age</dt><dd>{citizen.age || '—'} <CategoryBadge category={citizen.category} /></dd>
           <dt>Phone</dt><dd>{citizen.phone || '—'}</dd>
           <dt>Email</dt><dd>{citizen.email || '—'}</dd>
           <dt>Village</dt><dd>{citizen.village_name}</dd>

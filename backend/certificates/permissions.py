@@ -75,6 +75,9 @@ ROLE_DEFAULTS = {
                       'create:announcements'] + _ACTIVITIES,
     'security_volunteer': list(_VOLUNTEER),
     'cleaning_volunteer': list(_VOLUNTEER),
+    # Youth leaders view the youth (16-30) of their cell/sector and announce to them
+    'cell_youth_leader': ['view:citizens', 'create:announcements'],
+    'sector_youth_leader': ['view:citizens', 'create:announcements'],
     'system_admin': list(ALL_KEYS),
 }
 

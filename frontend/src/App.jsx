@@ -21,6 +21,7 @@ import DataManagement from './pages/DataManagement.jsx'
 import Activities from './pages/Activities.jsx'
 import ActivityDetail from './pages/ActivityDetail.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
+import { YOUTH_ROLES } from './citizen.js'
 
 const LEADER_ROLES = ['village_leader', 'cell_leader', 'sector_leader']
 
@@ -93,7 +94,7 @@ export default function App() {
           {user ? (
             <>
               <NavLink to="/" end>Dashboard</NavLink>
-              {!isAdmin && !LEADER_ROLES.includes(user.role) && <NavLink to="/submit">Apply</NavLink>}
+              {!isAdmin && !LEADER_ROLES.includes(user.role) && !YOUTH_ROLES.includes(user.role) && <NavLink to="/submit">Apply</NavLink>}
               <NavLink to="/announcements">Announcements</NavLink>
               <NavLink to="/documents">Documents</NavLink>
               {(isAdmin || LEADER_ROLES.includes(user.role)) && <NavLink to="/codes">Codes</NavLink>}

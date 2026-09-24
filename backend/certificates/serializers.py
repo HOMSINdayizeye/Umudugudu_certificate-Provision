@@ -1,3 +1,4 @@
+import datetime
 import re
 
 from rest_framework import serializers
@@ -63,6 +64,22 @@ def validate_phone_format(value):
     return value
 
 
+NATIONAL_ID_HINT = 'A national ID has 16 digits, e.g. 1200280342388011.'
+PASSPORT_HINT = 'A passport number has 6 to 20 letters and digits.'
+
+
+def age_from_national_id(value, today=None):
+    """Age implied by a Rwandan national ID (digits 2-5 are the birth year), or None when it cannot be read."""
+    value = (value or '').strip()
+    if not re.fullmatch(r'\d{16}', value):
+        return None
+    year = int(value[1:5])
+    current = (today or datetime.date.today()).year
+    if year < 1900 or year > current:
+        return None
+    return current - year
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_strong_password])
 
@@ -99,6 +116,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 LOCATION_REQUIRED_BY_ROLE = {
     'sector_leader': 'sector',
     'cell_leader': 'cell',
+    'sector_youth_leader': 'sector',
+    'cell_youth_leader': 'cell',
     'village_leader': 'village',
     'isibo_leader': 'village',
     'security_volunteer': 'village',
@@ -345,11 +364,11 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'kind', 'kind_display', 'language', 'language_display', 'title', 'letter_date', 'event_date',
             'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'meeting_points', 'location_details',
-            'activities', 'reminder', 'body', 'note', 'published',
+            'activities', 'reminder', 'body', 'note', 'published', 'for_youth',
             'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
             'has_document', 'generated_at',
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at', 'generated_at']
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'generated_at', 'for_youth']
 
     def get_has_document(self, obj):
         return bool(obj.generated_document)
@@ -375,12 +394,17 @@ class CitizenSerializer(serializers.ModelSerializer):
     transferred_from_village_name = serializers.SerializerMethodField()
     awaiting_isibo = serializers.BooleanField(read_only=True)
     pending_transfer = serializers.SerializerMethodField()
+    id_type_display = serializers.CharField(source='get_id_type_display', read_only=True)
+    category = serializers.CharField(read_only=True)
+    category_display = serializers.SerializerMethodField()
+    # Optional on input: a national ID carries the birth year, so the age is derived from it
+    age = serializers.IntegerField(required=False)
 
     class Meta:
         model = Citizen
         fields = [
-            'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'national_id',
-            'age', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
+            'id', 'first_name', 'last_name', 'name', 'email', 'phone', 'id_type', 'id_type_display', 'national_id',
+            'age', 'category', 'category_display', 'village', 'village_name', 'isibo', 'added_by_name', 'created_at',
             'transferred_from_village', 'transferred_from_village_name', 'transferred_from_isibo',
             'transferred_at', 'transfer_placed_at', 'awaiting_isibo', 'status', 'pending_transfer',
         ]
@@ -412,7 +436,11 @@ class CitizenSerializer(serializers.ModelSerializer):
             'note': t.note, 'transferred_at': t.transferred_at, 'transferred_by_name': user_name(t.transferred_by),
         }
 
+    def get_category_display(self, obj):
+        return Citizen.CATEGORY_LABELS[obj.category]
+
     def validate_national_id(self, value):
+        value = (value or '').strip().upper()
         qs = Citizen.objects.filter(national_id=value)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
@@ -427,6 +455,26 @@ class CitizenSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         return validate_phone_format(value)
+
+    def validate(self, attrs):
+        # Judge the document against the values as they will be after saving (edits may send only some fields)
+        current = self.instance
+        id_type = attrs.get('id_type', current.id_type if current else 'national_id')
+        number = attrs.get('national_id', current.national_id if current else '')
+        if id_type == 'national_id':
+            if not re.fullmatch(r'\d{16}', number):
+                raise serializers.ValidationError({'national_id': NATIONAL_ID_HINT})
+            derived = age_from_national_id(number)
+            if derived is None:
+                raise serializers.ValidationError({'national_id': 'The birth year in this ID is not valid.'})
+            # The ID is authoritative for the age, whatever was typed
+            attrs['age'] = derived
+        else:
+            if not re.fullmatch(r'[A-Za-z0-9]{6,20}', number):
+                raise serializers.ValidationError({'national_id': PASSPORT_HINT})
+            if attrs.get('age') is None and not (current and current.age):
+                raise serializers.ValidationError({'age': 'Enter the age; a passport does not carry the birth year.'})
+        return attrs
 
 
 class CitizenTransferSerializer(serializers.ModelSerializer):

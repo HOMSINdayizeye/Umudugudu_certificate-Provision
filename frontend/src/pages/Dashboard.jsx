@@ -7,6 +7,7 @@ import CountUp from '../components/CountUp.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
 import LeaderWorkCard from '../components/LeaderWorkCard.jsx'
 import Spinner from '../components/Spinner.jsx'
+import { YOUTH_ROLES } from '../citizen.js'
 
 // Each summary number counts up in turn: Pending, then Approved, then Rejected, then Total
 const COUNT_MS = 550
@@ -37,6 +38,8 @@ export default function Dashboard({ user }) {
   const [page, setPage] = useState(1)
 
   const isLeader = LEADER_ROLES.includes(user?.role)
+  // Youth leaders do not approve letters, so they keep the citizen request list but get the work card
+  const isYouthLeader = YOUTH_ROLES.includes(user?.role)
   const isAdmin = user?.is_admin_role || user?.is_superuser
   const [codes, setCodes] = useState([])
   const [selectedCode, setSelectedCode] = useState(null)
@@ -84,7 +87,7 @@ export default function Dashboard({ user }) {
       <div className="page-head dashboard-head">
         <div>
           <h1>{title}</h1>
-          {!isAdmin && !isLeader && <Link to="/submit" className="btn" style={{ marginTop: '0.75rem' }}>Apply for a Document</Link>}
+          {!isAdmin && !isLeader && !isYouthLeader && <Link to="/submit" className="btn" style={{ marginTop: '0.75rem' }}>Apply for a Document</Link>}
         </div>
         {!loading && (
           <div className="stat-card" aria-label="Request summary">
@@ -105,7 +108,7 @@ export default function Dashboard({ user }) {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {isLeader && <LeaderWorkCard user={user} />}
+      {(isLeader || isYouthLeader) && <LeaderWorkCard user={user} />}
 
       {(isLeader || isAdmin) && <CodesSummaryCard codes={codes} onOpen={() => setBrowsingCodes(true)} />}
 

@@ -16,8 +16,9 @@ function locFromVillage(village) {
   }
 }
 
-// Cell and sector leaders write for their whole area, so they never pick a village
-const LEVEL_OF_ROLE = { cell_leader: 'cell', sector_leader: 'sector' }
+// Cell and sector (youth) leaders write for their whole area, so they never pick a village
+const LEVEL_OF_ROLE = { cell_leader: 'cell', sector_leader: 'sector', cell_youth_leader: 'cell', sector_youth_leader: 'sector' }
+const YOUTH_ROLES = ['cell_youth_leader', 'sector_youth_leader']
 const AREA_LABEL = { 4: 'Sector', 6: 'Cell', 8: 'Village' }
 
 const KINDS = [
@@ -57,6 +58,8 @@ export default function Announcements({ user }) {
   const [preview, setPreview] = useState(null)
   // Letterhead location: the leader's own village unless changed; fixed to the cell/sector for those leaders
   const fixedLevel = LEVEL_OF_ROLE[user?.role]
+  // Youth leaders' letters are addressed to the youth of their area and signed as youth leader
+  const forYouth = YOUTH_ROLES.includes(user?.role)
   const [loc, setLoc] = useState(locFromVillage(user?.village))
   const [changingLoc, setChangingLoc] = useState(!fixedLevel && !user?.village)
   const areaCode = fixedLevel ? user?.[fixedLevel] : loc.village
@@ -254,7 +257,7 @@ export default function Announcements({ user }) {
                       : fixedLevel ? user?.location_name || `Your ${fixedLevel}` : user?.village_name || 'Your village'}
                   </span>
                   {fixedLevel
-                    ? <span className="muted small">Letters from a {fixedLevel} leader carry the {fixedLevel} letterhead</span>
+                    ? <span className="muted small">Letters from a {fixedLevel} {forYouth ? 'youth ' : ''}leader carry the {fixedLevel} letterhead</span>
                     : <button type="button" className="link-btn" onClick={() => { setPrevLoc(loc); setLoc(locFromVillage(null)); setChangingLoc(true) }}>Change</button>}
                 </div>
               ) : (
@@ -366,7 +369,7 @@ export default function Announcements({ user }) {
             </div>
             <div className="form-group checkbox-row">
               <input type="checkbox" id="published" checked={form.published} onChange={set('published')} />
-              <label htmlFor="published" style={{ margin: 0 }}>Publish to citizens of the {fixedLevel || 'village'}</label>
+              <label htmlFor="published" style={{ margin: 0 }}>Publish to {forYouth ? 'the youth' : 'citizens'} of the {fixedLevel || 'village'}</label>
             </div>
             <div className="btn-row">
               <button className="btn" disabled={!!busy}>{busy === 'save' ? 'Saving…' : editingId ? 'Save changes' : 'Save'}</button>
@@ -441,7 +444,10 @@ export default function Announcements({ user }) {
                     <td>{a.letter_date}</td>
                     <td>{a.kind_display}<div className="muted small">{a.language_display}{a.title ? ` · ${a.title}` : ''}</div></td>
                     <td>{a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}{a.venue ? <div className="muted small">{a.venue}</div> : null}</td>
-                    <td>{a.village_name || '—'}{a.village_name && <div className="muted small">{AREA_LABEL[String(a.village).length] || ''}</div>}</td>
+                    <td>
+                      {a.village_name || '—'}{a.village_name && <div className="muted small">{AREA_LABEL[String(a.village).length] || ''}</div>}
+                      {a.for_youth && <span className="badge badge-youth" style={{ marginTop: '0.2rem' }}>Youth</span>}
+                    </td>
                     {canCreate && <td><span className={`badge ${a.published ? 'badge-approved' : 'badge-pending'}`}>{a.published ? 'Published' : 'Draft'}</span></td>}
                     <td className="actions-cell">
                       <button className="btn btn-small" onClick={() => view(a)}>View</button>

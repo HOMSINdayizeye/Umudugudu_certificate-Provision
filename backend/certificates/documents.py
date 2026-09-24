@@ -706,14 +706,19 @@ def announcement_paragraphs(a, chain, leader_name):
     # "The Office of X Village/Cell/Sector" follows whoever writes the letter
     office_en = office_name_en(chain)
     office_rw = office_name_rw(chain)
-    leader_title_en = f'{OFFICE_EN[office_level(chain)]} Leader'
+    # A youth leader signs as such and, unless told otherwise, addresses the youth of the area
+    for_youth = bool(a.get('for_youth'))
+    leader_title_en = f"{OFFICE_EN[office_level(chain)]} {'Youth ' if for_youth else ''}Leader"
+    sign_title_rw = (f"Umuyobozi w'Urubyiruko {rw_of(office_rw, 'rw')}" if for_youth
+                     else f"Umuyobozi {rw_of(office_rw, 'w')}")
     lang = a.get('language', 'en')
     kind = a.get('kind', 'umuganda')
     partner = (a.get('partner') or '').strip()
     venue = (a.get('venue') or '').strip()
     gathering = (a.get('gathering_point') or '').strip()
     audience = (a.get('audience') or '').strip()
-    lang = a.get('language', 'en')
+    if for_youth and not audience:
+        audience = f'Urubyiruko {rw_of(office_rw, "rw")}' if lang == 'rw' else f'The youth of {office_en}'
     start_time = fmt_time(a.get('start_time'), lang)
     location_details = (a.get('location_details') or '').strip()
     reminder = (a.get('reminder') or '').strip()
@@ -784,7 +789,7 @@ def announcement_paragraphs(a, chain, leader_name):
             out.append(('body', first))
         if note:
             out.append(('note', plain(f'Icyitonderwa: {note}')))
-        out.append(('sign_title', plain(f"Umuyobozi {rw_of(office_rw, 'w')}")))
+        out.append(('sign_title', plain(sign_title_rw)))
     else:
         title = (a.get('title') or '').strip() or 'ANNOUNCEMENT'
         out.append(('title', plain(title.upper())))
@@ -841,7 +846,7 @@ def render_announcement(ann, leader):
         'language': ann.language, 'kind': ann.kind, 'title': ann.title, 'partner': ann.partner,
         'venue': ann.venue, 'gathering_point': ann.gathering_point, 'audience': ann.audience,
         'meeting_points': ann.meeting_points, 'location_details': ann.location_details, 'reminder': ann.reminder,
-        'activities': ann.activities,
+        'activities': ann.activities, 'for_youth': ann.for_youth,
         'start_time': ann.start_time, 'note': ann.note, 'body': ann.body, 'event_date': ann.event_date,
     }
     info = leader_info(leader or ann.created_by)

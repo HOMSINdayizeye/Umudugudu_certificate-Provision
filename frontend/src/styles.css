@@ -231,6 +231,12 @@ img { max-width: 100%; }
 .badge-denied { background: #fdecea; color: #a93226; }
 .badge-kind { background: var(--primary-tint); color: var(--primary-dark); }
 .badge-moved_on { background: #ede9fe; color: #6d28d9; }
+/* Citizen category: youth (16–30) or ordinary citizen */
+.badge-youth { background: #e0f2f1; color: #00695c; }
+.badge-citizen { background: #f0f2f4; color: var(--muted); }
+/* Read-only age that was worked out from the national ID */
+.form-group input.input-derived { background: var(--primary-tint); border-color: #c6ddec; color: var(--primary-dark); font-weight: 700; }
+.category-box { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; min-height: 47px; padding: 0.5rem 0.9rem; border: 1.6px dashed #b8c4cf; background: #fafcfd; }
 
 /* Activities & attendance */
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }

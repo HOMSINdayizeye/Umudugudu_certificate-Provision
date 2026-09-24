@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { api, can } from '../api.js'
 import LocationSelect from '../components/LocationSelect.jsx'
 import ExportButtons from '../components/ExportButtons.jsx'
+import CategoryBadge from '../components/CategoryBadge.jsx'
 import { TransferBadge } from '../components/TransferCitizenModal.jsx'
 import AreaCitizens from './AreaCitizens.jsx'
 import { phoneInputProps } from '../phone.js'
+import { ID_TYPES, NATIONAL_ID_HINT, PASSPORT_HINT, YOUTH_MIN, YOUTH_MAX, YOUTH_ROLES, ageFromNationalId, categoryOf } from '../citizen.js'
 
-const emptyForm = { first_name: '', last_name: '', email: '', phone: '', national_id: '', age: '', isibo: '' }
-const AREA_LEADERS = ['village_leader', 'cell_leader', 'sector_leader']
+const emptyForm = { first_name: '', last_name: '', email: '', phone: '', id_type: 'national_id', national_id: '', age: '', isibo: '' }
+const AREA_LEADERS = ['village_leader', 'cell_leader', 'sector_leader', ...YOUTH_ROLES]
 
 // Isibo leader's citizen registry: add citizens and edit their information.
 // Citizens always land in the leader's own village (shown read-only).
@@ -15,6 +17,71 @@ const AREA_LEADERS = ['village_leader', 'cell_leader', 'sector_leader']
 export default function Citizens({ user }) {
   if (AREA_LEADERS.includes(user?.role)) return <AreaCitizens user={user} />
   return <IsiboCitizens user={user} />
+}
+
+// Identity document and age: a national ID fills the age from its birth year, a passport needs the age typed
+export function IdentityFields({ value, onChange }) {
+  const idType = value.id_type || 'national_id'
+  const national = idType === 'national_id'
+  const derived = national ? ageFromNationalId(value.national_id) : null
+  const age = derived ?? value.age
+  const category = age !== '' && age != null ? categoryOf(age) : null
+
+  function setType(e) {
+    const id_type = e.target.value
+    const a = id_type === 'national_id' ? ageFromNationalId(value.national_id) : null
+    onChange({ ...value, id_type, age: a ?? value.age })
+  }
+
+  function setNumber(e) {
+    const national_id = national ? e.target.value.replace(/\D/g, '') : e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const a = national ? ageFromNationalId(national_id) : null
+    onChange({ ...value, national_id, age: a ?? value.age })
+  }
+
+  return (
+    <>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Identity document</label>
+          <select value={idType} onChange={setType}>
+            {ID_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>{national ? 'ID number' : 'Passport number'}</label>
+          <input
+            value={value.national_id} onChange={setNumber} required
+            maxLength={national ? 16 : 20} inputMode={national ? 'numeric' : 'text'}
+            pattern={national ? '[0-9]{16}' : '[A-Za-z0-9]{6,20}'} title={national ? NATIONAL_ID_HINT : PASSPORT_HINT}
+            placeholder={national ? 'e.g. 1200280342388011' : 'e.g. PC123456'}
+          />
+          <div className="field-hint muted">{national ? NATIONAL_ID_HINT : PASSPORT_HINT}</div>
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Age</label>
+          <input
+            type="number" min="1" max="130" required value={age ?? ''}
+            readOnly={derived != null} className={derived != null ? 'input-derived' : ''}
+            onChange={(e) => onChange({ ...value, age: e.target.value })}
+          />
+          <div className="field-hint muted">
+            {derived != null ? `Filled from the ID · born ${new Date().getFullYear() - derived}`
+              : national ? 'Appears once the 16-digit ID is typed' : 'Type the age shown by the passport'}
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Category</label>
+          <div className="category-box">
+            {category ? <CategoryBadge category={category} /> : <span className="muted small">Set from the age</span>}
+            <span className="muted small">Youth: {YOUTH_MIN} to {YOUTH_MAX} years · others are citizens</span>
+          </div>
+        </div>
+      </div>
+    </>
+  )
 }
 
 function IsiboCitizens({ user }) {
@@ -57,7 +124,7 @@ function IsiboCitizens({ user }) {
       const payload = { ...form, age: Number(form.age) }
       if (needsVillagePicker) payload.village = loc.village
       const created = await api.addCitizen(payload)
-      setMessage(`Citizen "${created.name}" added.`)
+      setMessage(`Citizen "${created.name}" added as ${created.category_display.toLowerCase()} (age ${created.age}).`)
       setForm({ ...emptyForm, isibo: user?.isibo || '' })
       await load()
     } catch (err) {
@@ -70,6 +137,7 @@ function IsiboCitizens({ user }) {
   const canAdd = can(user, 'add:citizens')
   const canEdit = can(user, 'edit:citizens')
   const canDelete = can(user, 'delete:citizens')
+  const youthCount = citizens.filter((c) => c.category === 'youth').length
 
   async function handleDelete(c) {
     if (!window.confirm(`Delete ${c.name} (ID ${c.national_id})? Their payment records go with them. This cannot be undone.`)) return
@@ -136,16 +204,7 @@ function IsiboCitizens({ user }) {
             <input value={form.last_name} onChange={set('last_name')} required />
           </div>
         </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label>ID number</label>
-            <input value={form.national_id} onChange={set('national_id')} maxLength={16} required />
-          </div>
-          <div className="form-group">
-            <label>Age</label>
-            <input type="number" min="1" max="130" value={form.age} onChange={set('age')} required />
-          </div>
-        </div>
+        <IdentityFields value={form} onChange={setForm} />
         <div className="form-row">
           <div className="form-group">
             <label>Isibo name</label>
@@ -165,16 +224,19 @@ function IsiboCitizens({ user }) {
       </form>}
 
       <div className="card">
-        <div className="section-title" style={{ marginTop: 0 }}>Registered citizens ({citizens.length})</div>
+        <div className="section-title" style={{ marginTop: 0 }}>
+          Registered citizens ({citizens.length})
+          {citizens.length > 0 && <span className="muted" style={{ marginLeft: '0.6rem', fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>{youthCount} youth · {citizens.length - youthCount} citizens</span>}
+        </div>
         {citizens.length === 0 ? (
           <p className="muted">No citizens registered yet.{canAdd ? ' Use the form above to add one.' : ''}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <ExportButtons
               title="Registered citizens"
-              columns={['Name', 'Isibo', 'Phone', 'Email', 'ID number', 'Age', 'Village', 'Transferred from']}
-              rows={citizens.map((c) => [c.name, c.isibo || '', c.phone || '', c.email || '', c.national_id, c.age, c.village_name || '',
-                c.transferred_from_village_name || ''])}
+              columns={['Name', 'Isibo', 'Phone', 'Email', 'Document', 'ID number', 'Age', 'Category', 'Village', 'Transferred from']}
+              rows={citizens.map((c) => [c.name, c.isibo || '', c.phone || '', c.email || '', c.id_type_display || '', c.national_id, c.age,
+                c.category_display || '', c.village_name || '', c.transferred_from_village_name || ''])}
             />
             <table className="table">
               <thead>
@@ -185,6 +247,7 @@ function IsiboCitizens({ user }) {
                   <th>Email</th>
                   <th>ID number</th>
                   <th>Age</th>
+                  <th>Category</th>
                   <th>Village</th>
                   <th></th>
                 </tr>
@@ -196,8 +259,9 @@ function IsiboCitizens({ user }) {
                     <td>{c.isibo || '—'}</td>
                     <td>{c.phone || '—'}</td>
                     <td>{c.email || '—'}</td>
-                    <td>{c.national_id}</td>
+                    <td>{c.national_id}{c.id_type === 'passport' && <div className="muted small">Passport</div>}</td>
                     <td>{c.age || '—'}</td>
+                    <td><CategoryBadge category={c.category} /></td>
                     <td>{c.village_name}</td>
                     <td className="actions-cell">
                       {canEdit && <button className="btn btn-small" onClick={() => setEditing({ ...c })}>Edit</button>}
@@ -228,18 +292,7 @@ function IsiboCitizens({ user }) {
                          onChange={(e) => setEditing({ ...editing, last_name: e.target.value })} required />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>ID number</label>
-                  <input value={editing.national_id}
-                         onChange={(e) => setEditing({ ...editing, national_id: e.target.value })} maxLength={16} required />
-                </div>
-                <div className="form-group">
-                  <label>Age</label>
-                  <input type="number" min="1" max="130" value={editing.age}
-                         onChange={(e) => setEditing({ ...editing, age: e.target.value })} required />
-                </div>
-              </div>
+              <IdentityFields value={editing} onChange={setEditing} />
               <div className="form-row">
                 <div className="form-group">
                   <label>Isibo name</label>

@@ -413,3 +413,95 @@ class DataManagementTests(TestCase):
         self.assertEqual(set(CustomUser.objects.values_list('username', flat=True)), {'admin', 'admin2'})
         self.assertEqual(LocationImport.objects.count(), 5)
         self.assertEqual(res.data['overview']['storage']['files'], 0)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix='certify-test-media-'))
+class YouthAndIdTests(TestCase):
+    """National IDs fill in the age, 16-30 year olds are youth, and youth leaders see and announce to them only."""
+
+    def setUp(self):
+        make_locations()
+        self.year = datetime.date.today().year
+        self.isibo = CustomUser.objects.create_user(username='isibo', password='x', role='isibo_leader',
+                                                    village=FROM_VILLAGE, isibo='Amahoro')
+        self.cell_youth = CustomUser.objects.create_user(username='cy', password='x', role='cell_youth_leader',
+                                                         cell=100101, first_name='Cy', last_name='Leader')
+        self.sector_youth = CustomUser.objects.create_user(username='sy', password='x', role='sector_youth_leader',
+                                                           sector=1001, first_name='Sy', last_name='Leader')
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def nid(self, birth_year, serial=1):
+        # 16 digits: citizen type, birth year, sex, then a running number
+        return f'1{birth_year}8{serial:010d}'
+
+    def add(self, **fields):
+        body = {'first_name': 'Test', 'last_name': 'Person', **fields}
+        return self.as_user(self.isibo).post('/api/citizens/', body, format='json')
+
+    def test_national_id_fills_age_and_category(self):
+        res = self.add(national_id=self.nid(self.year - 20))
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual((res.data['age'], res.data['category'], res.data['id_type']), (20, 'youth', 'national_id'))
+        # The ID wins over a typed age; 31 is no longer youth
+        res = self.add(national_id=self.nid(self.year - 31, 2), age=5)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual((res.data['age'], res.data['category']), (31, 'citizen'))
+
+    def test_national_id_must_have_sixteen_digits_and_passport_needs_age(self):
+        self.assertIn('national_id', self.add(national_id='120028034238801').data)
+        self.assertIn('age', self.add(id_type='passport', national_id='pc123456').data)
+        res = self.add(id_type='passport', national_id='pc123456', age=16)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual((res.data['national_id'], res.data['category']), ('PC123456', 'youth'))
+
+    def make_people(self):
+        young = Citizen.objects.create(first_name='Young', last_name='A', national_id='1', age=20, village=FROM_VILLAGE)
+        Citizen.objects.create(first_name='Old', last_name='B', national_id='2', age=45, village=FROM_VILLAGE)
+        other = Citizen.objects.create(first_name='Young', last_name='C', national_id='3', age=16, village=TO_VILLAGE)
+        return young, other
+
+    def test_youth_leaders_see_only_the_youth_of_their_area(self):
+        young, other_cell = self.make_people()
+        res = self.as_user(self.cell_youth).get('/api/citizens/')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(res.data['youth_only'])
+        self.assertEqual([c['id'] for c in res.data['citizens']], [young.id])
+        # The adult in the same cell is out of reach entirely
+        adult = Citizen.objects.get(last_name='B')
+        self.assertEqual(self.as_user(self.cell_youth).get(f'/api/citizens/{adult.id}/').status_code, 404)
+        # The sector youth leader covers both cells
+        res = self.as_user(self.sector_youth).get('/api/citizens/')
+        self.assertEqual(sorted(c['id'] for c in res.data['citizens']), sorted([young.id, other_cell.id]))
+        self.assertEqual(self.as_user(self.sector_youth).get('/api/dashboard/leader/').data['citizens'], 2)
+
+    def test_category_filter_for_ordinary_leaders(self):
+        self.make_people()
+        cell_leader = CustomUser.objects.create_user(username='cl', password='x', role='cell_leader', cell=100101)
+        names = lambda res: sorted(c['last_name'] for c in res.data['citizens'])
+        self.assertEqual(names(self.as_user(cell_leader).get('/api/citizens/')), ['A', 'B'])
+        self.assertEqual(names(self.as_user(cell_leader).get('/api/citizens/?category=youth')), ['A'])
+        self.assertEqual(names(self.as_user(cell_leader).get('/api/citizens/?category=citizen')), ['B'])
+
+    def test_youth_leader_announcement_is_for_the_youth_of_their_cell(self):
+        body = {'kind': 'meeting', 'language': 'en', 'title': 'Youth meeting', 'letter_date': str(datetime.date.today()),
+                'event_date': str(datetime.date.today()), 'venue': 'Cell office', 'village': TO_VILLAGE}
+        res = self.as_user(self.cell_youth).post('/api/announcements/preview/', body, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        text = ' '.join(p['text'] for p in res.data['paragraphs'])
+        self.assertIn('Invited: The youth of Cell A Cell.', text)
+        self.assertIn('Cell Youth Leader', text)
+        res = self.as_user(self.cell_youth).post('/api/announcements/preview/', {**body, 'language': 'rw'}, format='json')
+        self.assertIn("Umuyobozi w'Urubyiruko rw'akagari ka Cell A", ' '.join(p['text'] for p in res.data['paragraphs']))
+        # Saved letters ignore the requested village: they belong to the whole cell and are flagged for the youth
+        res = self.as_user(self.cell_youth).post('/api/announcements/', body, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual((res.data['village'], res.data['for_youth']), (100101, True))
+        # A citizen of that cell reads it once published; a village leader's letter is not marked for the youth
+        citizen = CustomUser.objects.create_user(username='cit', password='x', role='citizen', village=FROM_VILLAGE)
+        self.as_user(self.cell_youth).patch(f"/api/announcements/{res.data['id']}/", {'published': True}, format='json')
+        seen = self.as_user(citizen).get('/api/announcements/').data['announcements']
+        self.assertEqual([(a['village'], a['for_youth']) for a in seen], [(100101, True)])

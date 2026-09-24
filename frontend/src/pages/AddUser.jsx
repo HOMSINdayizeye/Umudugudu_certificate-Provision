@@ -12,6 +12,8 @@ export const ROLES = [
   { value: 'village_leader', label: 'Village Leader' },
   { value: 'cell_leader', label: 'Cell Leader' },
   { value: 'sector_leader', label: 'Sector Leader' },
+  { value: 'cell_youth_leader', label: 'Cell Youth Leader' },
+  { value: 'sector_youth_leader', label: 'Sector Youth Leader' },
   { value: 'security_volunteer', label: 'Security Volunteer' },
   { value: 'cleaning_volunteer', label: 'Cleaning Service Volunteer' },
   { value: 'system_admin', label: 'System Admin' },
@@ -24,7 +26,17 @@ export { PHONE_PATTERN, PHONE_HINT } from '../phone.js'
 export const LOCATION_DEPTH = {
   sector_leader: 'sector',
   cell_leader: 'cell',
+  sector_youth_leader: 'sector',
+  cell_youth_leader: 'cell',
   system_admin: 'village',
+}
+
+// Heading of the location section for roles whose authority is a whole cell or sector
+export const AUTHORITY_LABEL = {
+  sector_leader: 'Sector of authority',
+  cell_leader: 'Cell of authority',
+  sector_youth_leader: 'Sector of authority (youth)',
+  cell_youth_leader: 'Cell of authority (youth)',
 }
 
 const emptyForm = {
@@ -126,9 +138,7 @@ export default function AddUser() {
         {form.role !== 'system_admin' && (
           <>
             <div className="section-title">
-              {form.role === 'sector_leader' ? 'Sector of authority'
-                : form.role === 'cell_leader' ? 'Cell of authority'
-                : 'Location'}
+              {AUTHORITY_LABEL[form.role] || 'Location'}
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>Pick the province first; each next level appears once the one above it is chosen.</p>
             <LocationSelect value={loc} onChange={setLoc} progressive upTo={depth === 'sector' ? 'sector' : depth === 'cell' ? 'cell' : 'village'} />

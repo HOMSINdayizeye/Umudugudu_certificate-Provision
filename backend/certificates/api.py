@@ -59,6 +59,9 @@ REQUIRED_DETAILS = {
 ALLOWED_ATTACHMENT_EXT = {'.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'}
 MAX_ATTACHMENTS = 10
 ANNOUNCER_ROLES = ('village_leader', 'cell_leader', 'sector_leader')
+YOUTH_ROLES = CustomUser.YOUTH_ROLES
+# Roles whose authority is a whole cell or sector rather than one village
+AREA_ROLES = ('cell_leader', 'sector_leader') + YOUTH_ROLES
 DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 VOLUNTEER_SERVICE = {
@@ -653,7 +656,7 @@ def code_lookup(request, code):
 def leader_stats(request):
     """Totals of the leader's own work: letters approved, communications, activities, deaths, transfers, payments."""
     user = request.user
-    if user.role not in LEADER_STAGE and not is_admin(user):
+    if user.role not in LEADER_STAGE and user.role not in YOUTH_ROLES and not is_admin(user):
         return Response({'detail': 'Only leaders have a work summary.'}, status=status.HTTP_403_FORBIDDEN)
     # Village leaders are the approver; cell/sector leaders appear by name in the letter's code history
     approved = CertificateRequest.objects.filter(
@@ -661,6 +664,8 @@ def leader_stats(request):
     transfers = CitizenTransfer.objects.filter(Q(transferred_by=user) | Q(decided_by=user) | Q(placed_by=user)).distinct()
     code = None if is_admin(user) else area_code(user)
     citizens = living() if code is None else citizens_in_area(code)
+    if user.role in YOUTH_ROLES:
+        citizens = youth_only(citizens)
     return Response({
         'approved': approved.count(),
         'fully_approved': approved.filter(status='approved').count(),
@@ -684,7 +689,7 @@ def announcements_qs(user):
     if user.role == 'village_leader':
         # Own village plus letters from the cell and sector above it
         return Announcement.objects.filter(Q(village__in=location_prefixes(user.village)) | Q(created_by=user))
-    if user.role in ('cell_leader', 'sector_leader') and user.scope_code:
+    if user.role in AREA_ROLES and user.scope_code:
         inside = scope_queryset_by_village_prefix(Announcement.objects.all(), 'village', user.scope_code)
         above = Announcement.objects.filter(village__in=location_prefixes(user.scope_code))
         return inside | above | Announcement.objects.filter(created_by=user)
@@ -695,8 +700,8 @@ def announcements_qs(user):
 
 
 def announcement_area(user, requested):
-    """Area code a leader's announcement is written for: cell/sector leaders always use their own area."""
-    if user.role in ('cell_leader', 'sector_leader'):
+    """Area code a leader's announcement is written for: cell/sector (youth) leaders always use their own area."""
+    if user.role in AREA_ROLES:
         return user.scope_code
     return requested or user.village
 
@@ -720,14 +725,14 @@ def announcement_list(request):
         })
 
     if not can_announce(user):
-        return Response({'detail': 'Only village, cell or sector leaders can create announcements.'},
+        return Response({'detail': 'Only village, cell, sector or youth leaders can create announcements.'},
                         status=status.HTTP_403_FORBIDDEN)
     village = announcement_area(user, request.data.get('village'))
     if not village:
         return Response({'village': 'Choose the village this announcement is for.'}, status=status.HTTP_400_BAD_REQUEST)
     serializer = AnnouncementSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    ann = serializer.save(created_by=user, village=int(village))
+    ann = serializer.save(created_by=user, village=int(village), for_youth=user.role in YOUTH_ROLES)
     generate_announcement_file(ann)
     ann.save()
     return Response(AnnouncementSerializer(ann).data, status=status.HTTP_201_CREATED)
@@ -769,7 +774,7 @@ def announcement_preview(request):
     if not can_announce(user):
         return Response({'detail': 'Not allowed.'}, status=status.HTTP_403_FORBIDDEN)
     chain = location_chain(announcement_area(user, request.data.get('village')))
-    paragraphs = announcement_paragraphs(request.data, chain, user.display_name)
+    paragraphs = announcement_paragraphs({**request.data, 'for_youth': user.role in YOUTH_ROLES}, chain, user.display_name)
     # parts carry the bold flag so the preview highlights places and times like the letter does
     return Response({
         'letterhead': chain,
@@ -1013,7 +1018,7 @@ def payment_scope(user):
         return True, None, None
     if user.role in VOLUNTEER_SERVICE:
         return True, VOLUNTEER_SERVICE[user.role], user.village
-    if user.role in ('village_leader', 'cell_leader', 'sector_leader'):
+    if user.role == 'village_leader' or user.role in AREA_ROLES:
         return True, None, user.scope_code
     # Any other account the admin granted a permission to acts within its own village
     if user.village:
@@ -1030,6 +1035,8 @@ def can_see_citizen(user, citizen):
         # His isibo's citizens, or citizens he registered himself
         return (citizen.added_by_id == user.id
                 or (user.isibo and citizen.isibo.strip().lower() == user.isibo.strip().lower()))
+    if user.role in YOUTH_ROLES and not citizen.is_youth:
+        return False
     allowed, _, scope_code = payment_scope(user)
     return allowed and (scope_code is None or in_scope(citizen.village, scope_code))
 
@@ -1037,6 +1044,14 @@ def can_see_citizen(user, citizen):
 def living():
     # Every citizen list and count in the system is of living citizens; the deceased stay in the death register
     return Citizen.objects.filter(status='alive')
+
+
+def youth_only(qs):
+    return qs.filter(age__gte=Citizen.YOUTH_MIN, age__lte=Citizen.YOUTH_MAX)
+
+
+def adults_only(qs):
+    return qs.exclude(age__gte=Citizen.YOUTH_MIN, age__lte=Citizen.YOUTH_MAX)
 
 
 def visible_citizens_qs(user):
@@ -1056,6 +1071,9 @@ def visible_citizens_qs(user):
     qs = living()
     if scope_code is not None:
         qs = scope_queryset_by_village_prefix(qs, 'village', scope_code)
+    # Youth leaders only ever see the youth of their area
+    if user.role in YOUTH_ROLES:
+        qs = youth_only(qs)
     return qs
 
 
@@ -1125,6 +1143,12 @@ def citizen_list(request):
     except ValueError:
         year = timezone.now().year
 
+    # ?category=youth|citizen narrows the list to 16-30 year olds or to everyone else
+    category = request.GET.get('category')
+    if category == 'youth':
+        qs = youth_only(qs)
+    elif category == 'citizen':
+        qs = adults_only(qs)
     qs = qs.order_by('first_name', 'last_name').prefetch_related(pending_transfer_prefetch())
 
     payments = ServicePayment.objects.filter(service=service, year=year, citizen__in=qs)
@@ -1146,6 +1170,7 @@ def citizen_list(request):
         'can_mark': has_perm(user, 'record:payments'),
         'can_transfer': has_perm(user, 'transfer:citizens'),
         'can_place': has_perm(user, 'place:citizens'),
+        'youth_only': user.role in YOUTH_ROLES,
         'citizens': data,
     })
 
