@@ -431,6 +431,9 @@ img { max-width: 100%; }
 .pick-results li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); }
 .pick-results li:last-child { border-bottom: none; }
 .pick-name { font-weight: 600; }
+.add-user-layout { grid-template-columns: 0.85fr 1.15fr; }
+.add-user-layout > .card:first-child { position: sticky; top: 1rem; }
+@media (max-width: 800px) { .add-user-layout > .card:first-child { position: static; } }
 .pick-source { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.7rem 0.9rem; background: var(--primary-tint); border: 1px solid var(--border); margin-bottom: 1rem; }
 .filter-row .form-group { min-width: 150px; margin-bottom: 0; }
 .date-filter { align-items: flex-end; padding: 0.9rem; background: #fafcfd; border: 1px solid var(--border); }

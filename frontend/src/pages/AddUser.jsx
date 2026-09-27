@@ -72,7 +72,6 @@ export default function AddUser() {
   const [loading, setLoading] = useState(false)
 
   // Optional start from the citizen registry: filter by area and name, then take the citizen's details into the form
-  const [pickOpen, setPickOpen] = useState(false)
   const [pickLoc, setPickLoc] = useState(emptyLoc)
   const [pickQ, setPickQ] = useState('')
   const [pick, setPick] = useState({ count: 0, citizens: [] })
@@ -85,7 +84,6 @@ export default function AddUser() {
   const pickCode = deepestCode(pickLoc)
 
   useEffect(() => {
-    if (!pickOpen) return undefined
     if (!pickCode && pickQ.trim().length < 2) { setPick({ count: 0, citizens: [] }); return undefined }
     const t = setTimeout(async () => {
       setPickBusy(true)
@@ -98,7 +96,7 @@ export default function AddUser() {
       }
     }, 300)
     return () => clearTimeout(t)
-  }, [pickOpen, pickCode, pickQ])
+  }, [pickCode, pickQ])
 
   function set(field) {
     return (e) => setForm({ ...form, [field]: e.target.value })
@@ -112,7 +110,6 @@ export default function AddUser() {
     setLoc(locFromVillage(c.village))
     setLocFromSource(true)
     setSource(c)
-    setPickOpen(false)
     setError('')
   }
 
@@ -164,25 +161,21 @@ export default function AddUser() {
       {error && <div className="alert alert-error">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
 
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <div className="section-title" style={{ marginTop: 0 }}>Start from a registered citizen <span className="muted small" style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
+      <div className="two-col add-user-layout">
+      <div className="card">
+        <div className="section-title" style={{ marginTop: 0 }}>Pick a registered citizen <span className="muted small" style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></div>
         {source ? (
           <div className="pick-source">
             <span>
               <span className="pick-name">{source.name}</span>
               <span className="muted small"> · ID {source.national_id} · {source.location_path}{source.isibo ? ` · Isibo ${source.isibo}` : ''}</span>
             </span>
-            <span className="btn-row">
-              <button type="button" className="link-btn" onClick={() => setPickOpen(true)}>Pick another</button>
-              <button type="button" className="link-btn" onClick={clearSource}>Clear</button>
-            </span>
+            <button type="button" className="link-btn" onClick={clearSource}>Clear</button>
           </div>
         ) : (
-          <p className="muted small" style={{ marginTop: 0 }}>Filter the citizen registry by area, choose the person, and their name, contact, isibo and village fill the form below.</p>
+          <p className="muted small" style={{ marginTop: 0 }}>Filter the citizen registry by area, choose the person, and their name, contact, isibo and village fill the form on the right.</p>
         )}
-        {!pickOpen && !source && <button type="button" className="btn btn-small btn-outline-dark" onClick={() => setPickOpen(true)}>Find a citizen</button>}
-        {pickOpen && (
-          <>
+        <>
             <LocationSelect value={pickLoc} onChange={setPickLoc} progressive />
             <div className="form-group" style={{ marginTop: '0.75rem' }}>
               <label>Search by name, ID or phone</label>
@@ -207,14 +200,11 @@ export default function AddUser() {
                 </>
               )
             )}
-            <div className="btn-row" style={{ marginTop: '0.75rem' }}>
-              <button type="button" className="link-btn" onClick={() => setPickOpen(false)}>Close</button>
-            </div>
-          </>
-        )}
+        </>
       </div>
 
       <form className="card" onSubmit={handleSubmit}>
+        <div className="section-title" style={{ marginTop: 0 }}>Or fill in the details manually</div>
         <div className="section-title">Role</div>
         <div className="form-group">
           <label>User role</label>
@@ -284,6 +274,7 @@ export default function AddUser() {
 
         <button className="btn" disabled={loading}>{loading ? 'Creating…' : 'Create User'}</button>
       </form>
+      </div>
     </div>
   )
 }
