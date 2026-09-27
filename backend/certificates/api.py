@@ -683,21 +683,38 @@ def leader_stats(request):
 
 # ---------- Announcements ----------
 
+# A letter without an event date stays on other people's lists this many days after its letter date
+ANNOUNCEMENT_DAYS_VISIBLE = 30
+
+
+def current_announcements(qs):
+    """Published letters others still need to see: the event has not passed, or (no event date) the letter is recent."""
+    today = timezone.localdate()
+    return qs.filter(published=True).filter(
+        Q(event_date__gte=today)
+        | Q(event_date__isnull=True, letter_date__gte=today - datetime.timedelta(days=ANNOUNCEMENT_DAYS_VISIBLE)))
+
+
 def announcements_qs(user):
-    """An announcement's `village` is its area code: a village, or the cell/sector of the leader who wrote it."""
+    """An announcement's `village` is its area code: a village, or the cell/sector of the leader who wrote it.
+
+    Authors always see everything they wrote; everyone else only sees published letters that are still upcoming."""
     if is_admin(user):
         return Announcement.objects.all()
+    own = Announcement.objects.filter(created_by=user)
     if user.role == 'village_leader':
         # Own village plus letters from the cell and sector above it
-        return Announcement.objects.filter(Q(village__in=location_prefixes(user.village)) | Q(created_by=user))
-    if user.role in AREA_ROLES and user.scope_code:
+        area = Announcement.objects.filter(village__in=location_prefixes(user.village))
+    elif user.role in AREA_ROLES and user.scope_code:
         inside = scope_queryset_by_village_prefix(Announcement.objects.all(), 'village', user.scope_code)
         above = Announcement.objects.filter(village__in=location_prefixes(user.scope_code))
-        return inside | above | Announcement.objects.filter(created_by=user)
-    # Citizens and volunteers read what their village, cell and sector leaders have published
-    if not user.village:
-        return Announcement.objects.none()
-    return Announcement.objects.filter(published=True, village__in=location_prefixes(user.village))
+        area = inside | above
+    elif user.village:
+        # Citizens and volunteers read what their village, cell and sector leaders have published
+        area = Announcement.objects.filter(village__in=location_prefixes(user.village))
+    else:
+        return own
+    return (own | current_announcements(area)).distinct()
 
 
 def announcement_area(user, requested):

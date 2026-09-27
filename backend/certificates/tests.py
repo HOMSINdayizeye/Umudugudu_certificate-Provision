@@ -624,3 +624,44 @@ class CitizenPickTests(TestCase):
         self.assertEqual(self.as_user(self.admin).get('/api/citizens/pick/').data['citizens'], [])
         # Only accounts allowed to add users may browse the registry this way
         self.assertEqual(self.as_user(self.leader).get('/api/citizens/pick/', {'location': 1001}).status_code, 403)
+
+
+class AnnouncementVisibilityTests(TestCase):
+    """Authors keep every letter; others only see published letters whose event has not passed."""
+
+    def setUp(self):
+        make_locations()
+        self.author = leader('author', FROM_VILLAGE)
+        self.citizen = CustomUser.objects.create_user(username='cit', password='x', role='citizen', village=FROM_VILLAGE)
+        self.cell_leader = CustomUser.objects.create_user(username='cell', password='x', role='cell_leader', cell=100101)
+        today = datetime.date.today()
+        day = datetime.timedelta(days=1)
+        mk = lambda title, **kw: Announcement.objects.create(created_by=self.author, village=FROM_VILLAGE, title=title,
+                                                             letter_date=kw.pop('letter_date', today), **kw)
+        mk('upcoming', event_date=today + 3 * day, published=True)
+        mk('today', event_date=today, published=True)
+        mk('ended', event_date=today - day, published=True)
+        mk('draft', event_date=today + day, published=False)
+        mk('recent general', published=True)
+        mk('old general', letter_date=today - 40 * day, published=True)
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def titles(self, user):
+        return sorted(a['title'] for a in self.as_user(user).get('/api/announcements/').data['announcements'])
+
+    def test_author_sees_everything_and_others_only_what_is_current(self):
+        everything = ['draft', 'ended', 'old general', 'recent general', 'today', 'upcoming']
+        self.assertEqual(self.titles(self.author), everything)
+        current = ['recent general', 'today', 'upcoming']
+        self.assertEqual(self.titles(self.citizen), current)
+        # Leaders above the village are ordinary readers of letters they did not write
+        self.assertEqual(self.titles(self.cell_leader), current)
+        ended = Announcement.objects.get(title='ended')
+        self.assertEqual(self.as_user(self.citizen).get(f'/api/announcements/{ended.id}/').status_code, 404)
+        self.assertEqual(self.as_user(self.author).get(f'/api/announcements/{ended.id}/').status_code, 200)
+        admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        self.assertEqual(self.titles(admin), everything)

@@ -442,6 +442,11 @@ function Letters({ user }) {
 
       <div className="card">
         <h2 className="card-title">{canCreate ? 'Saved announcements' : 'Announcements from your leaders'}</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          {canCreate
+            ? 'Every letter you wrote stays here. Letters from other leaders appear only while their event date has not passed.'
+            : 'Only upcoming announcements are shown; a community work disappears from this list once its date has passed.'}
+        </p>
         {items.length > 0 && <DateFilter from={range.from} to={range.to} onChange={setRange} />}
         {loading ? (
           <Spinner label="Loading announcements…" />
