@@ -232,6 +232,10 @@ img { max-width: 100%; }
 .badge-kind { background: var(--primary-tint); color: var(--primary-dark); }
 .badge-moved_on { background: #ede9fe; color: #6d28d9; }
 /* Citizen category: youth (16–30) or ordinary citizen */
+.badge-timeleft { text-transform: none; letter-spacing: 0; font-size: 0.7rem; padding: 0.15rem 0.5rem; font-variant-numeric: tabular-nums; }
+.badge-left { background: #e3edf9; color: #1b4f8a; }
+.badge-soon { background: #fff4d6; color: #8a6100; }
+.badge-ended { background: #f0f2f4; color: var(--muted); }
 .badge-youth { background: #e0f2f1; color: #00695c; }
 .badge-citizen { background: #f0f2f4; color: var(--muted); }
 /* Read-only age that was worked out from the national ID */

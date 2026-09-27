@@ -358,6 +358,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     village_name = serializers.SerializerMethodField()
     has_document = serializers.SerializerMethodField()
+    visible_until = serializers.DateField(read_only=True)
 
     class Meta:
         model = Announcement
@@ -366,7 +367,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             'start_time', 'venue', 'gathering_point', 'partner', 'audience', 'meeting_points', 'location_details',
             'activities', 'reminder', 'body', 'note', 'published', 'for_youth',
             'village', 'village_name', 'created_by', 'created_by_name', 'created_at', 'updated_at',
-            'has_document', 'generated_at',
+            'has_document', 'generated_at', 'visible_until',
         ]
         read_only_fields = ['created_by', 'created_at', 'updated_at', 'generated_at', 'for_youth']
 

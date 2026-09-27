@@ -1,3 +1,5 @@
+import datetime
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
@@ -475,6 +477,16 @@ class Announcement(models.Model):
     generated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # A letter without an event date stays on other people's lists this many days after its letter date
+    DAYS_VISIBLE = 30
+
+    @property
+    def visible_until(self):
+        # Last day the letter is shown to people other than its author
+        if self.event_date:
+            return self.event_date
+        return self.letter_date + datetime.timedelta(days=self.DAYS_VISIBLE) if self.letter_date else None
 
     class Meta:
         ordering = ['-letter_date', '-created_at']

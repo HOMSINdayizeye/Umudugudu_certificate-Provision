@@ -9,6 +9,32 @@ import Spinner from '../components/Spinner.jsx'
 
 const PAGE_SIZE = 5
 
+// Time left until the letter drops off other people's lists: the end of its last visible day
+function timeLeft(visibleUntil, now) {
+  if (!visibleUntil) return null
+  const [y, m, d] = visibleUntil.split('-').map(Number)
+  const ms = new Date(y, m - 1, d + 1).getTime() - now
+  if (ms <= 0) return { ended: true, text: 'Ended' }
+  const days = Math.floor(ms / 86400000)
+  const hours = Math.floor((ms % 86400000) / 3600000)
+  const minutes = Math.floor((ms % 3600000) / 60000)
+  const text = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+  return { ended: false, text, soon: ms < 86400000 }
+}
+
+// Small hourglass badge that ticks every minute
+function TimeLeft({ until }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(t)
+  }, [])
+  const left = timeLeft(until, now)
+  if (!left) return null
+  const cls = left.ended ? 'badge-ended' : left.soon ? 'badge-soon' : 'badge-left'
+  return <span className={`badge badge-timeleft ${cls}`} title={left.ended ? 'No longer shown to others' : `Shown to others until the end of ${until}`}>{left.ended ? '' : '⏳ '}{left.text}</span>
+}
+
 // Split a location id (8-digit village, 6-digit cell or 4-digit sector) into the ids the cascading selector expects
 function locFromVillage(village) {
   const s = village ? String(village) : ''
@@ -471,7 +497,10 @@ function Letters({ user }) {
                     <td>{new Date(a.created_at).toLocaleDateString()}<div className="muted small">{new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></td>
                     <td>{a.letter_date}</td>
                     <td>{a.kind_display}<div className="muted small">{a.language_display}{a.title ? ` · ${a.title}` : ''}</div></td>
-                    <td>{a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}{a.venue ? <div className="muted small">{a.venue}</div> : null}</td>
+                    <td>
+                      {a.event_date || '—'}{a.start_time ? ` · ${a.start_time}` : ''}{a.venue ? <div className="muted small">{a.venue}</div> : null}
+                      <div style={{ marginTop: '0.25rem' }}><TimeLeft until={a.visible_until} /></div>
+                    </td>
                     <td>
                       {a.village_name || '—'}{a.village_name && <div className="muted small">{AREA_LABEL[String(a.village).length] || ''}</div>}
                       {a.for_youth && <span className="badge badge-youth" style={{ marginTop: '0.2rem' }}>Youth</span>}

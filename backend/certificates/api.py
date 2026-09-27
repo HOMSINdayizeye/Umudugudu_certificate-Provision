@@ -683,16 +683,12 @@ def leader_stats(request):
 
 # ---------- Announcements ----------
 
-# A letter without an event date stays on other people's lists this many days after its letter date
-ANNOUNCEMENT_DAYS_VISIBLE = 30
-
-
 def current_announcements(qs):
     """Published letters others still need to see: the event has not passed, or (no event date) the letter is recent."""
     today = timezone.localdate()
     return qs.filter(published=True).filter(
         Q(event_date__gte=today)
-        | Q(event_date__isnull=True, letter_date__gte=today - datetime.timedelta(days=ANNOUNCEMENT_DAYS_VISIBLE)))
+        | Q(event_date__isnull=True, letter_date__gte=today - datetime.timedelta(days=Announcement.DAYS_VISIBLE)))
 
 
 def announcements_qs(user):
