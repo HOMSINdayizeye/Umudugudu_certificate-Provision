@@ -575,6 +575,22 @@ class LeaderNoticeTests(TestCase):
         self.assertEqual(self.as_user(self.village_a).get(f'/api/announcements/notices/{notice_id}/').status_code, 404)
         self.assertEqual(self.as_user(self.cell_a).delete(f'/api/announcements/notices/{notice_id}/').status_code, 204)
 
+    def test_sector_youth_leader_writes_to_cell_youth_leaders_only(self):
+        sector_youth = CustomUser.objects.create_user(username='syouth', password='x', role='sector_youth_leader', sector=1001)
+        cell_youth = CustomUser.objects.create_user(username='cyouth', password='x', role='cell_youth_leader', cell=100101)
+        other_youth = CustomUser.objects.create_user(username='oyouth', password='x', role='cell_youth_leader', cell=100201)
+        res = self.as_user(sector_youth).get('/api/announcements/notices/')
+        self.assertTrue(res.data['can_create'])
+        self.assertEqual([r['id'] for r in res.data['recipients']], [cell_youth.id])
+        res = self.as_user(sector_youth).post('/api/announcements/notices/', {'title': 'Youth camp', 'body': 'Sign up'}, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['audience'], 'cell_youth_leader')
+        self.assertEqual(self.titles(cell_youth), ['Youth camp'])
+        self.assertEqual(self.titles(other_youth), [])
+        # Ordinary cell leaders of the same sector do not receive youth notices, and cell youth leaders cannot write onward
+        self.assertEqual(self.titles(self.cell_a), [])
+        self.assertFalse(self.as_user(cell_youth).get('/api/announcements/notices/').data['can_create'])
+
 
 class CitizenPickTests(TestCase):
     def setUp(self):

@@ -799,8 +799,8 @@ def announcement_download(request, pk):
 # ---------- Leader notices (sector -> cell leaders, cell -> village leaders) ----------
 
 # Who each writing role addresses, and the location field that places a recipient inside the author's area
-NOTICE_AUDIENCE = {'sector_leader': 'cell_leader', 'cell_leader': 'village_leader'}
-NOTICE_LOCATION_FIELD = {'cell_leader': 'cell', 'village_leader': 'village'}
+NOTICE_AUDIENCE = {'sector_leader': 'cell_leader', 'cell_leader': 'village_leader', 'sector_youth_leader': 'cell_youth_leader'}
+NOTICE_LOCATION_FIELD = {'cell_leader': 'cell', 'village_leader': 'village', 'cell_youth_leader': 'cell'}
 
 
 def can_write_notices(user):
@@ -860,7 +860,7 @@ def leader_notice_list(request):
         return Response(data)
 
     if not writer:
-        return Response({'detail': 'Only sector and cell leaders with an area can write notices to their leaders.'},
+        return Response({'detail': 'Only sector, cell and sector youth leaders with an area can write notices to their leaders.'},
                         status=status.HTTP_403_FORBIDDEN)
     serializer = LeaderNoticeSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

@@ -484,8 +484,10 @@ class Announcement(models.Model):
 
 
 class LeaderNotice(models.Model):
-    """Internal notice from a sector leader to the cell leaders of the sector, or a cell leader to the village leaders of the cell."""
-    AUDIENCE_CHOICES = [('cell_leader', 'Cell leaders'), ('village_leader', 'Village leaders')]
+    """Internal notice from a sector leader to the cell leaders of the sector, a cell leader to the village leaders of the cell,
+    or a sector youth leader to the cell youth leaders of the sector."""
+    AUDIENCE_CHOICES = [('cell_leader', 'Cell leaders'), ('village_leader', 'Village leaders'),
+                        ('cell_youth_leader', 'Cell youth leaders')]
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
                                    related_name='leader_notices')

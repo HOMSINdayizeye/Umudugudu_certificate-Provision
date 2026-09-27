@@ -22,8 +22,8 @@ function locFromVillage(village) {
 const LEVEL_OF_ROLE = { cell_leader: 'cell', sector_leader: 'sector', cell_youth_leader: 'cell', sector_youth_leader: 'sector' }
 const YOUTH_ROLES = ['cell_youth_leader', 'sector_youth_leader']
 const AREA_LABEL = { 4: 'Sector', 6: 'Cell', 8: 'Village' }
-// Leader notices travel sector -> cell leaders -> village leaders; admins read them all
-const NOTICE_ROLES = ['sector_leader', 'cell_leader', 'village_leader']
+// Leader notices travel sector -> cell leaders -> village leaders and sector youth -> cell youth leaders; admins read them all
+const NOTICE_ROLES = ['sector_leader', 'cell_leader', 'village_leader', 'sector_youth_leader', 'cell_youth_leader']
 
 const KINDS = [
   ['umuganda', 'Community Work (Umuganda)'],
