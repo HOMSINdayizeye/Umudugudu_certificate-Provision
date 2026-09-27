@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
-    LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport,
+    LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport, LeaderNotice,
 )
 
 
@@ -60,3 +60,9 @@ class CitizenTransferAdmin(admin.ModelAdmin):
                     'transferred_at', 'decided_at', 'placed_at')
     list_filter = ('status', 'from_village', 'to_village')
 admin.site.register(LocationImport)
+
+
+@admin.register(LeaderNotice)
+class LeaderNoticeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'audience', 'area_code', 'created_by', 'created_at')
+    filter_horizontal = ('excluded',)

@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
     ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
-    Activity, Attendance, DeathReport,
+    Activity, Attendance, DeathReport, LeaderNotice,
 )
 from .permissions import effective_permissions, role_permissions
 
@@ -625,3 +625,37 @@ class ServicePaymentSerializer(serializers.ModelSerializer):
         if not obj.recorded_by:
             return ''
         return f'{obj.recorded_by.first_name} {obj.recorded_by.last_name}'.strip() or obj.recorded_by.username
+
+
+class LeaderNoticeSerializer(serializers.ModelSerializer):
+    excluded = serializers.PrimaryKeyRelatedField(many=True, queryset=CustomUser.objects.all(), required=False)
+    excluded_names = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    created_by_role = serializers.SerializerMethodField()
+    area_name = serializers.SerializerMethodField()
+    audience_display = serializers.CharField(source='get_audience_display', read_only=True)
+    recipient_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeaderNotice
+        fields = [
+            'id', 'title', 'body', 'area_code', 'area_name', 'audience', 'audience_display', 'excluded', 'excluded_names',
+            'recipient_count', 'created_by', 'created_by_name', 'created_by_role', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['area_code', 'audience', 'created_by', 'created_at', 'updated_at']
+
+    def get_excluded_names(self, obj):
+        return [u.display_name for u in obj.excluded.all()]
+
+    def get_created_by_name(self, obj):
+        return obj.created_by.display_name if obj.created_by else ''
+
+    def get_created_by_role(self, obj):
+        return obj.created_by.get_role_display() if obj.created_by else ''
+
+    def get_area_name(self, obj):
+        return location_name(obj.area_code)
+
+    def get_recipient_count(self, obj):
+        # Set by the view for one query per list instead of one per notice
+        return getattr(obj, 'recipient_count', None)

@@ -91,7 +91,7 @@ class EligiblePerson(models.Model):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(unique=True)
-    national_id = models.CharField(max_length=100, blank=True, null=True)
+    national_id = models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} <{self.email}>"
@@ -481,3 +481,26 @@ class Announcement(models.Model):
 
     def __str__(self):
         return f'{self.get_kind_display()} – {self.letter_date}'
+
+
+class LeaderNotice(models.Model):
+    """Internal notice from a sector leader to the cell leaders of the sector, or a cell leader to the village leaders of the cell."""
+    AUDIENCE_CHOICES = [('cell_leader', 'Cell leaders'), ('village_leader', 'Village leaders')]
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   related_name='leader_notices')
+    # Sector (4-digit) or cell (6-digit) code whose leaders receive the notice
+    area_code = models.IntegerField()
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES)
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    # Leaders of the area the author chose to leave out; everyone else in the area sees the notice
+    excluded = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='excluded_from_notices')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} → {self.get_audience_display()} of {self.area_code}'

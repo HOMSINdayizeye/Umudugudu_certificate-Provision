@@ -139,9 +139,14 @@ export const api = {
   deleteAnnouncement: (id) => request(`/announcements/${id}/`, { method: 'DELETE' }),
   previewAnnouncement: (payload) => request('/announcements/preview/', { method: 'POST', body: payload }),
   downloadAnnouncement: (id, format = 'docx') => request(`/announcements/${id}/download/?as=${format}`, { blob: true }),
+  listLeaderNotices: () => request('/announcements/notices/'),
+  createLeaderNotice: (payload) => request('/announcements/notices/', { method: 'POST', body: payload }),
+  updateLeaderNotice: (id, payload) => request(`/announcements/notices/${id}/`, { method: 'PATCH', body: payload }),
+  deleteLeaderNotice: (id) => request(`/announcements/notices/${id}/`, { method: 'DELETE' }),
 
   listUsers: (params) => request(params ? `/users/?${new URLSearchParams(params)}` : '/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),
+  pickCitizens: (params = {}) => request(`/citizens/pick/?${new URLSearchParams(params)}`),
   deleteUser: (id) => request(`/users/${id}/`, { method: 'DELETE' }),
   updateUser: (id, payload) => request(`/users/${id}/`, { method: 'PATCH', body: payload }),
   setUserPermissions: (id, grants, denies) =>

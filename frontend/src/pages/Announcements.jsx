@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
+import LeaderNotices from '../components/LeaderNotices.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
 import DocViewer from '../components/DocViewer.jsx'
@@ -20,6 +22,8 @@ function locFromVillage(village) {
 const LEVEL_OF_ROLE = { cell_leader: 'cell', sector_leader: 'sector', cell_youth_leader: 'cell', sector_youth_leader: 'sector' }
 const YOUTH_ROLES = ['cell_youth_leader', 'sector_youth_leader']
 const AREA_LABEL = { 4: 'Sector', 6: 'Cell', 8: 'Village' }
+// Leader notices travel sector -> cell leaders -> village leaders; admins read them all
+const NOTICE_ROLES = ['sector_leader', 'cell_leader', 'village_leader']
 
 const KINDS = [
   ['umuganda', 'Community Work (Umuganda)'],
@@ -50,6 +54,26 @@ const EMPTY = {
 }
 
 export default function Announcements({ user }) {
+  const [params, setParams] = useSearchParams()
+  const hasNotices = NOTICE_ROLES.includes(user?.role) || user?.is_admin_role || user?.is_superuser
+  const tab = hasNotices && params.get('tab') === 'notices' ? 'notices' : 'letters'
+  const showTab = (t) => setParams(t === 'notices' ? { tab: 'notices' } : {}, { replace: true })
+  return (
+    <div>
+      <div className="page-head"><h1>Announcements</h1></div>
+      {hasNotices && (
+        <div className="tabs">
+          <button type="button" className={`tab ${tab === 'letters' ? 'tab-active' : ''}`} onClick={() => showTab('letters')}>Letters</button>
+          <button type="button" className={`tab ${tab === 'notices' ? 'tab-active' : ''}`} onClick={() => showTab('notices')}>Leader notices</button>
+        </div>
+      )}
+      {tab === 'notices' ? <LeaderNotices user={user} /> : <Letters user={user} />}
+    </div>
+  )
+}
+
+// Letter-style announcements to citizens (Umuganda communiques, meetings, general notices)
+function Letters({ user }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [canCreate, setCanCreate] = useState(false)
@@ -238,7 +262,6 @@ export default function Announcements({ user }) {
 
   return (
     <div>
-      <div className="page-head"><h1>Announcements</h1></div>
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
 

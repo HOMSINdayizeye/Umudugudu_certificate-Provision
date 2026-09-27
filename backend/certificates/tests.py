@@ -505,3 +505,106 @@ class YouthAndIdTests(TestCase):
         self.as_user(self.cell_youth).patch(f"/api/announcements/{res.data['id']}/", {'published': True}, format='json')
         seen = self.as_user(citizen).get('/api/announcements/').data['announcements']
         self.assertEqual([(a['village'], a['for_youth']) for a in seen], [(100101, True)])
+
+
+class LeaderNoticeTests(TestCase):
+    """Sector leaders write to the cell leaders of their sector, cell leaders to the village leaders of their cell."""
+
+    def setUp(self):
+        make_locations()
+        LocationImport.objects.create(location_id=1002, type='SECTOR', name='Sector B', status='active')
+        LocationImport.objects.create(location_id=100201, type='CELL', name='Cell C', status='active')
+        self.sector = CustomUser.objects.create_user(username='sec', password='x', role='sector_leader', sector=1001,
+                                                     first_name='Sec', last_name='Leader')
+        self.cell_a = CustomUser.objects.create_user(username='cella', password='x', role='cell_leader', cell=100101,
+                                                     first_name='CellA', last_name='Leader')
+        self.cell_b = CustomUser.objects.create_user(username='cellb', password='x', role='cell_leader', cell=100102,
+                                                     first_name='CellB', last_name='Leader')
+        self.cell_other = CustomUser.objects.create_user(username='cellc', password='x', role='cell_leader', cell=100201)
+        self.village_a = leader('villa', FROM_VILLAGE)
+        self.village_b = leader('villb', TO_VILLAGE)
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def titles(self, user):
+        return sorted(n['title'] for n in self.as_user(user).get('/api/announcements/notices/').data['notices'])
+
+    def test_sector_notice_reaches_cell_leaders_except_excluded(self):
+        res = self.as_user(self.sector).get('/api/announcements/notices/')
+        self.assertTrue(res.data['can_create'])
+        self.assertEqual(sorted(r['id'] for r in res.data['recipients']), sorted([self.cell_a.id, self.cell_b.id]))
+        res = self.as_user(self.sector).post('/api/announcements/notices/',
+                                             {'title': 'Meeting', 'body': 'Friday 9am', 'excluded': [self.cell_b.id, self.cell_other.id]},
+                                             format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        # Only a leader who would otherwise receive the notice can be excluded from it
+        self.assertEqual(res.data['excluded'], [self.cell_b.id])
+        self.assertEqual(res.data['recipient_count'], 1)
+        self.assertEqual(self.titles(self.cell_a), ['Meeting'])
+        self.assertEqual(self.titles(self.cell_b), [])
+        self.assertEqual(self.titles(self.cell_other), [])
+        self.assertEqual(self.titles(self.village_a), [])
+        self.assertEqual(self.titles(self.sector), ['Meeting'])
+        self.assertEqual(Notification.objects.filter(user=self.cell_a, link='/announcements?tab=notices').count(), 1)
+        self.assertFalse(Notification.objects.filter(user=self.cell_b).exists())
+
+    def test_cell_notice_reaches_only_its_village_leaders(self):
+        res = self.as_user(self.cell_a).post('/api/announcements/notices/', {'title': 'Umuganda', 'body': 'Bring tools'}, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(self.titles(self.village_a), ['Umuganda'])
+        self.assertEqual(self.titles(self.village_b), [])
+        self.assertEqual(self.titles(self.cell_b), [])
+        # Village leaders read notices but cannot write them; admins see everything
+        self.assertFalse(self.as_user(self.village_a).get('/api/announcements/notices/').data['can_create'])
+        res = self.as_user(self.village_a).post('/api/announcements/notices/', {'title': 'x', 'body': 'y'}, format='json')
+        self.assertEqual(res.status_code, 403)
+        admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        self.assertEqual(self.titles(admin), ['Umuganda'])
+
+    def test_only_the_author_edits_and_excluding_later_hides_the_notice(self):
+        notice_id = self.as_user(self.cell_a).post('/api/announcements/notices/', {'title': 'Old', 'body': 'b'}, format='json').data['id']
+        res = self.as_user(self.village_a).patch(f'/api/announcements/notices/{notice_id}/', {'title': 'Hacked'}, format='json')
+        self.assertEqual(res.status_code, 403)
+        res = self.as_user(self.cell_a).patch(f'/api/announcements/notices/{notice_id}/',
+                                              {'title': 'New', 'excluded': [self.village_a.id]}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(self.titles(self.village_a), [])
+        self.assertEqual(self.as_user(self.village_a).get(f'/api/announcements/notices/{notice_id}/').status_code, 404)
+        self.assertEqual(self.as_user(self.cell_a).delete(f'/api/announcements/notices/{notice_id}/').status_code, 204)
+
+
+class CitizenPickTests(TestCase):
+    def setUp(self):
+        make_locations()
+        self.admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
+        self.leader = leader('vl', FROM_VILLAGE)
+        Citizen.objects.create(first_name='Alice', last_name='Uwase', national_id='1199000000000001', age=30,
+                               village=FROM_VILLAGE, isibo='Amahoro', email='Alice@example.com', added_by=self.leader)
+        Citizen.objects.create(first_name='Bob', last_name='Mugisha', national_id='1199000000000002', age=40,
+                               village=TO_VILLAGE, added_by=self.leader)
+        Citizen.objects.create(first_name='Carl', last_name='Gone', national_id='1199000000000003', age=40,
+                               village=TO_VILLAGE, status='deceased', added_by=self.leader)
+        CustomUser.objects.create_user(username='alice', password='x', email='alice@example.com')
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def test_admin_filters_living_citizens_by_area_and_sees_who_has_an_account(self):
+        res = self.as_user(self.admin).get('/api/citizens/pick/', {'location': 1001})
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual([c['name'] for c in res.data['citizens']], ['Alice Uwase', 'Bob Mugisha'])
+        alice = res.data['citizens'][0]
+        self.assertTrue(alice['has_account'])
+        self.assertEqual((alice['village'], alice['isibo'], alice['location_path']), (FROM_VILLAGE, 'Amahoro', 'Kigarama, Cell A, Sector A'))
+        self.assertFalse(res.data['citizens'][1]['has_account'])
+        res = self.as_user(self.admin).get('/api/citizens/pick/', {'location': 100102, 'q': 'mug'})
+        self.assertEqual([c['name'] for c in res.data['citizens']], ['Bob Mugisha'])
+        # Nothing chosen yet returns nothing rather than the whole registry
+        self.assertEqual(self.as_user(self.admin).get('/api/citizens/pick/').data['citizens'], [])
+        # Only accounts allowed to add users may browse the registry this way
+        self.assertEqual(self.as_user(self.leader).get('/api/citizens/pick/', {'location': 1001}).status_code, 403)

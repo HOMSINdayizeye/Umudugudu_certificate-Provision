@@ -37,6 +37,9 @@ urlpatterns = [
     path('announcements/preview/', api.announcement_preview, name='api_announcement_preview'),
     path('announcements/<int:pk>/', api.announcement_detail, name='api_announcement_detail'),
     path('announcements/<int:pk>/download/', api.announcement_download, name='api_announcement_download'),
+    # Leader-to-leader notices (sector -> cell leaders, cell -> village leaders); kept under announcements
+    path('announcements/notices/', api.leader_notice_list, name='api_leader_notice_list'),
+    path('announcements/notices/<int:pk>/', api.leader_notice_detail, name='api_leader_notice_detail'),
 
     # Admin: users & eligibility
     path('users/', api.user_list, name='api_user_list'),
@@ -66,6 +69,7 @@ urlpatterns = [
     path('citizens/transfers/', api.citizen_transfer_list, name='api_citizen_transfer_list'),
     path('citizens/transfers/<int:pk>/<str:decision>/', api.citizen_transfer_decide, name='api_citizen_transfer_decide'),
     path('citizens/isibos/', api.village_isibos, name='api_village_isibos'),
+    path('citizens/pick/', api.citizen_pick, name='api_citizen_pick'),
     path('citizens/deaths/', api.death_list, name='api_death_list'),
     path('citizens/deaths/search/', api.death_search, name='api_death_search'),
     path('citizens/deaths/<int:pk>/', api.death_detail, name='api_death_detail'),

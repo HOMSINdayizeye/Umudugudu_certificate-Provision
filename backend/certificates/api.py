@@ -6,7 +6,7 @@ import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import Q, TextField, Count, Prefetch
-from django.db.models.functions import Cast, Length
+from django.db.models.functions import Cast, Length, Lower
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
     RequestAttachment, Announcement, Notification, RolePolicy, Activity, Attendance, SystemSetting, DeathReport,
+    LeaderNotice,
 )
 from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
@@ -27,7 +28,7 @@ from .serializers import (
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
     NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
-    ActivitySerializer, AttendanceSerializer, DeathReportSerializer,
+    ActivitySerializer, AttendanceSerializer, DeathReportSerializer, LeaderNoticeSerializer, location_name,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, paragraph_text, location_chain,
@@ -795,6 +796,103 @@ def announcement_download(request, pk):
     return send_stored_document(ann.generated_document, request.GET.get('as'))
 
 
+# ---------- Leader notices (sector -> cell leaders, cell -> village leaders) ----------
+
+# Who each writing role addresses, and the location field that places a recipient inside the author's area
+NOTICE_AUDIENCE = {'sector_leader': 'cell_leader', 'cell_leader': 'village_leader'}
+NOTICE_LOCATION_FIELD = {'cell_leader': 'cell', 'village_leader': 'village'}
+
+
+def can_write_notices(user):
+    return user.role in NOTICE_AUDIENCE and bool(user.scope_code) and has_perm(user, 'create:announcements')
+
+
+def notice_recipients_qs(audience, area_code):
+    """Active leaders of the given role whose cell/village lies inside the area."""
+    qs = CustomUser.objects.filter(role=audience, is_active=True)
+    return scope_queryset_by_village_prefix(qs, NOTICE_LOCATION_FIELD[audience], area_code).order_by('last_name', 'first_name')
+
+
+def notices_qs(user):
+    """Notices the user wrote, plus those addressed to leaders of their role in an area containing them (unless excluded)."""
+    if is_admin(user):
+        return LeaderNotice.objects.all()
+    own = LeaderNotice.objects.filter(created_by=user)
+    code = getattr(user, NOTICE_LOCATION_FIELD[user.role]) if user.role in NOTICE_LOCATION_FIELD else None
+    if not code:
+        return own
+    received = LeaderNotice.objects.filter(audience=user.role, area_code__in=location_prefixes(code)).exclude(excluded=user)
+    return (own | received).distinct()
+
+
+def notice_data(qs):
+    rows = LeaderNoticeSerializer(qs, many=True).data
+    for row in rows:
+        row['recipient_count'] = notice_recipients_qs(row['audience'], row['area_code']).count() - len(row['excluded'])
+    return rows
+
+
+def keep_recipients(validated, audience, area_code):
+    # Only leaders who would otherwise receive the notice can be excluded from it
+    if 'excluded' in validated:
+        allowed = set(notice_recipients_qs(audience, area_code).values_list('id', flat=True))
+        validated['excluded'] = [u for u in validated['excluded'] if u.id in allowed]
+
+
+@api_view(['GET', 'POST'])
+def leader_notice_list(request):
+    user = request.user
+    writer = can_write_notices(user)
+    if request.method == 'GET':
+        qs = notices_qs(user).select_related('created_by').prefetch_related('excluded')
+        data = {'can_create': writer, 'notices': notice_data(qs)}
+        if writer:
+            audience = NOTICE_AUDIENCE[user.role]
+            data.update({
+                'audience': audience,
+                'audience_display': dict(LeaderNotice.AUDIENCE_CHOICES)[audience],
+                'area_code': user.scope_code,
+                'area_name': location_name(user.scope_code),
+                'recipients': [{'id': u.id, 'display_name': u.display_name,
+                                'location_name': location_name(getattr(u, NOTICE_LOCATION_FIELD[audience]))}
+                               for u in notice_recipients_qs(audience, user.scope_code)],
+            })
+        return Response(data)
+
+    if not writer:
+        return Response({'detail': 'Only sector and cell leaders with an area can write notices to their leaders.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    serializer = LeaderNoticeSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    audience = NOTICE_AUDIENCE[user.role]
+    keep_recipients(serializer.validated_data, audience, user.scope_code)
+    notice = serializer.save(created_by=user, audience=audience, area_code=user.scope_code)
+    recipients = notice_recipients_qs(audience, user.scope_code).exclude(pk__in=notice.excluded.values_list('pk', flat=True))
+    notify_users(recipients, f'Notice from your {user.get_role_display().lower()}: {notice.title}',
+                 notice.body[:200], link='/announcements?tab=notices')
+    return Response(notice_data([notice])[0], status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def leader_notice_detail(request, pk):
+    user = request.user
+    notice = get_object_or_404(LeaderNotice, pk=pk)
+    if not notices_qs(user).filter(pk=pk).exists():
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response(notice_data([notice])[0])
+    if not (is_admin(user) or notice.created_by_id == user.id):
+        return Response({'detail': 'Only the author can change this notice.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.method == 'DELETE':
+        notice.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = LeaderNoticeSerializer(notice, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    keep_recipients(serializer.validated_data, notice.audience, notice.area_code)
+    notice = serializer.save()
+    return Response(notice_data([notice])[0])
+
+
 # ---------- Users (system admin) ----------
 
 @api_view(['GET', 'POST'])
@@ -1172,6 +1270,37 @@ def citizen_list(request):
         'can_place': has_perm(user, 'place:citizens'),
         'youth_only': user.role in YOUTH_ROLES,
         'citizens': data,
+    })
+
+
+@api_view(['GET'])
+def citizen_pick(request):
+    """Registered citizens an administrator can turn into user accounts, narrowed by area and by name/ID/phone."""
+    if not has_perm(request.user, 'add:users'):
+        return Response({'detail': 'You are not allowed to create users.'}, status=status.HTTP_403_FORBIDDEN)
+    code = request.GET.get('location', '').strip()
+    q = request.GET.get('q', '').strip()
+    if not code.isdigit() and len(q) < 2:
+        return Response({'count': 0, 'citizens': []})
+    qs = living()
+    if code.isdigit():
+        qs = scope_queryset_by_village_prefix(qs, 'village', code)
+    if q:
+        qs = qs.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(national_id__icontains=q)
+                       | Q(phone__icontains=q) | Q(email__icontains=q))
+    qs = qs.order_by('first_name', 'last_name')
+    rows = list(qs[:50])
+    emails = {c.email.lower() for c in rows if c.email}
+    taken = set(CustomUser.objects.annotate(e=Lower('email')).filter(e__in=emails).values_list('e', flat=True)) if emails else set()
+    return Response({
+        'count': qs.count(),
+        'citizens': [{
+            'id': c.id, 'first_name': c.first_name, 'last_name': c.last_name, 'name': f'{c.first_name} {c.last_name}'.strip(),
+            'national_id': c.national_id, 'phone': c.phone, 'email': c.email, 'age': c.age, 'isibo': c.isibo,
+            'village': c.village, 'location_path': location_path(c.village),
+            # An account already uses this citizen's email address
+            'has_account': bool(c.email) and c.email.lower() in taken,
+        } for c in rows],
     })
 
 
