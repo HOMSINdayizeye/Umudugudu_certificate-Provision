@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 
 from .models import (
     Citizen, CitizenTransfer, CustomUser, LocationImport, Notification, CertificateRequest, RequestAttachment,
-    Announcement, ServicePayment, DeathReport, Activity, Attendance,
+    Announcement, ServicePayment, DeathReport, Activity, Attendance, LeaderInquiry,
 )
 
 # Two villages in different cells of the same sector: sector 1001 -> cells 100101/100102 -> villages ...01
@@ -665,3 +665,71 @@ class AnnouncementVisibilityTests(TestCase):
         self.assertEqual(self.as_user(self.author).get(f'/api/announcements/{ended.id}/').status_code, 200)
         admin = CustomUser.objects.create_user(username='admin', password='x', role='system_admin')
         self.assertEqual(self.titles(admin), everything)
+
+
+class LeaderInquiryTests(TestCase):
+    """Same-level leaders ask each other for information; the leader asked replies and controls contact sharing."""
+
+    def setUp(self):
+        make_locations()
+        self.asker = leader('asker', FROM_VILLAGE)
+        self.asked = leader('asked', TO_VILLAGE)
+        self.asked.phone, self.asked.email = '250788000001', 'asked@example.com'
+        self.asked.save()
+        self.bystander = CustomUser.objects.create_user(username='cell', password='x', role='cell_leader', cell=100102)
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def test_village_leader_asks_peer_and_gets_reply_and_chosen_contact(self):
+        # Must target another village at the same level
+        res = self.as_user(self.asker).post('/api/announcements/inquiries/',
+                                            {'to_location': FROM_VILLAGE, 'title': 'x', 'description': 'y'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        res = self.as_user(self.asker).post('/api/announcements/inquiries/',
+                                            {'to_location': 100102, 'title': 'x', 'description': 'y'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        res = self.as_user(self.asker).post('/api/announcements/inquiries/', {
+            'to_location': TO_VILLAGE, 'title': 'Records of Alice', 'description': 'She moved to you last month.',
+            'contact_requested': True}, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        inq_id = res.data['id']
+        self.assertEqual(res.data['contact_status'], 'pending')
+        self.assertTrue(Notification.objects.filter(user=self.asked, link='/announcements?tab=inquiries').exists())
+        # The peer sees it as received; a cell leader of that area does not
+        got = self.as_user(self.asked).get('/api/announcements/inquiries/').data
+        self.assertEqual([q['id'] for q in got['received']], [inq_id])
+        self.assertEqual(got['pending_count'], 1)
+        self.assertEqual(self.as_user(self.bystander).get(f'/api/announcements/inquiries/{inq_id}/').status_code, 404)
+        # Only the leader asked may answer; sharing only the phone hides the email from the asker
+        self.assertEqual(self.as_user(self.asker).patch(f'/api/announcements/inquiries/{inq_id}/', {'reply': 'me'}, format='json').data['reply'], '')
+        res = self.as_user(self.asked).patch(f'/api/announcements/inquiries/{inq_id}/', {
+            'reply': 'Her file is at the cell office.', 'contact': 'share', 'share_phone': True, 'share_email': False}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertIsNone(res.data['contact'])  # the answering leader is not shown their own contact block
+        mine = self.as_user(self.asker).get('/api/announcements/inquiries/').data['sent'][0]
+        self.assertEqual(mine['reply'], 'Her file is at the cell office.')
+        self.assertEqual(mine['contact'], {'name': self.asked.display_name, 'phone': '250788000001', 'email': ''})
+        self.assertEqual(Notification.objects.filter(user=self.asker).count(), 1)
+
+    def test_decline_contact_and_request_it_later(self):
+        inq_id = self.as_user(self.asker).post('/api/announcements/inquiries/', {
+            'to_location': TO_VILLAGE, 'title': 'Umuganda date', 'description': 'When is yours?'}, format='json').data['id']
+        # No contact asked yet: the asker requests it afterwards, the peer declines
+        res = self.as_user(self.asker).patch(f'/api/announcements/inquiries/{inq_id}/', {'contact_requested': True}, format='json')
+        self.assertEqual(res.data['contact_status'], 'pending')
+        res = self.as_user(self.asked).patch(f'/api/announcements/inquiries/{inq_id}/', {'contact': 'decline'}, format='json')
+        self.assertEqual((res.status_code, res.data['contact_status']), (200, 'declined'))
+        self.assertIsNone(self.as_user(self.asker).get(f'/api/announcements/inquiries/{inq_id}/').data['contact'])
+        # Sharing nothing is refused; the asker can withdraw an unanswered inquiry, a citizen sees nothing
+        inq = LeaderInquiry.objects.get(pk=inq_id)
+        inq.contact_status = 'pending'
+        inq.save()
+        res = self.as_user(self.asked).patch(f'/api/announcements/inquiries/{inq_id}/', {'contact': 'share'}, format='json')
+        self.assertEqual(res.status_code, 400)
+        citizen = CustomUser.objects.create_user(username='cit', password='x', role='citizen', village=TO_VILLAGE)
+        self.assertFalse(self.as_user(citizen).get('/api/announcements/inquiries/').data['can_create'])
+        self.assertEqual(self.as_user(self.asked).delete(f'/api/announcements/inquiries/{inq_id}/').status_code, 403)
+        self.assertEqual(self.as_user(self.asker).delete(f'/api/announcements/inquiries/{inq_id}/').status_code, 204)

@@ -20,7 +20,7 @@ from rest_framework.response import Response
 from .models import (
     CustomUser, CertificateRequest, LocationImport, ServicePayment, Citizen, CitizenTransfer,
     RequestAttachment, Announcement, Notification, RolePolicy, Activity, Attendance, SystemSetting, DeathReport,
-    LeaderNotice,
+    LeaderNotice, LeaderInquiry,
 )
 from .permissions import CATALOG, ROLE_DEFAULTS, has_perm, role_permissions, clean_keys, is_full_admin
 from .serializers import (
@@ -28,7 +28,7 @@ from .serializers import (
     CertificateRequestSerializer, RequestAttachmentSerializer, AnnouncementSerializer,
     LocationImportSerializer, ServicePaymentSerializer, CitizenSerializer, CitizenTransferSerializer,
     NotificationSerializer, ProfileUpdateSerializer, ChangePasswordSerializer, can_see_codes, location_path,
-    ActivitySerializer, AttendanceSerializer, DeathReportSerializer, LeaderNoticeSerializer, location_name,
+    ActivitySerializer, AttendanceSerializer, DeathReportSerializer, LeaderNoticeSerializer, LeaderInquirySerializer, location_name,
 )
 from .documents import (
     render_request_document, render_announcement, announcement_paragraphs, paragraph_text, location_chain,
@@ -904,6 +904,144 @@ def leader_notice_detail(request, pk):
     keep_recipients(serializer.validated_data, notice.audience, notice.area_code)
     notice = serializer.save()
     return Response(notice_data([notice])[0])
+
+
+# ---------- Leader inquiries (same-level leaders asking each other for information or contact) ----------
+
+# Role -> (location field the role holds, LocationImport type of that field)
+INQUIRY_LEVEL = {
+    'village_leader': ('village', 'VILLAGE'),
+    'cell_leader': ('cell', 'CELL'),
+    'cell_youth_leader': ('cell', 'CELL'),
+    'sector_leader': ('sector', 'SECTOR'),
+    'sector_youth_leader': ('sector', 'SECTOR'),
+}
+
+
+def inquiry_home(user):
+    """Location code the user's role is attached to, or None when the role does not take part in inquiries."""
+    level = INQUIRY_LEVEL.get(user.role)
+    return getattr(user, level[0]) if level else None
+
+
+def inquiry_recipients(role, location):
+    field = INQUIRY_LEVEL[role][0]
+    return CustomUser.objects.filter(role=role, is_active=True, **{field: location})
+
+
+def inquiries_qs(user):
+    if is_admin(user):
+        return LeaderInquiry.objects.all()
+    sent = LeaderInquiry.objects.filter(from_user=user)
+    home = inquiry_home(user)
+    if not home:
+        return sent
+    return (sent | LeaderInquiry.objects.filter(role=user.role, to_location=home)).distinct()
+
+
+def is_inquiry_recipient(user, inq):
+    return inq.role == user.role and inq.to_location == inquiry_home(user)
+
+
+def inquiry_data(obj, user, many=False):
+    return LeaderInquirySerializer(obj, many=many, context={'user': user}).data
+
+
+@api_view(['GET', 'POST'])
+def leader_inquiry_list(request):
+    user = request.user
+    home = inquiry_home(user)
+    if request.method == 'GET':
+        qs = inquiries_qs(user).select_related('from_user', 'answered_by')
+        rows = inquiry_data(qs, user, many=True)
+        received = [r for r in rows if r['from_user'] != user.id]
+        data = {
+            'can_create': bool(home),
+            'level': INQUIRY_LEVEL[user.role][0] if home else None,
+            'home': home,
+            'home_name': location_name(home) if home else '',
+            'sent': [r for r in rows if r['from_user'] == user.id],
+            'received': received,
+            'pending_count': sum(1 for r in received if not r['reply'] or r['contact_status'] == 'pending'),
+        }
+        return Response(data)
+
+    if not home:
+        return Response({'detail': 'Only village, cell and sector (youth) leaders with a location can send inquiries.'},
+                        status=status.HTTP_403_FORBIDDEN)
+    field, loc_type = INQUIRY_LEVEL[user.role]
+    serializer = LeaderInquirySerializer(data=request.data, context={'user': user})
+    serializer.is_valid(raise_exception=True)
+    target = serializer.validated_data.get('to_location')
+    if target == home:
+        return Response({'to_location': f'Choose another {field}, not your own.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not LocationImport.objects.filter(location_id=target, type=loc_type).exists():
+        return Response({'to_location': f'Choose a {field} at your level.'}, status=status.HTTP_400_BAD_REQUEST)
+    contact = 'pending' if request.data.get('contact_requested') else 'none'
+    inq = serializer.save(from_user=user, role=user.role, contact_status=contact, share_phone=False, share_email=False)
+    notify_users(inquiry_recipients(user.role, target),
+                 f'Inquiry from {user.get_role_display().lower()} of {location_name(home)}: {inq.title}',
+                 inq.description[:200], link='/announcements?tab=inquiries')
+    return Response(inquiry_data(inq, user), status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def leader_inquiry_detail(request, pk):
+    user = request.user
+    inq = get_object_or_404(LeaderInquiry, pk=pk)
+    if not inquiries_qs(user).filter(pk=pk).exists():
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if request.method == 'GET':
+        return Response(inquiry_data(inq, user))
+    requester = inq.from_user_id == user.id
+    if request.method == 'DELETE':
+        if not (requester or is_admin(user)):
+            return Response({'detail': 'Only the requester can withdraw an inquiry.'}, status=status.HTTP_403_FORBIDDEN)
+        inq.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    now = timezone.now()
+    data = request.data
+    if requester:
+        # The requester may fix the wording until it is answered, and ask for contact details later on
+        if data.get('contact_requested') and inq.contact_status == 'none':
+            inq.contact_status = 'pending'
+            notify_users(inquiry_recipients(inq.role, inq.to_location), f'Contact requested: {inq.title}',
+                         f'{user.display_name} asks for your contact details.', link='/announcements?tab=inquiries')
+        if not inq.reply:
+            for f in ('title', 'description'):
+                if f in data and str(data[f]).strip():
+                    setattr(inq, f, data[f])
+        inq.save()
+        return Response(inquiry_data(inq, user))
+
+    if not is_inquiry_recipient(user, inq):
+        return Response({'detail': 'Only the leader asked can answer this inquiry.'}, status=status.HTTP_403_FORBIDDEN)
+    notes = []
+    if str(data.get('reply', '')).strip():
+        inq.reply = data['reply']
+        inq.replied_at = now
+        inq.answered_by = user
+        notes.append(f'{user.display_name} replied to "{inq.title}".')
+    decision = data.get('contact')
+    if decision in ('share', 'decline') and inq.contact_status == 'pending':
+        inq.answered_by = user
+        inq.contact_decided_at = now
+        if decision == 'share':
+            inq.share_phone = bool(data.get('share_phone'))
+            inq.share_email = bool(data.get('share_email'))
+            if not (inq.share_phone or inq.share_email):
+                return Response({'contact': 'Tick at least one detail to share, or decline.'}, status=status.HTTP_400_BAD_REQUEST)
+            inq.contact_status = 'shared'
+            notes.append(f'{user.display_name} shared contact details for "{inq.title}".')
+        else:
+            inq.contact_status = 'declined'
+            notes.append(f'{user.display_name} declined to share contact details for "{inq.title}".')
+    if not notes:
+        return Response({'detail': 'Send a reply, or decide on the contact request.'}, status=status.HTTP_400_BAD_REQUEST)
+    inq.save()
+    notify_users([inq.from_user], f'Inquiry update: {inq.title}', ' '.join(notes), link='/announcements?tab=inquiries')
+    return Response(inquiry_data(inq, user))
 
 
 # ---------- Users (system admin) ----------

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
-    LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport, LeaderNotice,
+    LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport, LeaderNotice, LeaderInquiry,
 )
 
 
@@ -66,3 +66,8 @@ admin.site.register(LocationImport)
 class LeaderNoticeAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'audience', 'area_code', 'created_by', 'created_at')
     filter_horizontal = ('excluded',)
+
+
+@admin.register(LeaderInquiry)
+class LeaderInquiryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'from_user', 'role', 'to_location', 'answered_by', 'contact_status', 'created_at')

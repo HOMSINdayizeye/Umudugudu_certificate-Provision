@@ -518,3 +518,33 @@ class LeaderNotice(models.Model):
 
     def __str__(self):
         return f'{self.title} → {self.get_audience_display()} of {self.area_code}'
+
+
+class LeaderInquiry(models.Model):
+    """Question a leader sends to the leader(s) of another area at the same level, optionally asking for their contact."""
+    CONTACT_CHOICES = [('none', 'Not requested'), ('pending', 'Requested'), ('shared', 'Shared'), ('declined', 'Declined')]
+
+    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='inquiries_sent')
+    # Role addressed (the requester's own role) and the village/cell/sector code its leaders hold
+    role = models.CharField(max_length=30)
+    to_location = models.IntegerField()
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    # The leader who answered; any leader of the role at that location may do so
+    answered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='inquiries_answered')
+    reply = models.TextField(blank=True, default='')
+    replied_at = models.DateTimeField(null=True, blank=True)
+    # Contact request: the answering leader decides whether to share and which fields
+    contact_status = models.CharField(max_length=10, choices=CONTACT_CHOICES, default='none')
+    share_phone = models.BooleanField(default=False)
+    share_email = models.BooleanField(default=False)
+    contact_decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} → {self.role} of {self.to_location}'

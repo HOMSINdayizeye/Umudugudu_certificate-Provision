@@ -40,6 +40,9 @@ urlpatterns = [
     # Leader-to-leader notices (sector -> cell leaders, cell -> village leaders); kept under announcements
     path('announcements/notices/', api.leader_notice_list, name='api_leader_notice_list'),
     path('announcements/notices/<int:pk>/', api.leader_notice_detail, name='api_leader_notice_detail'),
+    # Same-level leader inquiries (information and contact requests)
+    path('announcements/inquiries/', api.leader_inquiry_list, name='api_leader_inquiry_list'),
+    path('announcements/inquiries/<int:pk>/', api.leader_inquiry_detail, name='api_leader_inquiry_detail'),
 
     # Admin: users & eligibility
     path('users/', api.user_list, name='api_user_list'),

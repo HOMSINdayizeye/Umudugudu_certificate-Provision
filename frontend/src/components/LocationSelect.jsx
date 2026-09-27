@@ -18,6 +18,11 @@ export default function LocationSelect({ value, onChange, upTo = 'village', prog
 
   useEffect(() => {
     api.provinces().then((p) => setOptions((o) => ({ ...o, province: p }))).catch(() => {})
+    // A prefilled value needs each chosen level's children loaded so names resolve and the next dropdown appears
+    const loaders = [['province', 'district', api.districts], ['district', 'sector', api.sectors], ['sector', 'cell', api.cells], ['cell', 'village', api.villages]]
+    Promise.all(loaders.map(([parent, child, load]) => (value[parent] ? load(value[parent]).then((d) => [child, d]) : null)))
+      .then((pairs) => setOptions((o) => ({ ...o, ...Object.fromEntries(pairs.filter(Boolean)) })))
+      .catch(() => {})
   }, [])
 
   async function pick(level, val) {

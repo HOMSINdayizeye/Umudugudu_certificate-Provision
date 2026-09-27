@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, saveBlob } from '../api.js'
 import LeaderNotices from '../components/LeaderNotices.jsx'
+import LeaderInquiries from '../components/LeaderInquiries.jsx'
 import LocationSelect from '../components/LocationSelect.jsx'
 import Pagination, { DateFilter, inDateRange } from '../components/Pagination.jsx'
 import DocViewer from '../components/DocViewer.jsx'
@@ -82,11 +83,33 @@ const EMPTY = {
 export default function Announcements({ user }) {
   const [params, setParams] = useSearchParams()
   const hasNotices = NOTICE_ROLES.includes(user?.role) || user?.is_admin_role || user?.is_superuser
-  const tab = hasNotices && params.get('tab') === 'notices' ? 'notices' : 'letters'
-  const showTab = (t) => setParams(t === 'notices' ? { tab: 'notices' } : {}, { replace: true })
+  // Same-level inquiries: the roles that hold a village, cell or sector, plus admins who read them all
+  const hasInquiries = hasNotices || user?.role === 'cell_youth_leader' || user?.role === 'sector_youth_leader'
+  const requested = params.get('tab')
+  const tab = hasInquiries && requested === 'inquiries' ? 'inquiries' : hasNotices && requested === 'notices' ? 'notices' : 'letters'
+  const showTab = (t) => setParams(t === 'letters' ? {} : { tab: t }, { replace: true })
+  const [pending, setPending] = useState(0)
+  useEffect(() => {
+    if (hasInquiries) api.listLeaderInquiries().then((d) => setPending(d.pending_count || 0)).catch(() => {})
+  }, [hasInquiries, tab])
+  if (tab === 'inquiries') {
+    return (
+      <div>
+        <div className="page-head"><h1>Announcements</h1></div>
+        <LeaderInquiries user={user} onClose={() => showTab('letters')} />
+      </div>
+    )
+  }
   return (
     <div>
-      <div className="page-head"><h1>Announcements</h1></div>
+      <div className="page-head">
+        <h1>Announcements</h1>
+        {hasInquiries && (
+          <button type="button" className="btn btn-small btn-outline-dark" onClick={() => showTab('inquiries')}>
+            Leader inquiries{pending > 0 && <span className="badge badge-pending badge-inline">{pending}</span>}
+          </button>
+        )}
+      </div>
       {hasNotices && (
         <div className="tabs">
           <button type="button" className={`tab ${tab === 'letters' ? 'tab-active' : ''}`} onClick={() => showTab('letters')}>Letters</button>

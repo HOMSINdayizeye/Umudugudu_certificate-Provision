@@ -143,6 +143,10 @@ export const api = {
   createLeaderNotice: (payload) => request('/announcements/notices/', { method: 'POST', body: payload }),
   updateLeaderNotice: (id, payload) => request(`/announcements/notices/${id}/`, { method: 'PATCH', body: payload }),
   deleteLeaderNotice: (id) => request(`/announcements/notices/${id}/`, { method: 'DELETE' }),
+  listLeaderInquiries: () => request('/announcements/inquiries/'),
+  createLeaderInquiry: (payload) => request('/announcements/inquiries/', { method: 'POST', body: payload }),
+  updateLeaderInquiry: (id, payload) => request(`/announcements/inquiries/${id}/`, { method: 'PATCH', body: payload }),
+  deleteLeaderInquiry: (id) => request(`/announcements/inquiries/${id}/`, { method: 'DELETE' }),
 
   listUsers: (params) => request(params ? `/users/?${new URLSearchParams(params)}` : '/users/'),
   createUser: (payload) => request('/users/', { method: 'POST', body: payload }),

@@ -6,9 +6,9 @@ from django.contrib.auth import authenticate
 from .models import (
     CustomUser, CertificateRequest, StolenLaptopCertificate, LocationImport,
     ServicePayment, Citizen, CitizenTransfer, RequestAttachment, Announcement, Notification,
-    Activity, Attendance, DeathReport, LeaderNotice,
+    Activity, Attendance, DeathReport, LeaderNotice, LeaderInquiry,
 )
-from .permissions import effective_permissions, role_permissions
+from .permissions import effective_permissions, role_permissions, is_full_admin
 
 
 def location_name(code):
@@ -660,3 +660,51 @@ class LeaderNoticeSerializer(serializers.ModelSerializer):
     def get_recipient_count(self, obj):
         # Set by the view for one query per list instead of one per notice
         return getattr(obj, 'recipient_count', None)
+
+
+class LeaderInquirySerializer(serializers.ModelSerializer):
+    role_display = serializers.SerializerMethodField()
+    to_location_name = serializers.SerializerMethodField()
+    from_user_name = serializers.SerializerMethodField()
+    from_location_name = serializers.SerializerMethodField()
+    answered_by_name = serializers.SerializerMethodField()
+    contact_status_display = serializers.CharField(source='get_contact_status_display', read_only=True)
+    contact = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeaderInquiry
+        fields = [
+            'id', 'title', 'description', 'role', 'role_display', 'to_location', 'to_location_name',
+            'from_user', 'from_user_name', 'from_location_name', 'answered_by', 'answered_by_name', 'reply', 'replied_at',
+            'contact_status', 'contact_status_display', 'share_phone', 'share_email', 'contact_decided_at', 'contact',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['role', 'from_user', 'answered_by', 'replied_at', 'contact_decided_at', 'created_at', 'updated_at']
+
+    def get_role_display(self, obj):
+        return dict(CustomUser.ROLE_CHOICES).get(obj.role, obj.role)
+
+    def get_to_location_name(self, obj):
+        return location_name(obj.to_location)
+
+    def get_from_user_name(self, obj):
+        return obj.from_user.display_name if obj.from_user else ''
+
+    def get_from_location_name(self, obj):
+        return location_name(obj.from_user.scope_code) if obj.from_user else ''
+
+    def get_answered_by_name(self, obj):
+        return obj.answered_by.display_name if obj.answered_by else ''
+
+    def get_contact(self, obj):
+        # Shared details are for the requester (and admins) only, and only the fields the answering leader ticked
+        viewer = self.context.get('user')
+        if obj.contact_status != 'shared' or not obj.answered_by or not viewer:
+            return None
+        if viewer.id != obj.from_user_id and not is_full_admin(viewer):
+            return None
+        return {
+            'name': obj.answered_by.display_name,
+            'phone': obj.answered_by.phone if obj.share_phone else '',
+            'email': obj.answered_by.email if obj.share_email else '',
+        }
