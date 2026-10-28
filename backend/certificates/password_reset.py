@@ -103,7 +103,7 @@ def request_code(request):
     code = f'{secrets.randbelow(1_000_000):06d}'
     user.password_reset_codes.filter(used_at__isnull=True).update(used_at=timezone.now())   # one open code at a time
     entry = PasswordResetCode.objects.create(
-        user=user, phone=user.phone if channel == 'sms' else user.email, code_hash=make_password(code),
+        user=user, sent_to=user.phone if channel == 'sms' else user.email, code_hash=make_password(code),
         expires_at=timezone.now() + timedelta(minutes=PasswordResetCode.LIFETIME_MINUTES))
     link = f'{frontend_url(request)}/reset-password?' + urlencode({'identifier': user.username, 'code': code})
     text, html, sms_text = reset_message(user, code, link)

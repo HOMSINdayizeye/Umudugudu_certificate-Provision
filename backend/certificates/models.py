@@ -605,7 +605,7 @@ class PasswordResetCode(models.Model):
     RESEND_SECONDS = 60
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_codes')
-    phone = models.CharField(max_length=20)
+    sent_to = models.CharField(max_length=254)   # the email address or phone number the code went to
     code_hash = models.CharField(max_length=128)   # the code itself is never stored
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()

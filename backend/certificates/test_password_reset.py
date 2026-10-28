@@ -60,6 +60,13 @@ class PasswordResetTests(TestCase):
         self.assertFalse(Token.objects.filter(user=self.user).exists())   # other devices signed out
         self.assertFalse(PasswordResetCode.objects.get().is_open)        # code cannot be reused
 
+    def test_long_email_addresses_fit_the_reset_record(self):
+        self.user.email = 'amina.uwimana.longaddress@kigalicity.example.test'   # longer than a phone number
+        self.user.save()
+        res = self.request('amina')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(PasswordResetCode.objects.get().sent_to, self.user.email)
+
     @mock.patch.dict('os.environ', {'FRONTEND_URL': 'https://certify.example.rw/'})
     def test_frontend_url_env_wins_for_the_link(self):
         self.request('amina')
