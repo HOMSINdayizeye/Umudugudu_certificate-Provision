@@ -599,3 +599,19 @@ img { max-width: 100%; }
 .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .page-btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .page-info { margin-left: 0.5rem; font-size: 0.85rem; }
+
+/* Census coverage */
+.coverage-bar { position: relative; height: 18px; background: #eef1f4; border: 1px solid var(--border); overflow: hidden; min-width: 120px; }
+.coverage-fill { height: 100%; transition: width 0.4s; }
+.coverage-high { background: var(--success); }
+.coverage-mid { background: var(--warning); }
+.coverage-low { background: var(--danger); }
+.coverage-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.72rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.coverage-table td, .coverage-table th { white-space: nowrap; }
+.census-card { margin-bottom: 1.5rem; }
+.census-stats { margin: 0 0 1rem; flex-wrap: wrap; }
+.table-compact th, .table-compact td { padding: 0.45rem 0.6rem; font-size: 0.88rem; }
+.row-current td { background: var(--primary-tint); }
+.indicator-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem 1.5rem; }
+.loc-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem 1rem; }
+.loc-inline .form-group { margin-bottom: 0.5rem; }

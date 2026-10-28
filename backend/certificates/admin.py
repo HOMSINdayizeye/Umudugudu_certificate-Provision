@@ -3,7 +3,22 @@ from django.contrib import admin
 from .models import (
     CustomUser, CertificateRequest, RequestAttachment, Announcement, Citizen, CitizenTransfer, ServicePayment,
     LocationImport, RolePolicy, Activity, Attendance, SystemSetting, DeathReport, LeaderNotice, LeaderInquiry,
+    PopulationFigure, CensusIndicator,
 )
+
+
+@admin.register(PopulationFigure)
+class PopulationFigureAdmin(admin.ModelAdmin):
+    list_display = ('location', 'level', 'year', 'kind', 'total', 'male', 'female', 'households', 'source')
+    list_filter = ('kind', 'level', 'year')
+    search_fields = ('location',)
+
+
+@admin.register(CensusIndicator)
+class CensusIndicatorAdmin(admin.ModelAdmin):
+    list_display = ('location', 'level', 'year', 'key', 'value')
+    list_filter = ('level', 'year', 'key')
+    search_fields = ('location', 'key')
 
 
 @admin.register(DeathReport)

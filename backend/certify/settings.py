@@ -160,6 +160,21 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Unhandled errors become JSON ({"detail": ...}) with the exception shown while DEBUG is on
+    'EXCEPTION_HANDLER': 'certificates.exceptions.api_exception_handler',
+}
+
+# Errors and warnings go to the console the server runs in (runserver, gunicorn, Render logs)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '%(levelname)s %(asctime)s %(name)s: %(message)s'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'certify': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'django.request': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+    },
 }
 
 # Frontend origins allowed to call the API: local Vite servers plus whatever CORS_ALLOWED_ORIGINS lists

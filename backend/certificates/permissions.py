@@ -44,6 +44,13 @@ CATALOG = [
         ],
     },
     {
+        'resource': 'census', 'label': 'Census & population',
+        'actions': [
+            ('view:census', 'View census population estimates and registration coverage of their area'),
+            ('manage:census', 'Enter a local population count for a cell or village'),
+        ],
+    },
+    {
         'resource': 'users', 'label': 'User accounts',
         'actions': [
             ('view:users', 'View all user accounts'),
@@ -61,23 +68,24 @@ ALL_KEYS = [key for group in CATALOG for key, _ in group['actions']]
 
 _ACTIVITIES = ['view:activities', 'create:activities', 'mark:attendance']
 _LEADER = ['view:citizens', 'transfer:citizens', 'place:citizens', 'view:transfers', 'view:deaths', 'view:payments',
-           'approve:requests', 'create:announcements'] + _ACTIVITIES
-_VOLUNTEER = ['view:citizens', 'view:payments', 'record:payments']
+           'approve:requests', 'create:announcements', 'view:census'] + _ACTIVITIES
+_VOLUNTEER = ['view:citizens', 'view:payments', 'record:payments', 'view:census']
 
 # What each role can do until the admin changes it on the Roles page
 ROLE_DEFAULTS = {
     'citizen': [],
-    'isibo_leader': ['view:citizens', 'add:citizens', 'edit:citizens'] + _ACTIVITIES,
-    # Only the village leader reports deaths; cell and sector leaders view the register
-    'village_leader': _LEADER + ['report:deaths'],
-    'cell_leader': list(_LEADER),
+    'isibo_leader': ['view:citizens', 'add:citizens', 'edit:citizens', 'view:census'] + _ACTIVITIES,
+    # Only the village leader reports deaths; cell and sector leaders view the register.
+    # Village and cell leaders may replace the derived census estimate of their area with a local count.
+    'village_leader': _LEADER + ['report:deaths', 'manage:census'],
+    'cell_leader': _LEADER + ['manage:census'],
     'sector_leader': ['view:citizens', 'view:transfers', 'view:deaths', 'view:payments', 'approve:requests',
-                      'create:announcements'] + _ACTIVITIES,
+                      'create:announcements', 'view:census'] + _ACTIVITIES,
     'security_volunteer': list(_VOLUNTEER),
     'cleaning_volunteer': list(_VOLUNTEER),
     # Youth leaders view the youth (16-30) of their cell/sector and announce to them
-    'cell_youth_leader': ['view:citizens', 'create:announcements'],
-    'sector_youth_leader': ['view:citizens', 'create:announcements'],
+    'cell_youth_leader': ['view:citizens', 'create:announcements', 'view:census'],
+    'sector_youth_leader': ['view:citizens', 'create:announcements', 'view:census'],
     'system_admin': list(ALL_KEYS),
 }
 

@@ -235,13 +235,19 @@ class LoginSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         # Accept either username or email in the username field
-        username = attrs['username']
-        user_obj = CustomUser.objects.filter(email__iexact=username).first()
+        username = attrs['username'].strip()
+        user_obj = CustomUser.objects.filter(email__iexact=username).first() \
+            or CustomUser.objects.filter(username__iexact=username).first()
         if user_obj:
             username = user_obj.username
         user = authenticate(username=username, password=attrs['password'])
         if not user:
-            raise serializers.ValidationError('Invalid username/email or password.')
+            # Say why when it is not the password: a deactivated account also fails authenticate()
+            if user_obj and not user_obj.is_active:
+                raise serializers.ValidationError('This account has been deactivated. Ask the system admin to reactivate it.')
+            if not user_obj:
+                raise serializers.ValidationError('No account uses this username or email.')
+            raise serializers.ValidationError('Wrong password for this account.')
         attrs['user'] = user
         return attrs
 

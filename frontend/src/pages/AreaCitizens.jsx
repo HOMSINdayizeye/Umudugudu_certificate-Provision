@@ -6,6 +6,7 @@ import Spinner from '../components/Spinner.jsx'
 import { TransferCitizenModal, PlaceCitizenModal, TransferBadge } from '../components/TransferCitizenModal.jsx'
 import Deaths, { ReportDeathModal } from './Deaths.jsx'
 import CategoryBadge from '../components/CategoryBadge.jsx'
+import CensusCoverage from '../components/CensusCoverage.jsx'
 import { YOUTH_ROLES, YOUTH_MIN, YOUTH_MAX } from '../citizen.js'
 
 const PAGE_SIZE = 10
@@ -32,6 +33,8 @@ export default function AreaCitizens({ user }) {
   const youthOnly = YOUTH_ROLES.includes(user?.role)
   // Sector leaders narrow the list cell by cell; "all" keeps the whole sector
   const bySector = ['sector_leader', 'sector_youth_leader'].includes(user?.role)
+  // The leader's own area id (village, cell or sector) the census comparison is made for
+  const scopeLocation = { village_leader: user?.village, cell_leader: user?.cell, sector_leader: user?.sector }[user?.role]
 
   async function load() {
     setError('')
@@ -111,6 +114,10 @@ export default function AreaCitizens({ user }) {
             await load()
           }}
         />
+      )}
+
+      {tab === 'living' && scopeLocation && !youthOnly && can(user, 'view:census') && (
+        <CensusCoverage location={scopeLocation} refreshKey={citizens.length} />
       )}
 
       {tab === 'deceased' ? <Deaths user={user} refreshKey={citizens.length} /> : (

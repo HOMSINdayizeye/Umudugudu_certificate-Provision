@@ -39,13 +39,21 @@ async function request(path, { method = 'GET', body, formData, blob = false } = 
   const token = getToken()
   if (token) headers['Authorization'] = `Token ${token}`
 
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: formData ? formData : body ? JSON.stringify(body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      body: formData ? formData : body ? JSON.stringify(body) : undefined,
+    })
+  } catch (err) {
+    // The request never reached a server: backend down, wrong API address, or no network
+    throw new Error(`Cannot reach the server at ${API_ORIGIN || window.location.origin}. ` +
+      (isLocal ? 'Start the backend (npm run dev:api) and try again.' : 'Check your connection and try again.') +
+      ` (${err.message})`)
+  }
 
-  if (res.status === 401) {
+  if (res.status === 401 && path !== '/auth/login/') {
     clearSession()
     window.location.href = '/login'
     throw new Error('Session expired. Please log in again.')
@@ -62,18 +70,35 @@ async function request(path, { method = 'GET', body, formData, blob = false } = 
     return { blob: await res.blob(), filename }
   }
 
-  const data = res.status === 204 ? null : await res.json().catch(() => null)
+  const text = res.status === 204 ? '' : await res.text()
+  let data = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = null
+  }
   if (!res.ok) {
-    const message = extractError(data) || `Request failed (${res.status})`
-    throw new Error(message)
+    throw new Error(extractError(data) || describeHttpFailure(res, text))
   }
   return data
+}
+
+// A readable sentence for a failure the server did not describe in JSON (proxy errors, HTML error pages, timeouts)
+function describeHttpFailure(res, text) {
+  const snippet = (text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+  if ([500, 502, 503, 504].includes(res.status) && (!text || text.length < 200)) {
+    return isLocal
+      ? `The API server is not responding (HTTP ${res.status}). Start the backend with "npm run dev:api" (or "npm run dev" for both servers) and try again.`
+      : `The API server is not responding (HTTP ${res.status}). Please try again in a moment.`
+  }
+  return `Request failed (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''})${snippet ? `: ${snippet}` : ''}`
 }
 
 function extractError(data) {
   if (!data) return null
   if (typeof data === 'string') return data
-  if (data.detail) return data.detail
+  // Backend 500s carry the exception text while DEBUG is on
+  if (data.detail) return data.error ? `${data.detail} (${data.error})` : data.detail
   if (data.non_field_errors) return data.non_field_errors.join(' ')
   // Flatten first field error, e.g. {email: ["taken"]}
   const key = Object.keys(data)[0]
@@ -198,6 +223,15 @@ export const api = {
   listPayments: (params = {}) => request(`/payments/?${new URLSearchParams(params)}`),
   recordPayment: (payload) => request('/payments/', { method: 'POST', body: payload }),
   unmarkPayment: (id) => request(`/payments/${id}/`, { method: 'DELETE' }),
+
+  // NISR census: coverage of the registry against the population, published indicators, local counts
+  censusCoverage: (location = '', year = '') =>
+    request(`/census/coverage/?${new URLSearchParams({ ...(location ? { location } : {}), ...(year ? { year } : {}) })}`),
+  censusArea: (location) => request(`/census/area/?location=${location}`),
+  setLocalCount: (payload) => request('/census/local-count/', { method: 'PUT', body: payload }),
+  deleteLocalCount: (location, year = '') =>
+    request(`/census/local-count/?${new URLSearchParams({ location, ...(year ? { year } : {}) })}`, { method: 'DELETE' }),
+  censusDatasets: () => request('/census/datasets/'),
 
   provinces: () => request('/locations/provinces/'),
   districts: (province) => request(`/locations/districts/?province=${province}`),

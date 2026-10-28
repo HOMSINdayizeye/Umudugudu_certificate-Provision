@@ -20,6 +20,7 @@ import Roles from './pages/Roles.jsx'
 import DataManagement from './pages/DataManagement.jsx'
 import Activities from './pages/Activities.jsx'
 import ActivityDetail from './pages/ActivityDetail.jsx'
+import Census from './pages/Census.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import { YOUTH_ROLES } from './citizen.js'
 
@@ -102,6 +103,7 @@ export default function App() {
               {can(user, 'view:citizens') && <NavLink to="/citizens">Citizens</NavLink>}
               {can(user, 'view:transfers') && <NavLink to="/transfers">Transfers</NavLink>}
               {can(user, 'view:activities') && <NavLink to="/activities">Activities</NavLink>}
+              {can(user, 'view:census') && <NavLink to="/census">Census</NavLink>}
               {can(user, 'view:users') && <NavLink to="/users">Users</NavLink>}
               {can(user, 'permissions:users') && <NavLink to="/roles">Roles</NavLink>}
               {can(user, 'eligibility:users') && <NavLink to="/eligibility">Eligibility</NavLink>}
@@ -138,6 +140,7 @@ export default function App() {
           <Route path="/roles" element={<RequireAuth><Roles /></RequireAuth>} />
           <Route path="/activities" element={<RequireAuth><Activities user={user} /></RequireAuth>} />
           <Route path="/activities/:id" element={<RequireAuth><ActivityDetail user={user} /></RequireAuth>} />
+          <Route path="/census" element={<RequireAuth><Census user={user} /></RequireAuth>} />
           <Route path="/eligibility" element={<RequireAuth><ManageEligibility /></RequireAuth>} />
           <Route path="/data" element={<RequireAuth><DataManagement user={user} /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />

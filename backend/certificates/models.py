@@ -548,3 +548,51 @@ class LeaderInquiry(models.Model):
 
     def __str__(self):
         return f'{self.title} → {self.role} of {self.to_location}'
+
+
+class PopulationFigure(models.Model):
+    """Population of one administrative area in one year: a census count, an NISR projection, or a local count a
+    leader entered for a cell or village (NISR publishes nothing below sector level)."""
+    KIND_CHOICES = [('census', 'Census'), ('projection', 'Projection'), ('manual', 'Local count')]
+    LEVEL_CHOICES = [('country', 'Country'), ('province', 'Province'), ('district', 'District'), ('sector', 'Sector'),
+                     ('cell', 'Cell'), ('village', 'Village')]
+
+    location = models.IntegerField(db_index=True)   # LocationImport.location_id
+    level = models.CharField(max_length=10, choices=LEVEL_CHOICES)
+    year = models.IntegerField()
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='census')
+    total = models.IntegerField()
+    male = models.IntegerField(null=True, blank=True)
+    female = models.IntegerField(null=True, blank=True)
+    urban = models.IntegerField(null=True, blank=True)
+    rural = models.IntegerField(null=True, blank=True)
+    households = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=200, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='population_figures')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('location', 'year', 'kind')
+        ordering = ['location', 'year']
+
+    def __str__(self):
+        return f'{self.get_level_display()} {self.location} {self.year} ({self.kind}): {self.total}'
+
+
+class CensusIndicator(models.Model):
+    """One published statistic (count, percentage or index) for an area and year, keyed like `hh_electricity_pct`."""
+    location = models.IntegerField(db_index=True)
+    level = models.CharField(max_length=10, choices=PopulationFigure.LEVEL_CHOICES)
+    year = models.IntegerField()
+    key = models.CharField(max_length=50, db_index=True)
+    value = models.FloatField()
+    source = models.CharField(max_length=200, blank=True, default='')
+
+    class Meta:
+        unique_together = ('location', 'year', 'key')
+        ordering = ['location', 'year', 'key']
+
+    def __str__(self):
+        return f'{self.location} {self.year} {self.key} = {self.value}'

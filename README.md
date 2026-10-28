@@ -9,6 +9,8 @@ Certify/
 ├── backend/     Django 4.2 + Django REST Framework API (PostgreSQL)
 │   ├── certify/           Project settings and URLs
 │   ├── certificates/      App: models, API (api.py, serializers.py, api_urls.py), legacy template views
+│   │   ├── census.py, census_api.py   NISR population estimates & registry coverage
+│   │   └── data/nisr/     NISR 2022 census / projection CSVs (loaded by `manage.py load_census`)
 │   ├── manage.py
 │   ├── requirements.txt
 │   └── .env               DB credentials and secret key (not committed)
@@ -16,6 +18,24 @@ Certify/
 │   └── src/pages/         Login, Register, Dashboard, SubmitRequest, RequestDetail, ManageEligibility
 └── venv/        Python virtual environment
 ```
+
+## NISR census datasets
+
+The citizen registry is compared with the population of the National Institute of Statistics of Rwanda (2022 census
+and 2023–2032 projections): the Citizens pages show, for the village, its cell, its sector and its district, how many
+citizens are registered against how many people live there, and the **Census** page lets any leader browse NISR
+indicators (households, electricity, water, education, poverty, disability, internet, projections…) for any area.
+
+The datasets ship as CSV files in `backend/certificates/data/nisr/` (see `SOURCES.md` there for the NISR download
+links and how cell/village estimates are derived). Load them once per database, and again whenever the files change:
+
+```bash
+cd backend
+../venv/Scripts/python manage.py load_census
+```
+
+Cells and villages have no published count, so the system shares the sector's census population among its villages;
+village and cell leaders can replace that estimate with a local headcount ("Local count" on the Citizens page).
 
 ## Running the app
 
@@ -61,6 +81,7 @@ After the first deploy, run the migrations and import locations against the prod
 set DATABASE_URL=postgresql://...   # PowerShell: $env:DATABASE_URL="postgresql://..."
 ..\venv\Scripts\python manage.py migrate
 ..\venv\Scripts\python manage.py createsuperuser
+..\venv\Scripts\python manage.py load_census
 ```
 
 ### Alternative: backend on Render

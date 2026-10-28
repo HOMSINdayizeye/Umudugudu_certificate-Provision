@@ -1,7 +1,13 @@
 from django.urls import path
-from . import api
+from . import api, census_api
 
 urlpatterns = [
+    # Census (NISR 2022 census + projections): coverage of the registry against the population, published indicators
+    path('census/coverage/', census_api.census_coverage, name='api_census_coverage'),
+    path('census/area/', census_api.census_area, name='api_census_area'),
+    path('census/local-count/', census_api.census_local_count, name='api_census_local_count'),
+    path('census/datasets/', census_api.census_datasets, name='api_census_datasets'),
+
     # Auth
     path('auth/register/', api.register, name='api_register'),
     path('auth/login/', api.login, name='api_login'),

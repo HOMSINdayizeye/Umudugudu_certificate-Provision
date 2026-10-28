@@ -5,6 +5,7 @@ import ExportButtons from '../components/ExportButtons.jsx'
 import CategoryBadge from '../components/CategoryBadge.jsx'
 import { TransferBadge } from '../components/TransferCitizenModal.jsx'
 import AreaCitizens from './AreaCitizens.jsx'
+import CensusCoverage from '../components/CensusCoverage.jsx'
 import { phoneInputProps } from '../phone.js'
 import { ID_TYPES, NATIONAL_ID_HINT, PASSPORT_HINT, YOUTH_MIN, YOUTH_MAX, YOUTH_ROLES, ageFromNationalId, categoryOf } from '../citizen.js'
 
@@ -222,6 +223,11 @@ function IsiboCitizens({ user }) {
         </div>
         <button className="btn" disabled={busy}>{busy ? 'Adding…' : 'Add Citizen'}</button>
       </form>}
+
+      {/* How far the registry has come against the NISR census of the village, its cell and its sector */}
+      {(user?.village || loc.village) && can(user, 'view:census') && (
+        <CensusCoverage location={user?.village || loc.village} refreshKey={citizens.length} />
+      )}
 
       <div className="card">
         <div className="section-title" style={{ marginTop: 0 }}>

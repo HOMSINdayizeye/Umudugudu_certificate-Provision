@@ -1,0 +1,555 @@
+level,name,key,value
+country,Rwanda,urban_share_pct,27.9
+province,City of Kigali,urban_share_pct,86.9
+district,Nyarugenge,urban_share_pct,84.4
+district,Gasabo,urban_share_pct,81.2
+district,Kicukiro,urban_share_pct,99.1
+province,Southern Province,urban_share_pct,14.8
+district,Nyanza,urban_share_pct,9.2
+district,Gisagara,urban_share_pct,3.4
+district,Nyaruguru,urban_share_pct,2.4
+district,Huye,urban_share_pct,20.9
+district,Nyamagabe,urban_share_pct,10.9
+district,Ruhango,urban_share_pct,10.9
+district,Muhanga,urban_share_pct,24.3
+district,Kamonyi,urban_share_pct,31.6
+province,Western Province,urban_share_pct,22.1
+district,Karongi,urban_share_pct,9.0
+district,Rutsiro,urban_share_pct,5.6
+district,Rubavu,urban_share_pct,53.9
+district,Nyabihu,urban_share_pct,24.5
+district,Ngororero,urban_share_pct,4.9
+district,Rusizi,urban_share_pct,33.4
+district,Nyamasheke,urban_share_pct,7.7
+province,Northern Province,urban_share_pct,17.4
+district,Rulindo,urban_share_pct,10.6
+district,Gakenke,urban_share_pct,4.0
+district,Musanze,urban_share_pct,49.2
+district,Burera,urban_share_pct,9.9
+district,Gicumbi,urban_share_pct,6.3
+province,Eastern Province,urban_share_pct,20.9
+district,Rwamagana,urban_share_pct,37.1
+district,Nyagatare,urban_share_pct,24.1
+district,Gatsibo,urban_share_pct,10.0
+district,Kayonza,urban_share_pct,14.2
+district,Kirehe,urban_share_pct,6.3
+district,Ngoma,urban_share_pct,9.2
+district,Bugesera,urban_share_pct,40.1
+country,Rwanda,internet_10plus_pct,13.7
+province,City of Kigali,internet_10plus_pct,40.4
+district,Nyarugenge,internet_10plus_pct,39.3
+district,Gasabo,internet_10plus_pct,36.4
+district,Kicukiro,internet_10plus_pct,48.2
+province,Southern Province,internet_10plus_pct,9.1
+district,Nyanza,internet_10plus_pct,8.3
+district,Gisagara,internet_10plus_pct,6.1
+district,Nyaruguru,internet_10plus_pct,6.1
+district,Huye,internet_10plus_pct,12.0
+district,Nyamagabe,internet_10plus_pct,6.2
+district,Ruhango,internet_10plus_pct,7.4
+district,Muhanga,internet_10plus_pct,13.0
+district,Kamonyi,internet_10plus_pct,12.3
+province,Western Province,internet_10plus_pct,9.1
+district,Karongi,internet_10plus_pct,7.9
+district,Rutsiro,internet_10plus_pct,5.3
+district,Rubavu,internet_10plus_pct,15.8
+district,Nyabihu,internet_10plus_pct,7.0
+district,Ngororero,internet_10plus_pct,5.0
+district,Rusizi,internet_10plus_pct,11.6
+district,Nyamasheke,internet_10plus_pct,8.0
+province,Northern Province,internet_10plus_pct,9.4
+district,Rulindo,internet_10plus_pct,9.3
+district,Gakenke,internet_10plus_pct,6.3
+district,Musanze,internet_10plus_pct,15.5
+district,Burera,internet_10plus_pct,6.5
+district,Gicumbi,internet_10plus_pct,8.2
+province,Eastern Province,internet_10plus_pct,10.1
+district,Rwamagana,internet_10plus_pct,14.3
+district,Nyagatare,internet_10plus_pct,9.1
+district,Gatsibo,internet_10plus_pct,8.2
+district,Kayonza,internet_10plus_pct,9.1
+district,Kirehe,internet_10plus_pct,8.3
+district,Ngoma,internet_10plus_pct,7.6
+district,Bugesera,internet_10plus_pct,14.2
+country,Rwanda,internet_16plus_pct,16.2
+province,City of Kigali,internet_16plus_pct,44.9
+district,Nyarugenge,internet_16plus_pct,44.1
+district,Gasabo,internet_16plus_pct,40.8
+district,Kicukiro,internet_16plus_pct,52.5
+province,Southern Province,internet_16plus_pct,10.6
+district,Nyanza,internet_16plus_pct,9.8
+district,Gisagara,internet_16plus_pct,7.2
+district,Nyaruguru,internet_16plus_pct,7.2
+district,Huye,internet_16plus_pct,14.1
+district,Nyamagabe,internet_16plus_pct,7.4
+district,Ruhango,internet_16plus_pct,8.7
+district,Muhanga,internet_16plus_pct,14.9
+district,Kamonyi,internet_16plus_pct,14.4
+province,Western Province,internet_16plus_pct,11.0
+district,Karongi,internet_16plus_pct,9.5
+district,Rutsiro,internet_16plus_pct,6.4
+district,Rubavu,internet_16plus_pct,19.0
+district,Nyabihu,internet_16plus_pct,8.5
+district,Ngororero,internet_16plus_pct,6.1
+district,Rusizi,internet_16plus_pct,13.8
+district,Nyamasheke,internet_16plus_pct,9.6
+province,Northern Province,internet_16plus_pct,10.9
+district,Rulindo,internet_16plus_pct,10.8
+district,Gakenke,internet_16plus_pct,7.1
+district,Musanze,internet_16plus_pct,18.1
+district,Burera,internet_16plus_pct,7.6
+district,Gicumbi,internet_16plus_pct,9.5
+province,Eastern Province,internet_16plus_pct,12.2
+district,Rwamagana,internet_16plus_pct,16.8
+district,Nyagatare,internet_16plus_pct,11.0
+district,Gatsibo,internet_16plus_pct,9.9
+district,Kayonza,internet_16plus_pct,11.0
+district,Kirehe,internet_16plus_pct,10.0
+district,Ngoma,internet_16plus_pct,9.3
+district,Bugesera,internet_16plus_pct,16.9
+country,Rwanda,hh_mobile_pct,78.1
+province,City of Kigali,hh_mobile_pct,92.4
+district,Nyarugenge,hh_mobile_pct,92.8
+district,Gasabo,hh_mobile_pct,91.3
+district,Kicukiro,hh_mobile_pct,94.3
+province,Southern Province,hh_mobile_pct,71.9
+district,Nyanza,hh_mobile_pct,69.3
+district,Gisagara,hh_mobile_pct,66.5
+district,Nyaruguru,hh_mobile_pct,67.6
+district,Huye,hh_mobile_pct,70.1
+district,Nyamagabe,hh_mobile_pct,70.5
+district,Ruhango,hh_mobile_pct,71.2
+district,Muhanga,hh_mobile_pct,77.9
+district,Kamonyi,hh_mobile_pct,79.6
+province,Western Province,hh_mobile_pct,77.1
+district,Karongi,hh_mobile_pct,74.1
+district,Rutsiro,hh_mobile_pct,73.0
+district,Rubavu,hh_mobile_pct,79.3
+district,Nyabihu,hh_mobile_pct,76.1
+district,Ngororero,hh_mobile_pct,72.4
+district,Rusizi,hh_mobile_pct,81.0
+district,Nyamasheke,hh_mobile_pct,82.1
+province,Northern Province,hh_mobile_pct,77.6
+district,Rulindo,hh_mobile_pct,77.8
+district,Gakenke,hh_mobile_pct,76.2
+district,Musanze,hh_mobile_pct,81.6
+district,Burera,hh_mobile_pct,77.6
+district,Gicumbi,hh_mobile_pct,74.5
+province,Eastern Province,hh_mobile_pct,76.5
+district,Rwamagana,hh_mobile_pct,81.1
+district,Nyagatare,hh_mobile_pct,78.9
+district,Gatsibo,hh_mobile_pct,71.4
+district,Kayonza,hh_mobile_pct,76.2
+district,Kirehe,hh_mobile_pct,76.9
+district,Ngoma,hh_mobile_pct,71.4
+district,Bugesera,hh_mobile_pct,78.3
+country,Rwanda,medical_insurance_pct,97.3
+province,City of Kigali,medical_insurance_pct,96.1
+district,Nyarugenge,medical_insurance_pct,95.6
+district,Gasabo,medical_insurance_pct,96.4
+district,Kicukiro,medical_insurance_pct,95.9
+province,Southern Province,medical_insurance_pct,96.9
+district,Nyanza,medical_insurance_pct,93.4
+district,Gisagara,medical_insurance_pct,97.2
+district,Nyaruguru,medical_insurance_pct,98.4
+district,Huye,medical_insurance_pct,96.2
+district,Nyamagabe,medical_insurance_pct,98.3
+district,Ruhango,medical_insurance_pct,96.4
+district,Muhanga,medical_insurance_pct,98.0
+district,Kamonyi,medical_insurance_pct,97.7
+province,Western Province,medical_insurance_pct,97.8
+district,Karongi,medical_insurance_pct,97.8
+district,Rutsiro,medical_insurance_pct,97.7
+district,Rubavu,medical_insurance_pct,95.6
+district,Nyabihu,medical_insurance_pct,98.5
+district,Ngororero,medical_insurance_pct,98.6
+district,Rusizi,medical_insurance_pct,98.2
+district,Nyamasheke,medical_insurance_pct,98.8
+province,Northern Province,medical_insurance_pct,98.9
+district,Rulindo,medical_insurance_pct,98.6
+district,Gakenke,medical_insurance_pct,99.7
+district,Musanze,medical_insurance_pct,98.3
+district,Burera,medical_insurance_pct,99.1
+district,Gicumbi,medical_insurance_pct,99.2
+province,Eastern Province,medical_insurance_pct,96.8
+district,Rwamagana,medical_insurance_pct,97.5
+district,Nyagatare,medical_insurance_pct,96.1
+district,Gatsibo,medical_insurance_pct,96.7
+district,Kayonza,medical_insurance_pct,96.9
+district,Kirehe,medical_insurance_pct,98.3
+district,Ngoma,medical_insurance_pct,96.2
+district,Bugesera,medical_insurance_pct,96.1
+country,Rwanda,net_lifetime_migration,0.0
+district,Nyarugenge,net_lifetime_migration,68158.0
+district,Gasabo,net_lifetime_migration,273708.0
+district,Kicukiro,net_lifetime_migration,168375.0
+district,Nyanza,net_lifetime_migration,-24070.0
+district,Gisagara,net_lifetime_migration,-45731.0
+district,Nyaruguru,net_lifetime_migration,-85953.0
+district,Huye,net_lifetime_migration,-30853.0
+district,Nyamagabe,net_lifetime_migration,-91525.0
+district,Ruhango,net_lifetime_migration,-42531.0
+district,Muhanga,net_lifetime_migration,-72811.0
+district,Kamonyi,net_lifetime_migration,18021.0
+district,Karongi,net_lifetime_migration,-74406.0
+district,Rutsiro,net_lifetime_migration,-57033.0
+district,Rubavu,net_lifetime_migration,36658.0
+district,Nyabihu,net_lifetime_migration,-66403.0
+district,Ngororero,net_lifetime_migration,-95768.0
+district,Rusizi,net_lifetime_migration,-54737.0
+district,Nyamasheke,net_lifetime_migration,-106752.0
+district,Rulindo,net_lifetime_migration,-55672.0
+district,Gakenke,net_lifetime_migration,-122110.0
+district,Musanze,net_lifetime_migration,-6581.0
+district,Burera,net_lifetime_migration,-61208.0
+district,Gicumbi,net_lifetime_migration,-85476.0
+district,Rwamagana,net_lifetime_migration,102274.0
+district,Nyagatare,net_lifetime_migration,212212.0
+district,Gatsibo,net_lifetime_migration,55700.0
+district,Kayonza,net_lifetime_migration,89888.0
+district,Kirehe,net_lifetime_migration,65623.0
+district,Ngoma,net_lifetime_migration,4180.0
+district,Bugesera,net_lifetime_migration,88500.0
+country,Rwanda,net_recent_migration,0.0
+district,Nyarugenge,net_recent_migration,2757.0
+district,Gasabo,net_recent_migration,97473.0
+district,Kicukiro,net_recent_migration,74722.0
+district,Nyanza,net_recent_migration,-13440.0
+district,Gisagara,net_recent_migration,-16634.0
+district,Nyaruguru,net_recent_migration,-29589.0
+district,Huye,net_recent_migration,-8503.0
+district,Nyamagabe,net_recent_migration,-36671.0
+district,Ruhango,net_recent_migration,-21279.0
+district,Muhanga,net_recent_migration,-17982.0
+district,Kamonyi,net_recent_migration,21445.0
+district,Karongi,net_recent_migration,-27629.0
+district,Rutsiro,net_recent_migration,-29359.0
+district,Rubavu,net_recent_migration,17441.0
+district,Nyabihu,net_recent_migration,-23761.0
+district,Ngororero,net_recent_migration,-41565.0
+district,Rusizi,net_recent_migration,-25205.0
+district,Nyamasheke,net_recent_migration,-41102.0
+district,Rulindo,net_recent_migration,-4142.0
+district,Gakenke,net_recent_migration,-33164.0
+district,Musanze,net_recent_migration,10876.0
+district,Burera,net_recent_migration,-12878.0
+district,Gicumbi,net_recent_migration,-29684.0
+district,Rwamagana,net_recent_migration,64924.0
+district,Nyagatare,net_recent_migration,40469.0
+district,Gatsibo,net_recent_migration,4999.0
+district,Kayonza,net_recent_migration,26225.0
+district,Kirehe,net_recent_migration,8393.0
+district,Ngoma,net_recent_migration,-6335.0
+district,Bugesera,net_recent_migration,51971.0
+country,Rwanda,children_share_pct,44.5
+province,City of Kigali,children_share_pct,37.9
+district,Nyarugenge,children_share_pct,36.9
+district,Gasabo,children_share_pct,39.5
+district,Kicukiro,children_share_pct,35.8
+province,Southern Province,children_share_pct,44.4
+district,Nyanza,children_share_pct,45.2
+district,Gisagara,children_share_pct,47.2
+district,Nyaruguru,children_share_pct,47.4
+district,Huye,children_share_pct,42.7
+district,Nyamagabe,children_share_pct,43.7
+district,Ruhango,children_share_pct,44.4
+district,Muhanga,children_share_pct,41.3
+district,Kamonyi,children_share_pct,43.7
+province,Western Province,children_share_pct,46.8
+district,Karongi,children_share_pct,45.4
+district,Rutsiro,children_share_pct,46.1
+district,Rubavu,children_share_pct,47.5
+district,Nyabihu,children_share_pct,46.5
+district,Ngororero,children_share_pct,46.9
+district,Rusizi,children_share_pct,47.2
+district,Nyamasheke,children_share_pct,47.4
+province,Northern Province,children_share_pct,43.6
+district,Rulindo,children_share_pct,43.4
+district,Gakenke,children_share_pct,42.6
+district,Musanze,children_share_pct,43.3
+district,Burera,children_share_pct,45.2
+district,Gicumbi,children_share_pct,43.5
+province,Eastern Province,children_share_pct,46.5
+district,Rwamagana,children_share_pct,43.5
+district,Nyagatare,children_share_pct,47.7
+district,Gatsibo,children_share_pct,46.9
+district,Kayonza,children_share_pct,46.9
+district,Kirehe,children_share_pct,46.7
+district,Ngoma,children_share_pct,46.5
+district,Bugesera,children_share_pct,46.7
+country,Rwanda,birth_registration_pct,94.3
+province,City of Kigali,birth_registration_pct,92.8
+district,Nyarugenge,birth_registration_pct,92.6
+district,Gasabo,birth_registration_pct,92.4
+district,Kicukiro,birth_registration_pct,93.8
+province,Southern Province,birth_registration_pct,93.8
+district,Nyanza,birth_registration_pct,92.0
+district,Gisagara,birth_registration_pct,91.2
+district,Nyaruguru,birth_registration_pct,97.2
+district,Huye,birth_registration_pct,95.3
+district,Nyamagabe,birth_registration_pct,93.8
+district,Ruhango,birth_registration_pct,91.4
+district,Muhanga,birth_registration_pct,95.7
+district,Kamonyi,birth_registration_pct,94.5
+province,Western Province,birth_registration_pct,95.0
+district,Karongi,birth_registration_pct,95.5
+district,Rutsiro,birth_registration_pct,92.5
+district,Rubavu,birth_registration_pct,93.7
+district,Nyabihu,birth_registration_pct,93.6
+district,Ngororero,birth_registration_pct,93.9
+district,Rusizi,birth_registration_pct,97.6
+district,Nyamasheke,birth_registration_pct,97.6
+province,Northern Province,birth_registration_pct,96.7
+district,Rulindo,birth_registration_pct,97.4
+district,Gakenke,birth_registration_pct,98.1
+district,Musanze,birth_registration_pct,94.8
+district,Burera,birth_registration_pct,96.6
+district,Gicumbi,birth_registration_pct,97.0
+province,Eastern Province,birth_registration_pct,93.3
+district,Rwamagana,birth_registration_pct,94.0
+district,Nyagatare,birth_registration_pct,90.6
+district,Gatsibo,birth_registration_pct,92.0
+district,Kayonza,birth_registration_pct,93.8
+district,Kirehe,birth_registration_pct,95.7
+district,Ngoma,birth_registration_pct,94.5
+district,Bugesera,birth_registration_pct,94.1
+country,Rwanda,youth_share_pct,27.1
+province,City of Kigali,youth_share_pct,33.5
+district,Nyarugenge,youth_share_pct,33.7
+district,Gasabo,youth_share_pct,32.2
+district,Kicukiro,youth_share_pct,35.6
+province,Southern Province,youth_share_pct,24.9
+district,Nyanza,youth_share_pct,23.9
+district,Gisagara,youth_share_pct,24.4
+district,Nyaruguru,youth_share_pct,25.3
+district,Huye,youth_share_pct,24.7
+district,Nyamagabe,youth_share_pct,26.8
+district,Ruhango,youth_share_pct,23.9
+district,Muhanga,youth_share_pct,25.3
+district,Kamonyi,youth_share_pct,24.8
+province,Western Province,youth_share_pct,26.2
+district,Karongi,youth_share_pct,25.4
+district,Rutsiro,youth_share_pct,27.0
+district,Rubavu,youth_share_pct,28.1
+district,Nyabihu,youth_share_pct,28.1
+district,Ngororero,youth_share_pct,25.2
+district,Rusizi,youth_share_pct,25.3
+district,Nyamasheke,youth_share_pct,24.1
+province,Northern Province,youth_share_pct,27.7
+district,Rulindo,youth_share_pct,25.7
+district,Gakenke,youth_share_pct,26.0
+district,Musanze,youth_share_pct,29.3
+district,Burera,youth_share_pct,29.1
+district,Gicumbi,youth_share_pct,27.7
+province,Eastern Province,youth_share_pct,26.4
+district,Rwamagana,youth_share_pct,27.0
+district,Nyagatare,youth_share_pct,27.2
+district,Gatsibo,youth_share_pct,26.4
+district,Kayonza,youth_share_pct,26.4
+district,Kirehe,youth_share_pct,26.7
+district,Ngoma,youth_share_pct,24.7
+district,Bugesera,youth_share_pct,26.3
+country,Rwanda,women_share_pct,51.5
+province,City of Kigali,women_share_pct,49.1
+district,Nyarugenge,women_share_pct,47.7
+district,Gasabo,women_share_pct,49.5
+district,Kicukiro,women_share_pct,49.3
+province,Southern Province,women_share_pct,51.8
+district,Nyanza,women_share_pct,51.2
+district,Gisagara,women_share_pct,52.4
+district,Nyaruguru,women_share_pct,52.2
+district,Huye,women_share_pct,50.5
+district,Nyamagabe,women_share_pct,52.4
+district,Ruhango,women_share_pct,52.1
+district,Muhanga,women_share_pct,51.6
+district,Kamonyi,women_share_pct,51.7
+province,Western Province,women_share_pct,52.2
+district,Karongi,women_share_pct,52.3
+district,Rutsiro,women_share_pct,52.2
+district,Rubavu,women_share_pct,51.1
+district,Nyabihu,women_share_pct,53.0
+district,Ngororero,women_share_pct,53.5
+district,Rusizi,women_share_pct,51.3
+district,Nyamasheke,women_share_pct,52.8
+province,Northern Province,women_share_pct,52.3
+district,Rulindo,women_share_pct,52.3
+district,Gakenke,women_share_pct,52.8
+district,Musanze,women_share_pct,52.3
+district,Burera,women_share_pct,52.3
+district,Gicumbi,women_share_pct,51.8
+province,Eastern Province,women_share_pct,51.3
+district,Rwamagana,women_share_pct,49.7
+district,Nyagatare,women_share_pct,51.3
+district,Gatsibo,women_share_pct,52.0
+district,Kayonza,women_share_pct,51.6
+district,Kirehe,women_share_pct,51.9
+district,Ngoma,women_share_pct,52.3
+district,Bugesera,women_share_pct,50.7
+country,Rwanda,female_headship_pct,19.9
+province,City of Kigali,female_headship_pct,19.0
+district,Nyarugenge,female_headship_pct,20.7
+district,Gasabo,female_headship_pct,18.9
+district,Kicukiro,female_headship_pct,17.9
+province,Southern Province,female_headship_pct,21.9
+district,Nyanza,female_headship_pct,23.9
+district,Gisagara,female_headship_pct,24.5
+district,Nyaruguru,female_headship_pct,19.7
+district,Huye,female_headship_pct,24.4
+district,Nyamagabe,female_headship_pct,20.1
+district,Ruhango,female_headship_pct,22.9
+district,Muhanga,female_headship_pct,20.2
+district,Kamonyi,female_headship_pct,19.6
+province,Western Province,female_headship_pct,18.9
+district,Karongi,female_headship_pct,21.0
+district,Rutsiro,female_headship_pct,18.5
+district,Rubavu,female_headship_pct,18.5
+district,Nyabihu,female_headship_pct,19.7
+district,Ngororero,female_headship_pct,21.5
+district,Rusizi,female_headship_pct,17.0
+district,Nyamasheke,female_headship_pct,17.4
+province,Northern Province,female_headship_pct,17.8
+district,Rulindo,female_headship_pct,18.7
+district,Gakenke,female_headship_pct,18.2
+district,Musanze,female_headship_pct,18.6
+district,Burera,female_headship_pct,16.2
+district,Gicumbi,female_headship_pct,17.4
+province,Eastern Province,female_headship_pct,20.8
+district,Rwamagana,female_headship_pct,21.8
+district,Nyagatare,female_headship_pct,19.6
+district,Gatsibo,female_headship_pct,20.0
+district,Kayonza,female_headship_pct,21.0
+district,Kirehe,female_headship_pct,21.1
+district,Ngoma,female_headship_pct,21.8
+district,Bugesera,female_headship_pct,21.0
+country,Rwanda,elderly_share_pct,6.5
+province,City of Kigali,elderly_share_pct,3.1
+district,Nyarugenge,elderly_share_pct,3.3
+district,Gasabo,elderly_share_pct,3.2
+district,Kicukiro,elderly_share_pct,2.9
+province,Southern Province,elderly_share_pct,8.1
+district,Nyanza,elderly_share_pct,8.2
+district,Gisagara,elderly_share_pct,7.6
+district,Nyaruguru,elderly_share_pct,8.2
+district,Huye,elderly_share_pct,8.5
+district,Nyamagabe,elderly_share_pct,8.4
+district,Ruhango,elderly_share_pct,8.4
+district,Muhanga,elderly_share_pct,8.5
+district,Kamonyi,elderly_share_pct,7.3
+province,Western Province,elderly_share_pct,6.9
+district,Karongi,elderly_share_pct,7.9
+district,Rutsiro,elderly_share_pct,6.9
+district,Rubavu,elderly_share_pct,4.8
+district,Nyabihu,elderly_share_pct,6.3
+district,Ngororero,elderly_share_pct,7.2
+district,Rusizi,elderly_share_pct,7.4
+district,Nyamasheke,elderly_share_pct,8.1
+province,Northern Province,elderly_share_pct,7.3
+district,Rulindo,elderly_share_pct,7.6
+district,Gakenke,elderly_share_pct,8.5
+district,Musanze,elderly_share_pct,6.1
+district,Burera,elderly_share_pct,7.1
+district,Gicumbi,elderly_share_pct,7.6
+province,Eastern Province,elderly_share_pct,6.1
+district,Rwamagana,elderly_share_pct,5.8
+district,Nyagatare,elderly_share_pct,5.6
+district,Gatsibo,elderly_share_pct,6.5
+district,Kayonza,elderly_share_pct,6.1
+district,Kirehe,elderly_share_pct,6.4
+district,Ngoma,elderly_share_pct,7.0
+district,Bugesera,elderly_share_pct,5.6
+country,Rwanda,disability_prevalence_pct,3.4
+province,City of Kigali,disability_prevalence_pct,2.3
+district,Nyarugenge,disability_prevalence_pct,2.5
+district,Gasabo,disability_prevalence_pct,2.3
+district,Kicukiro,disability_prevalence_pct,2.1
+province,Southern Province,disability_prevalence_pct,3.7
+district,Nyanza,disability_prevalence_pct,4.0
+district,Gisagara,disability_prevalence_pct,3.4
+district,Nyaruguru,disability_prevalence_pct,3.6
+district,Huye,disability_prevalence_pct,4.1
+district,Nyamagabe,disability_prevalence_pct,3.6
+district,Ruhango,disability_prevalence_pct,4.6
+district,Muhanga,disability_prevalence_pct,3.7
+district,Kamonyi,disability_prevalence_pct,3.2
+province,Western Province,disability_prevalence_pct,3.5
+district,Karongi,disability_prevalence_pct,3.8
+district,Rutsiro,disability_prevalence_pct,3.2
+district,Rubavu,disability_prevalence_pct,3.1
+district,Nyabihu,disability_prevalence_pct,3.7
+district,Ngororero,disability_prevalence_pct,3.2
+district,Rusizi,disability_prevalence_pct,3.5
+district,Nyamasheke,disability_prevalence_pct,4.3
+province,Northern Province,disability_prevalence_pct,3.4
+district,Rulindo,disability_prevalence_pct,3.2
+district,Gakenke,disability_prevalence_pct,3.2
+district,Musanze,disability_prevalence_pct,3.1
+district,Burera,disability_prevalence_pct,3.6
+district,Gicumbi,disability_prevalence_pct,3.7
+province,Eastern Province,disability_prevalence_pct,3.6
+district,Rwamagana,disability_prevalence_pct,3.1
+district,Nyagatare,disability_prevalence_pct,3.7
+district,Gatsibo,disability_prevalence_pct,3.4
+district,Kayonza,disability_prevalence_pct,3.8
+district,Kirehe,disability_prevalence_pct,3.6
+district,Ngoma,disability_prevalence_pct,3.7
+district,Bugesera,disability_prevalence_pct,3.6
+district,Nyarugenge,mean_age,24.4633
+district,Nyarugenge,median_age,23.0
+district,Gasabo,mean_age,23.7176
+district,Gasabo,median_age,22.0
+district,Kicukiro,mean_age,24.3045
+district,Kicukiro,median_age,23.0
+district,Nyanza,mean_age,25.7911
+district,Nyanza,median_age,20.0
+district,Gisagara,mean_age,24.6399
+district,Gisagara,median_age,19.0
+district,Nyaruguru,mean_age,24.7455
+district,Nyaruguru,median_age,19.0
+district,Huye,mean_age,26.3616
+district,Huye,median_age,22.0
+district,Nyamagabe,mean_age,25.8537
+district,Nyamagabe,median_age,20.0
+district,Ruhango,mean_age,26.1474
+district,Ruhango,median_age,20.0
+district,Muhanga,mean_age,26.7656
+district,Muhanga,median_age,22.0
+district,Kamonyi,mean_age,25.7255
+district,Kamonyi,median_age,21.0
+district,Karongi,mean_age,25.2212
+district,Karongi,median_age,20.0
+district,Rutsiro,mean_age,24.3224
+district,Rutsiro,median_age,19.0
+district,Rubavu,mean_age,22.6664
+district,Rubavu,median_age,19.0
+district,Nyabihu,mean_age,23.7784
+district,Nyabihu,median_age,19.0
+district,Ngororero,mean_age,24.5185
+district,Ngororero,median_age,19.0
+district,Rusizi,mean_age,24.1093
+district,Rusizi,median_age,19.0
+district,Nyamasheke,mean_age,24.7441
+district,Nyamasheke,median_age,19.0
+district,Rulindo,mean_age,25.5494
+district,Rulindo,median_age,21.0
+district,Gakenke,mean_age,26.1567
+district,Gakenke,median_age,21.0
+district,Musanze,mean_age,24.3681
+district,Musanze,median_age,20.0
+district,Burera,mean_age,24.2953
+district,Burera,median_age,19.0
+district,Gicumbi,mean_age,25.3428
+district,Gicumbi,median_age,20.0
+district,Rwamagana,mean_age,24.695
+district,Rwamagana,median_age,21.0
+district,Nyagatare,mean_age,23.2495
+district,Nyagatare,median_age,19.0
+district,Gatsibo,mean_age,24.1053
+district,Gatsibo,median_age,19.0
+district,Kayonza,mean_age,23.899
+district,Kayonza,median_age,19.0
+district,Kirehe,mean_age,23.9508
+district,Kirehe,median_age,19.0
+district,Ngoma,mean_age,24.7215
+district,Ngoma,median_age,19.0
+district,Bugesera,mean_age,23.4337
+district,Bugesera,median_age,19.0
