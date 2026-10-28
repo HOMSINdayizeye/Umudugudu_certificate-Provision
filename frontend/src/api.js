@@ -129,6 +129,14 @@ export const api = {
   me: () => request('/auth/me/'),
   updateMe: (payload) => request('/auth/me/', { method: 'PATCH', body: payload }),
   changePassword: (payload) => request('/auth/change-password/', { method: 'POST', body: payload }),
+  // Forgot password: code by email (or SMS) through Brevo, then new password
+  requestPasswordReset: (identifier, channel) =>
+    request('/auth/password-reset/request/', { method: 'POST', body: { identifier, ...(channel ? { channel } : {}) } }),
+  confirmPasswordReset: (payload) => request('/auth/password-reset/confirm/', { method: 'POST', body: payload }),
+  messagingSettings: () => request('/settings/messaging/'),
+  saveMessagingSettings: (payload) => request('/settings/messaging/', { method: 'PUT', body: payload }),
+  deleteMessagingSettings: () => request('/settings/messaging/', { method: 'DELETE' }),
+  sendTestMessage: (channel, to) => request('/settings/messaging/test/', { method: 'POST', body: { channel, to } }),
 
   listRequests: () => request('/requests/'),
   createRequest: (payload) => request('/requests/', { method: 'POST', body: payload }),

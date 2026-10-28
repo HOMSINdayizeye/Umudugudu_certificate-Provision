@@ -1,7 +1,13 @@
 from django.urls import path
-from . import api, census_api
+from . import api, census_api, password_reset
 
 urlpatterns = [
+    # Password reset by emailed/texted code (Brevo) and the admin messaging settings
+    path('auth/password-reset/request/', password_reset.request_code, name='api_password_reset_request'),
+    path('auth/password-reset/confirm/', password_reset.confirm_code, name='api_password_reset_confirm'),
+    path('settings/messaging/', password_reset.messaging_settings, name='api_messaging_settings'),
+    path('settings/messaging/test/', password_reset.messaging_test, name='api_messaging_test'),
+
     # Census (NISR 2022 census + projections): coverage of the registry against the population, published indicators
     path('census/coverage/', census_api.census_coverage, name='api_census_coverage'),
     path('census/area/', census_api.census_area, name='api_census_area'),

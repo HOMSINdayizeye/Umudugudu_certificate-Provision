@@ -37,6 +37,31 @@ cd backend
 Cells and villages have no published count, so the system shares the sector's census population among its villages;
 village and cell leaders can replace that estimate with a local headcount ("Local count" on the Citizens page).
 
+## Password reset by email (Brevo)
+
+"Forgot your password?" on the login page emails a 6-digit code and a link to the address on the account (valid 10
+minutes, 5 tries); accounts without an email get the code by SMS. Messages go through [Brevo](https://app.brevo.com)
+transactional email / SMS, which needs an API key and a verified sender address.
+
+Enter the Brevo settings in one of two places:
+
+1. **In the app** (system admin): menu **Messaging** → paste the API key (Brevo: your name → *SMTP & API* →
+   *API Keys* → *Generate a new API key*), the verified sender email (Brevo: *Senders & IP* → *Senders*) and a sender
+   name, then send yourself a test email.
+2. **In the server environment**, which overrides the app settings: `backend/.env` locally (see `.env.example`), or
+   the Environment tab of the Render / Vercel project in production:
+
+   ```
+   BREVO_API_KEY=xkeysib-...
+   BREVO_EMAIL_SENDER=no-reply@kigalicity.gov.rw
+   BREVO_EMAIL_SENDER_NAME=Certify
+   FRONTEND_URL=https://certify-frontend.vercel.app
+   ```
+
+   Restart the backend after editing `.env`. The key is never shown again once saved. Without a key, reset requests
+   fail with a clear message (in `DEBUG` mode the code is shown on screen instead, so the flow can be tested
+   without Brevo).
+
 ## Running the app
 
 Requires PostgreSQL running locally with the database from `backend/.env`.

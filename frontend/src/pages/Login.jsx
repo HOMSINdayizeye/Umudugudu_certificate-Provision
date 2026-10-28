@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, setSession } from '../api.js'
 import PasswordInput from '../components/PasswordInput.jsx'
 
@@ -49,6 +49,9 @@ export default function Login({ onLogin }) {
           />
         </div>
         <button className="btn" disabled={loading}>{loading ? 'Logging in…' : 'Login'}</button>
+        <p className="muted small" style={{ marginTop: '1rem', marginBottom: 0 }}>
+          <Link to="/reset-password">Forgot your password?</Link> A code will be sent to your email.
+        </p>
       </form>
     </div>
   )

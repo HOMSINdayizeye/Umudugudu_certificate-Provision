@@ -596,3 +596,29 @@ class CensusIndicator(models.Model):
 
     def __str__(self):
         return f'{self.location} {self.year} {self.key} = {self.value}'
+
+
+class PasswordResetCode(models.Model):
+    """One-time 6-digit code texted to an account's phone so the owner can set a new password."""
+    LIFETIME_MINUTES = 10
+    MAX_ATTEMPTS = 5
+    RESEND_SECONDS = 60
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_codes')
+    phone = models.CharField(max_length=20)
+    code_hash = models.CharField(max_length=128)   # the code itself is never stored
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @property
+    def is_open(self):
+        from django.utils import timezone as tz
+        return self.used_at is None and self.attempts < self.MAX_ATTEMPTS and self.expires_at > tz.now()
+
+    def __str__(self):
+        return f'Reset code for {self.user} ({"open" if self.is_open else "closed"})'

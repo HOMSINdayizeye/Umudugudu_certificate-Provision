@@ -21,6 +21,8 @@ import DataManagement from './pages/DataManagement.jsx'
 import Activities from './pages/Activities.jsx'
 import ActivityDetail from './pages/ActivityDetail.jsx'
 import Census from './pages/Census.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
+import MessagingSettings from './pages/MessagingSettings.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import { YOUTH_ROLES } from './citizen.js'
 
@@ -108,6 +110,7 @@ export default function App() {
               {can(user, 'permissions:users') && <NavLink to="/roles">Roles</NavLink>}
               {can(user, 'eligibility:users') && <NavLink to="/eligibility">Eligibility</NavLink>}
               {isAdmin && <NavLink to="/data">Data</NavLink>}
+              {can(user, 'settings:sms') && <NavLink to="/messaging">Messaging</NavLink>}
               <NavLink to="/profile" className="user-chip" title="My profile">
                 {user.first_name || user.username}
                 {user.role_display && user.role !== 'citizen' && <em> · {user.role_display}</em>}
@@ -124,6 +127,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login onLogin={setUser} />} />
           <Route path="/register" element={<Register onRegister={setUser} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/messaging" element={<RequireAuth><MessagingSettings user={user} /></RequireAuth>} />
           <Route path="/" element={<RequireAuth><Dashboard user={user} /></RequireAuth>} />
           <Route path="/submit" element={<RequireAuth><SubmitRequest /></RequireAuth>} />
           <Route path="/requests/:id" element={<RequireAuth><RequestDetail user={user} /></RequireAuth>} />

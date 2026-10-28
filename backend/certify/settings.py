@@ -162,7 +162,21 @@ REST_FRAMEWORK = {
     ],
     # Unhandled errors become JSON ({"detail": ...}) with the exception shown while DEBUG is on
     'EXCEPTION_HANDLER': 'certificates.exceptions.api_exception_handler',
+    # Password-reset endpoints are open to everyone, so each address gets a limited number of tries
+    'DEFAULT_THROTTLE_RATES': {'password_reset': '20/hour'},
 }
+
+# Brevo (email + SMS) for password reset codes. Either set these in the environment (backend/.env, Render, Vercel)
+# or paste them on the app's Messaging settings page; environment values win.
+#   BREVO_API_KEY            the API key (starts with xkeysib-)
+#   BREVO_EMAIL_SENDER       verified sender address, e.g. no-reply@kigalicity.gov.rw
+#   BREVO_EMAIL_SENDER_NAME  name shown as the sender (default "Certify")
+#   BREVO_SMS_SENDER         SMS sender, max 11 letters/digits (default "Certify")
+#   FRONTEND_URL             where reset links point, e.g. https://certify-frontend.vercel.app (default: the site
+#                            the request came from)
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+BREVO_EMAIL_SENDER = os.getenv('BREVO_EMAIL_SENDER', '')
+FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 
 # Errors and warnings go to the console the server runs in (runserver, gunicorn, Render logs)
 LOGGING = {

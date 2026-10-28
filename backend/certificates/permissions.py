@@ -60,6 +60,7 @@ CATALOG = [
             ('eligibility:users', 'Mark users eligible or not eligible'),
             ('permissions:users', 'Manage roles and permissions'),
             ('settings:attendance', 'Set the attendance count required for a community engagement letter'),
+            ('settings:sms', 'Configure email/SMS sending (Brevo) used for password resets'),
         ],
     },
 ]
