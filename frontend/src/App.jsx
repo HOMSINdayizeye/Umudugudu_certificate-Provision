@@ -74,7 +74,7 @@ export default function App() {
           {/* Drop the coat of arms at frontend/public/logo.png and it replaces the blue tile */}
           <img src="/logo.png" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'grid' }} />
           <span className="brand-mark" style={{ display: 'none' }}>CK</span>
-          UMUDUGUDU <span>Certify</span>
+          UMUDUGUDU: INZEGO Y'IMITEGEKERE Y'IGIHUGU <span>Certify</span>
         </Link>
 
         {/* Always visible, even on phones: bell and the menu button */}
